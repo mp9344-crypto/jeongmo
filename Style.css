@@ -12,6 +12,9 @@ body {
     padding: 20px;
     max-width: 480px;
     margin: 0 auto;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* ===== 2. 헤더 ===== */
@@ -162,7 +165,94 @@ main > .screen > h2 {
     color: #2d6a4f;
 }
 
-/* ===== 7. 홀 입력 화면 ===== */
+/* ===== 7. 메인 화면 - 전체 통계 ===== */
+.overall-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    text-align: center;
+}
+
+.stat-item {
+    padding: 12px 8px;
+    background-color: #f0f4f0;
+    border-radius: 8px;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2d6a4f;
+}
+
+/* ===== 8. 메인 화면 - 과거 라운드 목록 ===== */
+#past-rounds-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.past-round-item {
+    padding: 12px;
+    background-color: #f0f4f0;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.past-round-item:hover {
+    border-color: #2d6a4f;
+}
+
+.past-round-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.past-round-date {
+    font-size: 13px;
+    color: #888;
+}
+
+.past-round-course {
+    font-size: 15px;
+    font-weight: bold;
+    color: #333;
+}
+
+.past-round-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.past-round-score {
+    font-size: 22px;
+    font-weight: bold;
+    color: #2d6a4f;
+}
+
+.past-round-overunder {
+    font-size: 14px;
+    color: #888;
+}
+
+.empty-message {
+    text-align: center;
+    color: #888;
+    font-style: italic;
+    padding: 20px;
+}
+
+/* ===== 9. 홀 입력 화면 ===== */
 .progress-bar {
     background-color: #2d6a4f;
     color: white;
@@ -229,7 +319,7 @@ main > .screen > h2 {
     margin-bottom: 0;
 }
 
-/* ===== 8. 결과 화면 ===== */
+/* ===== 10. 결과 화면 ===== */
 .result-header {
     text-align: center;
     padding: 20px;
@@ -352,8 +442,6 @@ main > .screen > h2 {
 }
 
 /* ===== 스코어 시각화: 색상 + 모양 ===== */
-
-/* 공통: 모양을 만들기 위한 셋업 */
 .score-eagle,
 .score-birdie,
 .score-bogey,
@@ -371,7 +459,6 @@ main > .screen > h2 {
     display: inline-block;
 }
 
-/* 동그라미/네모 모양을 만드는 가상 요소 */
 .score-eagle::before,
 .score-birdie::before,
 .score-bogey::before,
@@ -384,7 +471,6 @@ main > .screen > h2 {
     z-index: 1;
 }
 
-/* 이글 이하: 두 겹 동그라미 */
 .score-eagle {
     background-color: #fef3c7;
     color: #92400e;
@@ -398,7 +484,6 @@ main > .screen > h2 {
     box-shadow: 0 0 0 3px white, 0 0 0 5px #92400e;
 }
 
-/* 버디: 동그라미 한 겹 */
 .score-birdie {
     background-color: #dbeafe;
     color: #1e40af;
@@ -411,13 +496,11 @@ main > .screen > h2 {
     border-radius: 50%;
 }
 
-/* 파: 그대로 (모양 없음) */
 .score-par {
     background-color: white;
     color: #333;
 }
 
-/* 보기: 네모 한 겹 */
 .score-bogey {
     background-color: #fef3c7;
     color: #92400e;
@@ -429,7 +512,6 @@ main > .screen > h2 {
     border: 2px solid #92400e;
 }
 
-/* 더블+ 이상: 두 겹 네모 */
 .score-double-plus {
     background-color: #fee2e2;
     color: #991b1b;

@@ -8,11 +8,20 @@ const screenResult = document.getElementById('screen-result');
 
 const allScreens = [screenMain, screenNewRound, screenHoleInput, screenResult];
 
+// 메인 화면 - 통계
+const statTotalRounds = document.getElementById('stat-total-rounds');
+const statAverageScore = document.getElementById('stat-average-score');
+const statBestScore = document.getElementById('stat-best-score');
+
+// 메인 화면 - 과거 라운드 목록
+const pastRoundsList = document.getElementById('past-rounds-list');
+
 // 메인/새 라운드 화면
 const btnNewRound = document.getElementById('btn-new-round');
 const btnContinueRound = document.getElementById('btn-continue-round');
 const btnStartRound = document.getElementById('btn-start-round');
 const btnCancelNewRound = document.getElementById('btn-cancel-new-round');
+const btnLoadPrevious = document.getElementById('btn-load-previous');
 const inputCourseName = document.getElementById('input-course-name');
 const parInputsFront = document.getElementById('par-inputs-front');
 const parInputsBack = document.getElementById('par-inputs-back');
@@ -62,15 +71,13 @@ function saveActiveRound() {
     if (currentRound === null) {
         localStorage.removeItem(STORAGE_KEYS.ACTIVE_ROUND);
     } else {
-        const json = JSON.stringify(currentRound);
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_ROUND, json);
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_ROUND, JSON.stringify(currentRound));
     }
 }
 
 function loadActiveRound() {
     const json = localStorage.getItem(STORAGE_KEYS.ACTIVE_ROUND);
     if (json === null) return null;
-
     try {
         return JSON.parse(json);
     } catch (error) {
@@ -80,14 +87,12 @@ function loadActiveRound() {
 }
 
 function saveCompletedRounds(rounds) {
-    const json = JSON.stringify(rounds);
-    localStorage.setItem(STORAGE_KEYS.COMPLETED_ROUNDS, json);
+    localStorage.setItem(STORAGE_KEYS.COMPLETED_ROUNDS, JSON.stringify(rounds));
 }
 
 function loadCompletedRounds() {
     const json = localStorage.getItem(STORAGE_KEYS.COMPLETED_ROUNDS);
     if (json === null) return [];
-
     try {
         return JSON.parse(json);
     } catch (error) {
@@ -110,12 +115,14 @@ function showScreen(screenToShow) {
         allScreens[i].classList.add('hidden');
     }
     screenToShow.classList.remove('hidden');
+    window.scrollTo(0, 0);  // 화면 전환 시 스크롤 맨 위로
 }
 
 // =========================================
-// 메인 화면 — 이어하기 버튼 표시/숨김
+// 메인 화면 렌더링
 // =========================================
 function refreshMainScreen() {
+    // 1) 이어하기 버튼 표시/숨김
     const activeRound = loadActiveRound();
     if (activeRound !== null) {
         btnContinueRound.classList.remove('hidden');
@@ -125,19 +132,106 @@ function refreshMainScreen() {
     } else {
         btnContinueRound.classList.add('hidden');
     }
+
+    // 2) 전체 통계 + 과거 라운드 목록
+    renderOverallStats();
+    renderPastRoundsList();
+}
+
+function renderOverallStats() {
+    const rounds = loadCompletedRounds();
+
+    statTotalRounds.textContent = rounds.length;
+
+    if (rounds.length === 0) {
+        statAverageScore.textContent = '--';
+        statBestScore.textContent = '--';
+        return;
+    }
+
+    // 각 라운드의 총 타수 계산
+    const totalScores = rounds.map(function(round) {
+        return round.scores.reduce(function(a, b) { return a + b; }, 0);
+    });
+
+    // 평균
+    const sum = totalScores.reduce(function(a, b) { return a + b; }, 0);
+    const average = sum / totalScores.length;
+    statAverageScore.textContent = average.toFixed(1);  // 소수점 1자리
+
+    // 베스트 (최저 타수)
+    const best = Math.min.apply(null, totalScores);
+    statBestScore.textContent = best;
+}
+
+function renderPastRoundsList() {
+    const rounds = loadCompletedRounds();
+
+    // 빈 상태
+    if (rounds.length === 0) {
+        pastRoundsList.innerHTML = '<p class="empty-message">아직 기록된 라운드가 없습니다.</p>';
+        return;
+    }
+
+    // 최신순 정렬 (id가 timestamp이므로 큰 게 최신)
+    const sortedRounds = rounds.slice().sort(function(a, b) {
+        return b.id - a.id;
+    });
+
+    // 목록 비우고 다시 그리기
+    pastRoundsList.innerHTML = '';
+
+    for (let i = 0; i < sortedRounds.length; i++) {
+        const round = sortedRounds[i];
+        const item = createPastRoundItem(round);
+        pastRoundsList.appendChild(item);
+    }
+}
+
+function createPastRoundItem(round) {
+    // 총 타수 + 파 대비 계산
+    const totalScore = round.scores.reduce(function(a, b) { return a + b; }, 0);
+    const totalPar = round.pars.reduce(function(a, b) { return a + b; }, 0);
+    const overUnder = totalScore - totalPar;
+    const overUnderText = overUnder === 0 ? 'E' : (overUnder > 0 ? '+' + overUnder : overUnder);
+
+    // 카드 div 생성
+    const item = document.createElement('div');
+    item.className = 'past-round-item';
+
+    // HTML 구조
+    item.innerHTML =
+        '<div class="past-round-top">' +
+            '<span class="past-round-course">' + escapeHtml(round.courseName) + '</span>' +
+            '<span class="past-round-date">' + round.date + '</span>' +
+        '</div>' +
+        '<div class="past-round-bottom">' +
+            '<span class="past-round-score">' + totalScore + '타</span>' +
+            '<span class="past-round-overunder">' + overUnderText + '</span>' +
+        '</div>';
+
+    // 5-2에서 클릭 핸들러 추가 예정
+    return item;
+}
+
+// HTML 특수문자 escape (보안 + 깨짐 방지)
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
 // =========================================
 // 새 라운드 폼 관련
 // =========================================
-function createParInputs() {
+function createParInputs(prefilledPars) {
     parInputsFront.innerHTML = '';
     for (let i = 1; i <= 9; i++) {
         const input = document.createElement('input');
         input.type = 'number';
         input.min = '3';
         input.max = '5';
-        input.value = '4';
+        input.value = prefilledPars ? prefilledPars[i - 1] : '4';
         input.id = 'par-input-' + i;
         parInputsFront.appendChild(input);
     }
@@ -148,7 +242,7 @@ function createParInputs() {
         input.type = 'number';
         input.min = '3';
         input.max = '5';
-        input.value = '4';
+        input.value = prefilledPars ? prefilledPars[i - 1] : '4';
         input.id = 'par-input-' + i;
         parInputsBack.appendChild(input);
     }
@@ -204,6 +298,42 @@ function startNewRound() {
     saveActiveRound();
     showScreen(screenHoleInput);
     renderHoleInputScreen();
+}
+
+// 새 라운드 화면 진입 시
+function openNewRoundScreen() {
+    inputCourseName.value = '';
+    createParInputs(null);  // 기본값 (전부 4)
+
+    // 과거 라운드 1개 이상 있으면 "이전 라운드 불러오기" 버튼 표시
+    const rounds = loadCompletedRounds();
+    if (rounds.length > 0) {
+        btnLoadPrevious.classList.remove('hidden');
+    } else {
+        btnLoadPrevious.classList.add('hidden');
+    }
+
+    showScreen(screenNewRound);
+}
+
+function loadPreviousRound() {
+    const rounds = loadCompletedRounds();
+    if (rounds.length === 0) {
+        alert('이전 라운드가 없습니다.');
+        return;
+    }
+
+    // 가장 최근 라운드 (id 큰 게 최신)
+    const sortedRounds = rounds.slice().sort(function(a, b) {
+        return b.id - a.id;
+    });
+    const latestRound = sortedRounds[0];
+
+    // 폼에 채우기
+    inputCourseName.value = latestRound.courseName;
+    createParInputs(latestRound.pars);
+
+    alert('"' + latestRound.courseName + '"의 정보를 불러왔습니다.');
 }
 
 // =========================================
@@ -287,11 +417,9 @@ function finishRound() {
     addCompletedRound(currentRound);
     console.log('라운드 종료:', currentRound);
 
-    // 결과 화면 표시 후 진행 중 데이터만 정리
     showScreen(screenResult);
     renderResultScreen();
 
-    // localStorage에서 진행 중 라운드 삭제 (currentRound는 결과 화면 떠나기 전까지 유지)
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_ROUND);
 }
 
@@ -396,7 +524,6 @@ function renderScoreDistribution(stats) {
 function renderScorecardTable(tableElement, round, startHole, endHole) {
     tableElement.innerHTML = '';
 
-    // 1행: 홀 번호
     const headerRow = document.createElement('tr');
     const headerLabel = document.createElement('th');
     headerLabel.className = 'row-label';
@@ -410,7 +537,6 @@ function renderScorecardTable(tableElement, round, startHole, endHole) {
     }
     tableElement.appendChild(headerRow);
 
-    // 2행: 파
     const parRow = document.createElement('tr');
     const parLabel = document.createElement('td');
     parLabel.className = 'row-label';
@@ -424,7 +550,6 @@ function renderScorecardTable(tableElement, round, startHole, endHole) {
     }
     tableElement.appendChild(parRow);
 
-    // 3행: 스코어 (숫자를 span으로 감싸서 모양 위에 표시)
     const scoreRow = document.createElement('tr');
     const scoreLabel = document.createElement('td');
     scoreLabel.className = 'row-label';
@@ -436,7 +561,6 @@ function renderScorecardTable(tableElement, round, startHole, endHole) {
         const score = round.scores[i - 1];
         const par = round.pars[i - 1];
 
-        // ★ 핵심: 숫자를 span으로 감싸기 (모양 위에 보이게)
         const span = document.createElement('span');
         span.textContent = score;
         td.appendChild(span);
@@ -461,11 +585,7 @@ function renderResultScreen() {
 // =========================================
 // 이벤트 리스너 등록
 // =========================================
-btnNewRound.addEventListener('click', function() {
-    createParInputs();
-    inputCourseName.value = '';
-    showScreen(screenNewRound);
-});
+btnNewRound.addEventListener('click', openNewRoundScreen);
 
 btnContinueRound.addEventListener('click', function() {
     const activeRound = loadActiveRound();
@@ -484,6 +604,8 @@ btnStartRound.addEventListener('click', startNewRound);
 btnCancelNewRound.addEventListener('click', function() {
     showScreen(screenMain);
 });
+
+btnLoadPrevious.addEventListener('click', loadPreviousRound);
 
 btnScoreMinus.addEventListener('click', function() {
     changeScore(-1);
