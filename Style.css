@@ -1,0 +1,443 @@
+/* ===== 1. 기본 설정 ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+    background-color: #f0f4f0;
+    color: #333;
+    padding: 20px;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+/* ===== 2. 헤더 ===== */
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 20px 0;
+}
+
+header h1 {
+    font-size: 48px;
+    color: #2d6a4f;
+    margin-bottom: 8px;
+}
+
+header p {
+    font-size: 14px;
+    color: #888;
+    font-style: italic;
+}
+
+/* ===== 3. 버튼 ===== */
+button {
+    width: 100%;
+    padding: 20px;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+    background-color: #2d6a4f;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-bottom: 12px;
+}
+
+button:hover {
+    background-color: #1b4332;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background-color: #aaa;
+}
+
+.btn-secondary:hover {
+    background-color: #888;
+}
+
+.btn-continue {
+    background-color: #f59e0b;
+}
+
+.btn-continue:hover {
+    background-color: #d97706;
+}
+
+/* ===== 4. 섹션 카드 ===== */
+section {
+    background-color: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+section h2 {
+    font-size: 18px;
+    color: #2d6a4f;
+    margin-bottom: 12px;
+}
+
+section h3 {
+    font-size: 16px;
+    color: #2d6a4f;
+    margin-bottom: 8px;
+    margin-top: 12px;
+}
+
+section h4 {
+    font-size: 14px;
+    color: #555;
+    margin-top: 12px;
+    margin-bottom: 8px;
+}
+
+section p {
+    font-size: 15px;
+    color: #555;
+    line-height: 1.8;
+}
+
+/* ===== 5. 입력 폼 ===== */
+label {
+    display: block;
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 6px;
+}
+
+input[type="text"],
+input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: white;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+    outline: none;
+    border-color: #2d6a4f;
+}
+
+.hint {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 12px;
+}
+
+.par-inputs {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 6px;
+}
+
+.par-inputs input {
+    width: 100%;
+    padding: 10px 0;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* ===== 6. 화면 전환 ===== */
+.hidden {
+    display: none;
+}
+
+main > .screen > h2 {
+    text-align: center;
+    margin-bottom: 16px;
+    color: #2d6a4f;
+}
+
+/* ===== 7. 홀 입력 화면 ===== */
+.progress-bar {
+    background-color: #2d6a4f;
+    color: white;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    margin-bottom: 4px;
+    opacity: 0.9;
+}
+
+.progress-score {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.hole-input-section {
+    text-align: center;
+    padding: 30px 20px;
+}
+
+.hole-input-section h2 {
+    font-size: 24px;
+    margin-bottom: 30px;
+}
+
+.score-display {
+    font-size: 96px;
+    font-weight: bold;
+    color: #2d6a4f;
+    margin: 20px 0;
+    line-height: 1;
+}
+
+.score-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.btn-circle {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    font-size: 36px;
+    padding: 0;
+    margin: 0;
+}
+
+.hole-nav {
+    display: flex;
+    gap: 12px;
+}
+
+.hole-nav button {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+/* ===== 8. 결과 화면 ===== */
+.result-header {
+    text-align: center;
+    padding: 20px;
+}
+
+.result-course-name {
+    font-size: 22px;
+    font-weight: bold;
+    color: #2d6a4f;
+    margin-bottom: 4px;
+}
+
+.result-date {
+    font-size: 14px;
+    color: #888;
+}
+
+.result-total {
+    text-align: center;
+    padding: 30px 20px;
+    background: linear-gradient(135deg, #2d6a4f, #1b4332);
+    color: white;
+}
+
+.result-total-score {
+    font-size: 80px;
+    font-weight: bold;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.result-over-under {
+    font-size: 20px;
+    opacity: 0.9;
+}
+
+.result-halves {
+    display: flex;
+    text-align: center;
+    padding: 20px;
+}
+
+.result-half {
+    flex: 1;
+}
+
+.result-half-label {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.result-half-score {
+    font-size: 32px;
+    font-weight: bold;
+    color: #2d6a4f;
+}
+
+.result-half-divider {
+    width: 1px;
+    background-color: #eee;
+    margin: 0 20px;
+}
+
+.score-distribution {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    text-align: center;
+}
+
+.dist-item {
+    padding: 12px 4px;
+    background-color: #f0f4f0;
+    border-radius: 8px;
+}
+
+.dist-label {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 4px;
+}
+
+.dist-count {
+    font-size: 22px;
+    font-weight: bold;
+    color: #2d6a4f;
+}
+
+.scorecard-wrapper {
+    overflow-x: auto;
+    margin-bottom: 12px;
+}
+
+.scorecard {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.scorecard td,
+.scorecard th {
+    border: 1px solid #ddd;
+    padding: 8px 4px;
+    text-align: center;
+    height: 36px;
+}
+
+.scorecard th {
+    background-color: #f0f4f0;
+    font-weight: bold;
+    color: #555;
+}
+
+.scorecard .row-label {
+    background-color: #f0f4f0;
+    font-weight: bold;
+    color: #555;
+    width: 50px;
+}
+
+/* ===== 스코어 시각화: 색상 + 모양 ===== */
+
+/* 공통: 모양을 만들기 위한 셋업 */
+.score-eagle,
+.score-birdie,
+.score-bogey,
+.score-double-plus {
+    position: relative;
+    font-weight: bold;
+}
+
+.score-eagle span,
+.score-birdie span,
+.score-bogey span,
+.score-double-plus span {
+    position: relative;
+    z-index: 2;
+    display: inline-block;
+}
+
+/* 동그라미/네모 모양을 만드는 가상 요소 */
+.score-eagle::before,
+.score-birdie::before,
+.score-bogey::before,
+.score-double-plus::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+}
+
+/* 이글 이하: 두 겹 동그라미 */
+.score-eagle {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.score-eagle::before {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #92400e;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px white, 0 0 0 5px #92400e;
+}
+
+/* 버디: 동그라미 한 겹 */
+.score-birdie {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.score-birdie::before {
+    width: 26px;
+    height: 26px;
+    border: 2px solid #1e40af;
+    border-radius: 50%;
+}
+
+/* 파: 그대로 (모양 없음) */
+.score-par {
+    background-color: white;
+    color: #333;
+}
+
+/* 보기: 네모 한 겹 */
+.score-bogey {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.score-bogey::before {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #92400e;
+}
+
+/* 더블+ 이상: 두 겹 네모 */
+.score-double-plus {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.score-double-plus::before {
+    width: 22px;
+    height: 22px;
+    border: 2px solid #991b1b;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px #991b1b;
+}

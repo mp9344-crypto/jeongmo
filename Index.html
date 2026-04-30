@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>정모 - Live Golf Scoring for Friends</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>정모</h1>
+        <p>Live Golf Scoring for Friends</p>
+    </header>
+
+    <main>
+
+        <!-- ===== 화면 1: 메인 화면 ===== -->
+        <div id="screen-main" class="screen">
+
+            <button id="btn-new-round">새 라운드 시작</button>
+            <button id="btn-continue-round" class="btn-continue hidden">▶ 진행 중 라운드 이어하기</button>
+
+            <section>
+                <h2>📊 전체 통계</h2>
+                <p>평균 스코어: --</p>
+                <p>베스트 스코어: --</p>
+                <p>총 라운드: 0</p>
+            </section>
+
+            <section>
+                <h2>📜 과거 라운드</h2>
+                <p>아직 기록된 라운드가 없습니다.</p>
+            </section>
+
+        </div>
+
+        <!-- ===== 화면 2: 새 라운드 시작 화면 ===== -->
+        <div id="screen-new-round" class="screen hidden">
+
+            <h2>새 라운드 시작</h2>
+
+            <section>
+                <label for="input-course-name">골프장 이름</label>
+                <input type="text" id="input-course-name" placeholder="예: Northview Golf Club">
+            </section>
+
+            <section>
+                <h3>18홀 파 정보</h3>
+                <p class="hint">각 홀의 파를 입력하세요 (3, 4, 5)</p>
+
+                <h4>전반 9홀</h4>
+                <div id="par-inputs-front" class="par-inputs"></div>
+
+                <h4>후반 9홀</h4>
+                <div id="par-inputs-back" class="par-inputs"></div>
+            </section>
+
+            <button id="btn-start-round">라운드 시작</button>
+            <button id="btn-cancel-new-round" class="btn-secondary">취소</button>
+
+        </div>
+
+        <!-- ===== 화면 3: 홀 입력 화면 ===== -->
+        <div id="screen-hole-input" class="screen hidden">
+
+            <div class="progress-bar">
+                <div class="progress-info">
+                    <span id="course-name-display">-</span>
+                    <span id="hole-progress">0/18 홀</span>
+                </div>
+                <div class="progress-score" id="cumulative-score">현재 0 (0타)</div>
+            </div>
+
+            <section class="hole-input-section">
+                <h2 id="hole-info">1번 홀 (Par 4)</h2>
+
+                <div class="score-display" id="score-display">4</div>
+
+                <div class="score-buttons">
+                    <button id="btn-score-minus" class="btn-circle">−</button>
+                    <button id="btn-score-plus" class="btn-circle">+</button>
+                </div>
+            </section>
+
+            <div class="hole-nav">
+                <button id="btn-prev-hole" class="btn-secondary">← 이전 홀</button>
+                <button id="btn-next-hole">다음 홀 →</button>
+            </div>
+
+        </div>
+
+        <!-- ===== 화면 4: 라운드 결과 화면 ===== -->
+        <div id="screen-result" class="screen hidden">
+
+            <h2>🏌️ 라운드 결과</h2>
+
+            <section class="result-header">
+                <div class="result-course-name" id="result-course-name">-</div>
+                <div class="result-date" id="result-date">-</div>
+            </section>
+
+            <section class="result-total">
+                <div class="result-total-score" id="result-total-score">0</div>
+                <div class="result-over-under" id="result-over-under">E</div>
+            </section>
+
+            <section class="result-halves">
+                <div class="result-half">
+                    <div class="result-half-label">전반</div>
+                    <div class="result-half-score" id="result-front-nine">0</div>
+                </div>
+                <div class="result-half-divider"></div>
+                <div class="result-half">
+                    <div class="result-half-label">후반</div>
+                    <div class="result-half-score" id="result-back-nine">0</div>
+                </div>
+            </section>
+
+            <section>
+                <h3>스코어 분포</h3>
+                <div class="score-distribution">
+                    <div class="dist-item">
+                        <div class="dist-label">🦅 이글-</div>
+                        <div class="dist-count" id="count-eagle">0</div>
+                    </div>
+                    <div class="dist-item">
+                        <div class="dist-label">🐦 버디</div>
+                        <div class="dist-count" id="count-birdie">0</div>
+                    </div>
+                    <div class="dist-item">
+                        <div class="dist-label">⛳ 파</div>
+                        <div class="dist-count" id="count-par">0</div>
+                    </div>
+                    <div class="dist-item">
+                        <div class="dist-label">📈 보기</div>
+                        <div class="dist-count" id="count-bogey">0</div>
+                    </div>
+                    <div class="dist-item">
+                        <div class="dist-label">📉 더블+</div>
+                        <div class="dist-count" id="count-double-plus">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3>📋 스코어카드</h3>
+
+                <h4>전반 9홀</h4>
+                <div class="scorecard-wrapper">
+                    <table class="scorecard" id="scorecard-front"></table>
+                </div>
+
+                <h4>후반 9홀</h4>
+                <div class="scorecard-wrapper">
+                    <table class="scorecard" id="scorecard-back"></table>
+                </div>
+            </section>
+
+            <button id="btn-back-to-main-from-result">메인으로</button>
+
+        </div>
+
+    </main>
+
+    <script src="app.js"></script>
+
+</body>
+</html>
