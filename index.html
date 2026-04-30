@@ -104,10 +104,10 @@
 
         </div>
 
-        <!-- ===== 화면 4: 라운드 결과 화면 ===== -->
+        <!-- ===== 화면 4: 라운드 결과 화면 (현재 라운드 + 과거 라운드 공용) ===== -->
         <div id="screen-result" class="screen hidden">
 
-            <h2>🏌️ 라운드 결과</h2>
+            <h2 id="result-screen-title">🏌️ 라운드 결과</h2>
 
             <section class="result-header">
                 <div class="result-course-name" id="result-course-name">-</div>
@@ -172,6 +172,7 @@
             </section>
 
             <button id="btn-back-to-main-from-result">메인으로</button>
+            <button id="btn-delete-round" class="btn-danger hidden">🗑️ 이 라운드 삭제</button>
 
         </div>
 

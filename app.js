@@ -38,6 +38,7 @@ const btnPrevHole = document.getElementById('btn-prev-hole');
 const btnNextHole = document.getElementById('btn-next-hole');
 
 // 결과 화면
+const resultScreenTitle = document.getElementById('result-screen-title');
 const resultCourseName = document.getElementById('result-course-name');
 const resultDate = document.getElementById('result-date');
 const resultTotalScore = document.getElementById('result-total-score');
@@ -52,11 +53,13 @@ const countDoublePlus = document.getElementById('count-double-plus');
 const scorecardFront = document.getElementById('scorecard-front');
 const scorecardBack = document.getElementById('scorecard-back');
 const btnBackToMainFromResult = document.getElementById('btn-back-to-main-from-result');
+const btnDeleteRound = document.getElementById('btn-delete-round');
 
 // =========================================
 // 전역 상태
 // =========================================
 let currentRound = null;
+let viewingPastRoundId = null;  // 보고 있는 과거 라운드의 id (null이면 현재 라운드 보는 중)
 
 const STORAGE_KEYS = {
     ACTIVE_ROUND: 'golf_active_round',
@@ -107,6 +110,26 @@ function addCompletedRound(round) {
     saveCompletedRounds(rounds);
 }
 
+// 라운드 1개 삭제 (id로 찾기)
+function deleteCompletedRound(roundId) {
+    const rounds = loadCompletedRounds();
+    const filtered = rounds.filter(function(round) {
+        return round.id !== roundId;
+    });
+    saveCompletedRounds(filtered);
+}
+
+// id로 라운드 1개 찾기
+function findRoundById(roundId) {
+    const rounds = loadCompletedRounds();
+    for (let i = 0; i < rounds.length; i++) {
+        if (rounds[i].id === roundId) {
+            return rounds[i];
+        }
+    }
+    return null;
+}
+
 // =========================================
 // 화면 전환
 // =========================================
@@ -115,14 +138,13 @@ function showScreen(screenToShow) {
         allScreens[i].classList.add('hidden');
     }
     screenToShow.classList.remove('hidden');
-    window.scrollTo(0, 0);  // 화면 전환 시 스크롤 맨 위로
+    window.scrollTo(0, 0);
 }
 
 // =========================================
 // 메인 화면 렌더링
 // =========================================
 function refreshMainScreen() {
-    // 1) 이어하기 버튼 표시/숨김
     const activeRound = loadActiveRound();
     if (activeRound !== null) {
         btnContinueRound.classList.remove('hidden');
@@ -133,7 +155,6 @@ function refreshMainScreen() {
         btnContinueRound.classList.add('hidden');
     }
 
-    // 2) 전체 통계 + 과거 라운드 목록
     renderOverallStats();
     renderPastRoundsList();
 }
@@ -149,17 +170,14 @@ function renderOverallStats() {
         return;
     }
 
-    // 각 라운드의 총 타수 계산
     const totalScores = rounds.map(function(round) {
         return round.scores.reduce(function(a, b) { return a + b; }, 0);
     });
 
-    // 평균
     const sum = totalScores.reduce(function(a, b) { return a + b; }, 0);
     const average = sum / totalScores.length;
-    statAverageScore.textContent = average.toFixed(1);  // 소수점 1자리
+    statAverageScore.textContent = average.toFixed(1);
 
-    // 베스트 (최저 타수)
     const best = Math.min.apply(null, totalScores);
     statBestScore.textContent = best;
 }
@@ -167,18 +185,15 @@ function renderOverallStats() {
 function renderPastRoundsList() {
     const rounds = loadCompletedRounds();
 
-    // 빈 상태
     if (rounds.length === 0) {
         pastRoundsList.innerHTML = '<p class="empty-message">아직 기록된 라운드가 없습니다.</p>';
         return;
     }
 
-    // 최신순 정렬 (id가 timestamp이므로 큰 게 최신)
     const sortedRounds = rounds.slice().sort(function(a, b) {
         return b.id - a.id;
     });
 
-    // 목록 비우고 다시 그리기
     pastRoundsList.innerHTML = '';
 
     for (let i = 0; i < sortedRounds.length; i++) {
@@ -189,17 +204,14 @@ function renderPastRoundsList() {
 }
 
 function createPastRoundItem(round) {
-    // 총 타수 + 파 대비 계산
     const totalScore = round.scores.reduce(function(a, b) { return a + b; }, 0);
     const totalPar = round.pars.reduce(function(a, b) { return a + b; }, 0);
     const overUnder = totalScore - totalPar;
     const overUnderText = overUnder === 0 ? 'E' : (overUnder > 0 ? '+' + overUnder : overUnder);
 
-    // 카드 div 생성
     const item = document.createElement('div');
     item.className = 'past-round-item';
 
-    // HTML 구조
     item.innerHTML =
         '<div class="past-round-top">' +
             '<span class="past-round-course">' + escapeHtml(round.courseName) + '</span>' +
@@ -210,11 +222,14 @@ function createPastRoundItem(round) {
             '<span class="past-round-overunder">' + overUnderText + '</span>' +
         '</div>';
 
-    // 5-2에서 클릭 핸들러 추가 예정
+    // 클릭 시 상세 보기로 이동
+    item.addEventListener('click', function() {
+        showPastRoundDetail(round.id);
+    });
+
     return item;
 }
 
-// HTML 특수문자 escape (보안 + 깨짐 방지)
 function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
@@ -300,12 +315,10 @@ function startNewRound() {
     renderHoleInputScreen();
 }
 
-// 새 라운드 화면 진입 시
 function openNewRoundScreen() {
     inputCourseName.value = '';
-    createParInputs(null);  // 기본값 (전부 4)
+    createParInputs(null);
 
-    // 과거 라운드 1개 이상 있으면 "이전 라운드 불러오기" 버튼 표시
     const rounds = loadCompletedRounds();
     if (rounds.length > 0) {
         btnLoadPrevious.classList.remove('hidden');
@@ -323,13 +336,11 @@ function loadPreviousRound() {
         return;
     }
 
-    // 가장 최근 라운드 (id 큰 게 최신)
     const sortedRounds = rounds.slice().sort(function(a, b) {
         return b.id - a.id;
     });
     const latestRound = sortedRounds[0];
 
-    // 폼에 채우기
     inputCourseName.value = latestRound.courseName;
     createParInputs(latestRound.pars);
 
@@ -417,14 +428,16 @@ function finishRound() {
     addCompletedRound(currentRound);
     console.log('라운드 종료:', currentRound);
 
+    // 결과 화면을 "방금 끝난 라운드" 모드로 표시
+    viewingPastRoundId = null;  // 새 라운드 결과 (삭제 버튼 안 보임)
     showScreen(screenResult);
-    renderResultScreen();
+    renderResultScreen(currentRound);
 
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_ROUND);
 }
 
 // =========================================
-// 결과 화면
+// 결과 화면 (현재/과거 라운드 공용)
 // =========================================
 function calculateStats(round) {
     let totalScore = 0;
@@ -571,15 +584,58 @@ function renderScorecardTable(tableElement, round, startHole, endHole) {
     tableElement.appendChild(scoreRow);
 }
 
-function renderResultScreen() {
-    const stats = calculateStats(currentRound);
+// 결과 화면 통합 렌더 (round 객체를 인자로 받음)
+function renderResultScreen(round) {
+    const stats = calculateStats(round);
 
-    renderResultHeader(currentRound);
+    renderResultHeader(round);
     renderResultTotal(stats);
     renderResultHalves(stats);
     renderScoreDistribution(stats);
-    renderScorecardTable(scorecardFront, currentRound, 1, 9);
-    renderScorecardTable(scorecardBack, currentRound, 10, 18);
+    renderScorecardTable(scorecardFront, round, 1, 9);
+    renderScorecardTable(scorecardBack, round, 10, 18);
+
+    // viewingPastRoundId 가 있으면 "과거 라운드 보기 모드"
+    if (viewingPastRoundId !== null) {
+        resultScreenTitle.textContent = '📜 과거 라운드 상세';
+        btnDeleteRound.classList.remove('hidden');
+    } else {
+        resultScreenTitle.textContent = '🏌️ 라운드 결과';
+        btnDeleteRound.classList.add('hidden');
+    }
+}
+
+// 과거 라운드 상세 보기
+function showPastRoundDetail(roundId) {
+    const round = findRoundById(roundId);
+    if (round === null) {
+        alert('라운드를 찾을 수 없습니다.');
+        return;
+    }
+
+    viewingPastRoundId = roundId;
+    showScreen(screenResult);
+    renderResultScreen(round);
+}
+
+// 과거 라운드 삭제
+function deleteViewingRound() {
+    if (viewingPastRoundId === null) return;
+
+    const round = findRoundById(viewingPastRoundId);
+    if (round === null) return;
+
+    const confirmed = confirm(
+        '"' + round.courseName + '" (' + round.date + ') 라운드를 삭제할까요?\n' +
+        '삭제하면 복구할 수 없습니다.'
+    );
+    if (!confirmed) return;
+
+    deleteCompletedRound(viewingPastRoundId);
+    viewingPastRoundId = null;
+
+    refreshMainScreen();
+    showScreen(screenMain);
 }
 
 // =========================================
@@ -629,9 +685,12 @@ btnNextHole.addEventListener('click', function() {
 
 btnBackToMainFromResult.addEventListener('click', function() {
     currentRound = null;
+    viewingPastRoundId = null;
     refreshMainScreen();
     showScreen(screenMain);
 });
+
+btnDeleteRound.addEventListener('click', deleteViewingRound);
 
 // =========================================
 // 앱 시작 시 초기화

@@ -75,6 +75,15 @@ button:disabled {
     background-color: #d97706;
 }
 
+/* 위험한 동작 (삭제 등) */
+.btn-danger {
+    background-color: #dc2626;
+}
+
+.btn-danger:hover {
+    background-color: #991b1b;
+}
+
 /* ===== 4. 섹션 카드 ===== */
 section {
     background-color: white;
@@ -204,10 +213,16 @@ main > .screen > h2 {
     border-radius: 8px;
     cursor: pointer;
     border: 2px solid transparent;
+    transition: all 0.15s;
 }
 
 .past-round-item:hover {
     border-color: #2d6a4f;
+    background-color: #e8f0e8;
+}
+
+.past-round-item:active {
+    transform: scale(0.98);
 }
 
 .past-round-top {
@@ -441,7 +456,7 @@ main > .screen > h2 {
     width: 50px;
 }
 
-/* ===== 스코어 시각화: 색상 + 모양 ===== */
+/* ===== 스코어 시각화 ===== */
 .score-eagle,
 .score-birdie,
 .score-bogey,
