@@ -538,3 +538,229 @@ main > .screen > h2 {
     border: 2px solid #991b1b;
     box-shadow: 0 0 0 2px white, 0 0 0 4px #991b1b;
 }
+/* ===== 11. 프로필 카드 (메인 화면 상단) ★ A1 신규 ===== */
+.profile-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.profile-info {
+    flex: 1;
+}
+
+.profile-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: #2d6a4f;
+    margin-bottom: 2px;
+}
+
+.profile-handicap {
+    font-size: 13px;
+    color: #888;
+}
+
+.btn-icon {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    margin: 0;
+    background-color: #f0f4f0;
+    color: #2d6a4f;
+    font-size: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.btn-icon:hover {
+    background-color: #e0eae0;
+}
+/* ===== 12. 게임 모드 선택 (드롭다운) ★ A2 신규 ===== */
+select {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: white;
+    color: #333;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+
+    /* 화살표 아이콘 (CSS로 만든 삼각형) */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%232d6a4f' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 40px;
+}
+
+select:focus {
+    outline: none;
+    border-color: #2d6a4f;
+}
+
+/* ===== 13. 정보 박스 (Net Score 안내 등) ★ A2 신규 ===== */
+.info-box {
+    background-color: #fff8e1;
+    border-left: 4px solid #f59e0b;
+    padding: 12px 16px;
+    border-radius: 6px;
+}
+
+.info-box-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #92400e;
+    margin-bottom: 6px;
+}
+
+.info-box-content {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.6;
+}
+
+.info-box-content strong {
+    color: #2d6a4f;
+}
+
+/* ===== 14. 퍼팅 수 입력 ★ A3 신규 ===== */
+.putts-input-row {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.putts-label {
+    font-size: 14px;
+    color: #888;
+}
+
+.putts-buttons {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.putts-display {
+    font-size: 20px;
+    font-weight: bold;
+    color: #2d6a4f;
+    min-width: 30px;
+    text-align: center;
+}
+
+.btn-mini {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 18px;
+    padding: 0;
+    margin: 0;
+    background-color: #f0f4f0;
+    color: #2d6a4f;
+}
+
+.btn-mini:hover {
+    background-color: #e0eae0;
+}
+
+.btn-mini:disabled {
+    background-color: #f5f5f5;
+    color: #ccc;
+}
+/* ===== 15. 결과 화면 - Net Score / 퍼팅 통계 ★ A4 신규 ===== */
+
+/* 게임 모드 배지 */
+.game-mode-badge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 4px 12px;
+    background-color: #2d6a4f;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.game-mode-badge.net-mode {
+    background-color: #7c3aed;
+}
+
+/* Gross/Net 라벨 (어떤 점수인지 명시) */
+.result-label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Net Score 섹션 - 보라 그라데이션 */
+.result-net {
+    text-align: center;
+    padding: 30px 20px;
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    color: white;
+}
+
+.result-net .result-label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.result-net .result-label span {
+    color: #fef3c7;
+    font-weight: bold;
+}
+
+.result-net-score {
+    font-size: 80px;
+    font-weight: bold;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.result-net-over-under {
+    font-size: 20px;
+    opacity: 0.9;
+}
+
+/* 퍼팅 통계 */
+.putts-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.putts-stat-item {
+    padding: 12px 4px;
+    background-color: #f0f4f0;
+    border-radius: 8px;
+}
+
+.putts-stat-label {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 4px;
+}
+
+.putts-stat-value {
+    font-size: 22px;
+    font-weight: bold;
+    color: #2d6a4f;
+}

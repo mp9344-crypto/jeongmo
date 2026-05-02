@@ -5,8 +5,14 @@ const screenMain = document.getElementById('screen-main');
 const screenNewRound = document.getElementById('screen-new-round');
 const screenHoleInput = document.getElementById('screen-hole-input');
 const screenResult = document.getElementById('screen-result');
+const screenProfile = document.getElementById('screen-profile');
 
-const allScreens = [screenMain, screenNewRound, screenHoleInput, screenResult];
+const allScreens = [screenMain, screenNewRound, screenHoleInput, screenResult, screenProfile];
+
+// 메인 화면 - 프로필 카드
+const profileNameDisplay = document.getElementById('profile-name-display');
+const profileHandicapDisplay = document.getElementById('profile-handicap-display');
+const btnEditProfile = document.getElementById('btn-edit-profile');
 
 // 메인 화면 - 통계
 const statTotalRounds = document.getElementById('stat-total-rounds');
@@ -26,6 +32,12 @@ const inputCourseName = document.getElementById('input-course-name');
 const parInputsFront = document.getElementById('par-inputs-front');
 const parInputsBack = document.getElementById('par-inputs-back');
 
+// 게임 모드 선택
+const selectGameMode = document.getElementById('select-game-mode');
+const gameModeHint = document.getElementById('game-mode-hint');
+const netInfoBox = document.getElementById('net-info-box');
+const displayCourseHandicap = document.getElementById('display-course-handicap');
+
 // 홀 입력 화면
 const courseNameDisplay = document.getElementById('course-name-display');
 const holeProgress = document.getElementById('hole-progress');
@@ -36,6 +48,11 @@ const btnScoreMinus = document.getElementById('btn-score-minus');
 const btnScorePlus = document.getElementById('btn-score-plus');
 const btnPrevHole = document.getElementById('btn-prev-hole');
 const btnNextHole = document.getElementById('btn-next-hole');
+
+// 퍼팅 입력
+const puttsDisplay = document.getElementById('putts-display');
+const btnPuttsMinus = document.getElementById('btn-putts-minus');
+const btnPuttsPlus = document.getElementById('btn-putts-plus');
 
 // 결과 화면
 const resultScreenTitle = document.getElementById('result-screen-title');
@@ -55,21 +72,40 @@ const scorecardBack = document.getElementById('scorecard-back');
 const btnBackToMainFromResult = document.getElementById('btn-back-to-main-from-result');
 const btnDeleteRound = document.getElementById('btn-delete-round');
 
+// ★ A4 신규: 결과 화면 게임 모드/Net/퍼팅
+const resultGameModeBadge = document.getElementById('result-game-mode-badge');
+const resultNetSection = document.getElementById('result-net-section');
+const resultHandicapDisplay = document.getElementById('result-handicap-display');
+const resultNetScore = document.getElementById('result-net-score');
+const resultNetOverUnder = document.getElementById('result-net-over-under');
+const puttsStatsSection = document.getElementById('putts-stats-section');
+const puttsTotal = document.getElementById('putts-total');
+const puttsAverage = document.getElementById('putts-average');
+const puttsOne = document.getElementById('putts-one');
+const puttsThreePlus = document.getElementById('putts-three-plus');
+const puttsCoverageNote = document.getElementById('putts-coverage-note');
+
+// 프로필 화면
+const inputUserName = document.getElementById('input-user-name');
+const inputHandicapIndex = document.getElementById('input-handicap-index');
+const btnSaveProfile = document.getElementById('btn-save-profile');
+const btnCancelProfile = document.getElementById('btn-cancel-profile');
+
 // =========================================
 // 전역 상태
 // =========================================
 let currentRound = null;
-let viewingPastRoundId = null;  // 보고 있는 과거 라운드의 id (null이면 현재 라운드 보는 중)
+let viewingPastRoundId = null;
 
 const STORAGE_KEYS = {
     ACTIVE_ROUND: 'golf_active_round',
-    COMPLETED_ROUNDS: 'golf_rounds'
+    COMPLETED_ROUNDS: 'golf_rounds',
+    USER_PROFILE: 'golf_user_profile'
 };
 
 // =========================================
-// localStorage 저장/불러오기
+// localStorage (변경 없음)
 // =========================================
-
 function saveActiveRound() {
     if (currentRound === null) {
         localStorage.removeItem(STORAGE_KEYS.ACTIVE_ROUND);
@@ -110,7 +146,6 @@ function addCompletedRound(round) {
     saveCompletedRounds(rounds);
 }
 
-// 라운드 1개 삭제 (id로 찾기)
 function deleteCompletedRound(roundId) {
     const rounds = loadCompletedRounds();
     const filtered = rounds.filter(function(round) {
@@ -119,7 +154,6 @@ function deleteCompletedRound(roundId) {
     saveCompletedRounds(filtered);
 }
 
-// id로 라운드 1개 찾기
 function findRoundById(roundId) {
     const rounds = loadCompletedRounds();
     for (let i = 0; i < rounds.length; i++) {
@@ -128,6 +162,28 @@ function findRoundById(roundId) {
         }
     }
     return null;
+}
+
+function saveUserProfile(profile) {
+    localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
+}
+
+function loadUserProfile() {
+    const json = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+    if (json === null) return null;
+    try {
+        return JSON.parse(json);
+    } catch (error) {
+        console.error('프로필 불러오기 실패:', error);
+        return null;
+    }
+}
+
+function calculateCourseHandicap(handicapIndex) {
+    if (handicapIndex === null || handicapIndex === undefined) {
+        return null;
+    }
+    return Math.round(handicapIndex);
 }
 
 // =========================================
@@ -142,7 +198,7 @@ function showScreen(screenToShow) {
 }
 
 // =========================================
-// 메인 화면 렌더링
+// 메인 화면 렌더링 (변경 없음)
 // =========================================
 function refreshMainScreen() {
     const activeRound = loadActiveRound();
@@ -155,8 +211,25 @@ function refreshMainScreen() {
         btnContinueRound.classList.add('hidden');
     }
 
+    renderProfileCard();
     renderOverallStats();
     renderPastRoundsList();
+}
+
+function renderProfileCard() {
+    const profile = loadUserProfile();
+
+    if (profile === null) {
+        profileNameDisplay.textContent = '이름을 설정해주세요';
+        profileHandicapDisplay.textContent = 'Handicap: --';
+    } else {
+        profileNameDisplay.textContent = profile.name;
+        if (profile.handicapIndex !== null && profile.handicapIndex !== undefined) {
+            profileHandicapDisplay.textContent = 'Handicap Index: ' + profile.handicapIndex.toFixed(1);
+        } else {
+            profileHandicapDisplay.textContent = 'Handicap: --';
+        }
+    }
 }
 
 function renderOverallStats() {
@@ -222,7 +295,6 @@ function createPastRoundItem(round) {
             '<span class="past-round-overunder">' + overUnderText + '</span>' +
         '</div>';
 
-    // 클릭 시 상세 보기로 이동
     item.addEventListener('click', function() {
         showPastRoundDetail(round.id);
     });
@@ -237,7 +309,70 @@ function escapeHtml(str) {
 }
 
 // =========================================
-// 새 라운드 폼 관련
+// 프로필 화면 (변경 없음)
+// =========================================
+function openProfileScreen() {
+    const profile = loadUserProfile();
+
+    if (profile !== null) {
+        inputUserName.value = profile.name || '';
+        inputHandicapIndex.value = (profile.handicapIndex !== null && profile.handicapIndex !== undefined)
+            ? profile.handicapIndex
+            : '';
+    } else {
+        inputUserName.value = '';
+        inputHandicapIndex.value = '';
+    }
+
+    showScreen(screenProfile);
+}
+
+function saveProfile() {
+    const name = inputUserName.value.trim();
+
+    if (name === '') {
+        alert('이름을 입력해주세요.');
+        return;
+    }
+
+    if (name.length > 20) {
+        alert('이름은 20자 이하여야 합니다.');
+        return;
+    }
+
+    let handicapIndex = null;
+    const handicapStr = inputHandicapIndex.value.trim();
+
+    if (handicapStr !== '') {
+        const parsed = parseFloat(handicapStr);
+
+        if (isNaN(parsed)) {
+            alert('Handicap Index는 숫자여야 합니다.');
+            return;
+        }
+
+        if (parsed < 0 || parsed > 54) {
+            alert('Handicap Index는 0.0 ~ 54.0 사이여야 합니다.');
+            return;
+        }
+
+        handicapIndex = parsed;
+    }
+
+    const profile = {
+        name: name,
+        handicapIndex: handicapIndex
+    };
+
+    saveUserProfile(profile);
+    alert('프로필이 저장되었습니다!');
+
+    refreshMainScreen();
+    showScreen(screenMain);
+}
+
+// =========================================
+// 새 라운드 폼 관련 (변경 없음)
 // =========================================
 function createParInputs(prefilledPars) {
     parInputsFront.innerHTML = '';
@@ -263,6 +398,27 @@ function createParInputs(prefilledPars) {
     }
 }
 
+function onGameModeChange() {
+    const mode = selectGameMode.value;
+    const profile = loadUserProfile();
+
+    if (mode === 'gross') {
+        gameModeHint.textContent = '총 타수 그대로 비교합니다. 1단계와 동일한 방식.';
+        netInfoBox.classList.add('hidden');
+    } else if (mode === 'net') {
+        gameModeHint.textContent = '핸디캡을 적용한 Net Score로 비교합니다.';
+
+        if (profile === null || profile.handicapIndex === null || profile.handicapIndex === undefined) {
+            displayCourseHandicap.textContent = '⚠️ 핸디캡 미설정 (프로필에서 설정 필요)';
+        } else {
+            const courseHandicap = calculateCourseHandicap(profile.handicapIndex);
+            displayCourseHandicap.textContent = courseHandicap;
+        }
+
+        netInfoBox.classList.remove('hidden');
+    }
+}
+
 function readNewRoundForm() {
     const courseName = inputCourseName.value.trim();
 
@@ -283,7 +439,29 @@ function readNewRoundForm() {
         pars.push(par);
     }
 
-    return { courseName: courseName, pars: pars };
+    const gameMode = selectGameMode.value;
+    const profile = loadUserProfile();
+    let courseHandicap = null;
+
+    if (gameMode === 'net') {
+        if (profile === null || profile.handicapIndex === null || profile.handicapIndex === undefined) {
+            const proceed = confirm(
+                'Net 모드를 선택했지만 핸디캡이 설정되지 않았습니다.\n' +
+                '핸디캡 0으로 진행할까요? (취소하면 프로필 설정 필요)'
+            );
+            if (!proceed) return null;
+            courseHandicap = 0;
+        } else {
+            courseHandicap = calculateCourseHandicap(profile.handicapIndex);
+        }
+    }
+
+    return {
+        courseName: courseName,
+        pars: pars,
+        gameMode: gameMode,
+        courseHandicap: courseHandicap
+    };
 }
 
 function startNewRound() {
@@ -306,8 +484,12 @@ function startNewRound() {
         pars: formData.pars,
         scores: [null, null, null, null, null, null, null, null, null,
                  null, null, null, null, null, null, null, null, null],
+        putts: [null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null],
         currentHole: 1,
-        completed: false
+        completed: false,
+        gameMode: formData.gameMode,
+        courseHandicap: formData.courseHandicap
     };
 
     saveActiveRound();
@@ -318,6 +500,9 @@ function startNewRound() {
 function openNewRoundScreen() {
     inputCourseName.value = '';
     createParInputs(null);
+
+    selectGameMode.value = 'gross';
+    onGameModeChange();
 
     const rounds = loadCompletedRounds();
     if (rounds.length > 0) {
@@ -348,7 +533,7 @@ function loadPreviousRound() {
 }
 
 // =========================================
-// 홀 입력 화면
+// 홀 입력 화면 (변경 없음)
 // =========================================
 function renderHoleInputScreen() {
     courseNameDisplay.textContent = currentRound.courseName;
@@ -385,6 +570,33 @@ function renderHoleInputScreen() {
     } else {
         btnNextHole.textContent = '다음 홀 →';
     }
+
+    renderPuttsDisplay();
+}
+
+function renderPuttsDisplay() {
+    const holeIndex = currentRound.currentHole - 1;
+    const putts = currentRound.putts ? currentRound.putts[holeIndex] : null;
+
+    if (!currentRound.putts) {
+        currentRound.putts = [null, null, null, null, null, null, null, null, null,
+                              null, null, null, null, null, null, null, null, null];
+    }
+
+    if (putts === null || putts === undefined) {
+        puttsDisplay.textContent = '-';
+    } else {
+        puttsDisplay.textContent = putts;
+    }
+
+    btnPuttsMinus.disabled = (putts === null || putts === 0);
+
+    const score = currentRound.scores[holeIndex];
+    if (score !== null && putts !== null && putts >= score) {
+        btnPuttsPlus.disabled = true;
+    } else {
+        btnPuttsPlus.disabled = false;
+    }
 }
 
 function changeScore(delta) {
@@ -399,8 +611,36 @@ function changeScore(delta) {
     if (newScore < 1) return;
 
     currentRound.scores[holeIndex] = newScore;
+
+    const putts = currentRound.putts[holeIndex];
+    if (putts !== null && putts > newScore) {
+        currentRound.putts[holeIndex] = newScore;
+    }
+
     saveActiveRound();
     renderHoleInputScreen();
+}
+
+function changePutts(delta) {
+    const holeIndex = currentRound.currentHole - 1;
+    let currentPutts = currentRound.putts[holeIndex];
+
+    if (currentPutts === null || currentPutts === undefined) {
+        currentPutts = 0;
+    }
+
+    const newPutts = currentPutts + delta;
+
+    if (newPutts < 0) return;
+
+    const score = currentRound.scores[holeIndex];
+    if (score !== null && newPutts > score) {
+        return;
+    }
+
+    currentRound.putts[holeIndex] = newPutts;
+    saveActiveRound();
+    renderPuttsDisplay();
 }
 
 function goToHole(holeNumber) {
@@ -428,8 +668,7 @@ function finishRound() {
     addCompletedRound(currentRound);
     console.log('라운드 종료:', currentRound);
 
-    // 결과 화면을 "방금 끝난 라운드" 모드로 표시
-    viewingPastRoundId = null;  // 새 라운드 결과 (삭제 버튼 안 보임)
+    viewingPastRoundId = null;
     showScreen(screenResult);
     renderResultScreen(currentRound);
 
@@ -437,7 +676,7 @@ function finishRound() {
 }
 
 // =========================================
-// 결과 화면 (현재/과거 라운드 공용)
+// ★ A4 변경: 결과 화면 (Net Score + 퍼팅 통계)
 // =========================================
 function calculateStats(round) {
     let totalScore = 0;
@@ -491,6 +730,39 @@ function calculateStats(round) {
     };
 }
 
+// ★ A4 신규: 퍼팅 통계 계산
+function calculatePuttsStats(round) {
+    if (!round.putts) {
+        return null;  // 옛날 라운드 (퍼팅 데이터 없음)
+    }
+
+    const recordedPutts = round.putts.filter(function(p) {
+        return p !== null && p !== undefined;
+    });
+
+    if (recordedPutts.length === 0) {
+        return null;  // 입력 안 한 라운드
+    }
+
+    const total = recordedPutts.reduce(function(a, b) { return a + b; }, 0);
+    const average = total / recordedPutts.length;
+
+    let onePuttCount = 0;
+    let threePlusCount = 0;
+    for (let i = 0; i < recordedPutts.length; i++) {
+        if (recordedPutts[i] === 1) onePuttCount++;
+        if (recordedPutts[i] >= 3) threePlusCount++;
+    }
+
+    return {
+        total: total,
+        average: average,
+        onePutt: onePuttCount,
+        threePlus: threePlusCount,
+        recordedHoles: recordedPutts.length
+    };
+}
+
 function formatOverUnder(overUnder) {
     if (overUnder === 0) return 'E (Even Par)';
     if (overUnder > 0) return '+' + overUnder + ' over par';
@@ -514,11 +786,47 @@ function getScoreClass(score, par) {
 function renderResultHeader(round) {
     resultCourseName.textContent = round.courseName;
     resultDate.textContent = formatDate(round.date);
+
+    // ★ A4 신규: 게임 모드 배지
+    const mode = round.gameMode || 'gross';  // 옛날 라운드 호환
+    if (mode === 'net') {
+        resultGameModeBadge.textContent = 'NET';
+        resultGameModeBadge.classList.add('net-mode');
+    } else {
+        resultGameModeBadge.textContent = 'GROSS';
+        resultGameModeBadge.classList.remove('net-mode');
+    }
 }
 
 function renderResultTotal(stats) {
     resultTotalScore.textContent = stats.totalScore;
     resultOverUnder.textContent = formatOverUnder(stats.overUnder);
+}
+
+// ★ A4 신규: Net Score 섹션 렌더링
+function renderResultNet(round, stats) {
+    const mode = round.gameMode || 'gross';
+
+    if (mode !== 'net') {
+        resultNetSection.classList.add('hidden');
+        return;
+    }
+
+    // Net 모드인데 핸디 정보 없으면 표시 안 함
+    if (round.courseHandicap === null || round.courseHandicap === undefined) {
+        resultNetSection.classList.add('hidden');
+        return;
+    }
+
+    const handicap = round.courseHandicap;
+    const netTotal = stats.totalScore - handicap;
+    const netOverUnder = netTotal - stats.totalPar;
+
+    resultHandicapDisplay.textContent = handicap;
+    resultNetScore.textContent = netTotal;
+    resultNetOverUnder.textContent = formatOverUnder(netOverUnder);
+
+    resultNetSection.classList.remove('hidden');
 }
 
 function renderResultHalves(stats) {
@@ -532,6 +840,24 @@ function renderScoreDistribution(stats) {
     countPar.textContent = stats.pars;
     countBogey.textContent = stats.bogeys;
     countDoublePlus.textContent = stats.doublePlus;
+}
+
+// ★ A4 신규: 퍼팅 통계 렌더링
+function renderPuttsStats(round) {
+    const puttsStats = calculatePuttsStats(round);
+
+    if (puttsStats === null) {
+        puttsStatsSection.classList.add('hidden');
+        return;
+    }
+
+    puttsTotal.textContent = puttsStats.total;
+    puttsAverage.textContent = puttsStats.average.toFixed(1);
+    puttsOne.textContent = puttsStats.onePutt;
+    puttsThreePlus.textContent = puttsStats.threePlus;
+    puttsCoverageNote.textContent = '기록된 홀: ' + puttsStats.recordedHoles + ' / 18';
+
+    puttsStatsSection.classList.remove('hidden');
 }
 
 function renderScorecardTable(tableElement, round, startHole, endHole) {
@@ -584,18 +910,19 @@ function renderScorecardTable(tableElement, round, startHole, endHole) {
     tableElement.appendChild(scoreRow);
 }
 
-// 결과 화면 통합 렌더 (round 객체를 인자로 받음)
+// ★ A4 변경: 결과 화면 렌더링 (Net + 퍼팅 추가)
 function renderResultScreen(round) {
     const stats = calculateStats(round);
 
     renderResultHeader(round);
     renderResultTotal(stats);
+    renderResultNet(round, stats);          // ★ 신규
     renderResultHalves(stats);
     renderScoreDistribution(stats);
+    renderPuttsStats(round);                // ★ 신규
     renderScorecardTable(scorecardFront, round, 1, 9);
     renderScorecardTable(scorecardBack, round, 10, 18);
 
-    // viewingPastRoundId 가 있으면 "과거 라운드 보기 모드"
     if (viewingPastRoundId !== null) {
         resultScreenTitle.textContent = '📜 과거 라운드 상세';
         btnDeleteRound.classList.remove('hidden');
@@ -605,7 +932,6 @@ function renderResultScreen(round) {
     }
 }
 
-// 과거 라운드 상세 보기
 function showPastRoundDetail(roundId) {
     const round = findRoundById(roundId);
     if (round === null) {
@@ -618,7 +944,6 @@ function showPastRoundDetail(roundId) {
     renderResultScreen(round);
 }
 
-// 과거 라운드 삭제
 function deleteViewingRound() {
     if (viewingPastRoundId === null) return;
 
@@ -641,6 +966,12 @@ function deleteViewingRound() {
 // =========================================
 // 이벤트 리스너 등록
 // =========================================
+btnEditProfile.addEventListener('click', openProfileScreen);
+btnSaveProfile.addEventListener('click', saveProfile);
+btnCancelProfile.addEventListener('click', function() {
+    showScreen(screenMain);
+});
+
 btnNewRound.addEventListener('click', openNewRoundScreen);
 
 btnContinueRound.addEventListener('click', function() {
@@ -651,6 +982,12 @@ btnContinueRound.addEventListener('click', function() {
         return;
     }
     currentRound = activeRound;
+
+    if (!currentRound.putts) {
+        currentRound.putts = [null, null, null, null, null, null, null, null, null,
+                              null, null, null, null, null, null, null, null, null];
+    }
+
     showScreen(screenHoleInput);
     renderHoleInputScreen();
 });
@@ -662,6 +999,7 @@ btnCancelNewRound.addEventListener('click', function() {
 });
 
 btnLoadPrevious.addEventListener('click', loadPreviousRound);
+selectGameMode.addEventListener('change', onGameModeChange);
 
 btnScoreMinus.addEventListener('click', function() {
     changeScore(-1);
@@ -669,6 +1007,14 @@ btnScoreMinus.addEventListener('click', function() {
 
 btnScorePlus.addEventListener('click', function() {
     changeScore(+1);
+});
+
+btnPuttsMinus.addEventListener('click', function() {
+    changePutts(-1);
+});
+
+btnPuttsPlus.addEventListener('click', function() {
+    changePutts(+1);
 });
 
 btnPrevHole.addEventListener('click', function() {

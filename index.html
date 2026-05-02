@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>7080정모 - Live Golf Scoring for Friends</title>
+    <title>정모 - Live Golf Scoring for Friends</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <header>
-        <h1>7080정모</h1>
+        <h1>정모</h1>
         <p>Live Golf Scoring for Friends</p>
     </header>
 
@@ -17,6 +17,15 @@
 
         <!-- ===== 화면 1: 메인 화면 ===== -->
         <div id="screen-main" class="screen">
+
+            <!-- ★ 신규: 프로필 카드 (상단) -->
+            <section class="profile-card" id="profile-card">
+                <div class="profile-info">
+                    <div class="profile-name" id="profile-name-display">이름을 설정해주세요</div>
+                    <div class="profile-handicap" id="profile-handicap-display">Handicap: --</div>
+                </div>
+                <button id="btn-edit-profile" class="btn-icon">⚙️</button>
+            </section>
 
             <button id="btn-new-round">새 라운드 시작</button>
             <button id="btn-continue-round" class="btn-continue hidden">▶ 진행 중 라운드 이어하기</button>
@@ -59,6 +68,24 @@
                 <button id="btn-load-previous" class="btn-secondary hidden" style="margin-top: 8px;">📋 이전 라운드에서 불러오기</button>
             </section>
 
+            <!-- ★ 신규: 게임 모드 선택 -->
+            <section>
+                <label for="select-game-mode">게임 모드</label>
+                <select id="select-game-mode">
+                    <option value="gross">Gross — 총 타수 (실력 그대로)</option>
+                    <option value="net">Net — 핸디 적용 (공정한 게임)</option>
+                </select>
+                <p class="hint" id="game-mode-hint">총 타수 그대로 비교합니다. 1단계와 동일한 방식.</p>
+
+                <div id="net-info-box" class="info-box hidden" style="margin-top: 8px;">
+                    <div class="info-box-title">⛳ Net Score 모드</div>
+                    <div class="info-box-content">
+                        총 타수에서 <strong>Course Handicap</strong>을 빼서 계산합니다.<br>
+                        현재 Course Handicap: <strong id="display-course-handicap">--</strong>
+                    </div>
+                </div>
+            </section>
+
             <section>
                 <h3>18홀 파 정보</h3>
                 <p class="hint">각 홀의 파를 입력하세요 (3, 4, 5)</p>
@@ -75,7 +102,7 @@
 
         </div>
 
-        <!-- ===== 화면 3: 홀 입력 화면 ===== -->
+       <!-- ===== 화면 3: 홀 입력 화면 ===== -->
         <div id="screen-hole-input" class="screen hidden">
 
             <div class="progress-bar">
@@ -95,6 +122,16 @@
                     <button id="btn-score-minus" class="btn-circle">−</button>
                     <button id="btn-score-plus" class="btn-circle">+</button>
                 </div>
+
+                <!-- ★ A3 신규: 퍼팅 수 입력 (선택사항) -->
+                <div class="putts-input-row">
+                    <span class="putts-label">퍼팅 수 (선택)</span>
+                    <div class="putts-buttons">
+                        <button id="btn-putts-minus" class="btn-mini">−</button>
+                        <span class="putts-display" id="putts-display">-</span>
+                        <button id="btn-putts-plus" class="btn-mini">+</button>
+                    </div>
+                </div>
             </section>
 
             <div class="hole-nav">
@@ -104,7 +141,7 @@
 
         </div>
 
-        <!-- ===== 화면 4: 라운드 결과 화면 (현재 라운드 + 과거 라운드 공용) ===== -->
+<!-- ===== 화면 4: 라운드 결과 화면 ===== -->
         <div id="screen-result" class="screen hidden">
 
             <h2 id="result-screen-title">🏌️ 라운드 결과</h2>
@@ -112,11 +149,22 @@
             <section class="result-header">
                 <div class="result-course-name" id="result-course-name">-</div>
                 <div class="result-date" id="result-date">-</div>
+                <!-- ★ A4 신규: 게임 모드 배지 -->
+                <div class="game-mode-badge" id="result-game-mode-badge">Gross</div>
             </section>
 
+            <!-- ★ A4 변경: Gross 표시 -->
             <section class="result-total">
+                <div class="result-label">Gross Score</div>
                 <div class="result-total-score" id="result-total-score">0</div>
                 <div class="result-over-under" id="result-over-under">E</div>
+            </section>
+
+            <!-- ★ A4 신규: Net Score 섹션 (Net 모드일 때만) -->
+            <section class="result-net hidden" id="result-net-section">
+                <div class="result-label">Net Score (Course Handicap <span id="result-handicap-display">--</span> 적용)</div>
+                <div class="result-net-score" id="result-net-score">0</div>
+                <div class="result-net-over-under" id="result-net-over-under">E</div>
             </section>
 
             <section class="result-halves">
@@ -157,6 +205,30 @@
                 </div>
             </section>
 
+            <!-- ★ A4 신규: 퍼팅 통계 (퍼팅 데이터 있을 때만) -->
+            <section id="putts-stats-section" class="hidden">
+                <h3>🎯 퍼팅 통계</h3>
+                <div class="putts-stats">
+                    <div class="putts-stat-item">
+                        <div class="putts-stat-label">총 퍼팅</div>
+                        <div class="putts-stat-value" id="putts-total">0</div>
+                    </div>
+                    <div class="putts-stat-item">
+                        <div class="putts-stat-label">평균/홀</div>
+                        <div class="putts-stat-value" id="putts-average">0</div>
+                    </div>
+                    <div class="putts-stat-item">
+                        <div class="putts-stat-label">1퍼팅</div>
+                        <div class="putts-stat-value" id="putts-one">0</div>
+                    </div>
+                    <div class="putts-stat-item">
+                        <div class="putts-stat-label">3퍼팅+</div>
+                        <div class="putts-stat-value" id="putts-three-plus">0</div>
+                    </div>
+                </div>
+                <p class="hint" id="putts-coverage-note">기록된 홀: -- / 18</p>
+            </section>
+
             <section>
                 <h3>📋 스코어카드</h3>
 
@@ -173,6 +245,28 @@
 
             <button id="btn-back-to-main-from-result">메인으로</button>
             <button id="btn-delete-round" class="btn-danger hidden">🗑️ 이 라운드 삭제</button>
+
+        </div>
+        
+        <!-- ===== ★ 신규 화면 5: 사용자 프로필 ===== -->
+        <div id="screen-profile" class="screen hidden">
+
+            <h2>👤 내 프로필</h2>
+
+            <section>
+                <label for="input-user-name">이름</label>
+                <input type="text" id="input-user-name" placeholder="예: 김민준" maxlength="20">
+                <p class="hint">정모에서 다른 사람에게 보일 이름입니다.</p>
+            </section>
+
+            <section>
+                <label for="input-handicap-index">Handicap Index</label>
+                <input type="number" id="input-handicap-index" placeholder="예: 18.0" min="0" max="54" step="0.1">
+                <p class="hint">USGA WHS 기준 (0.0 ~ 54.0). 모르면 비워둬도 됩니다.</p>
+            </section>
+
+            <button id="btn-save-profile">저장</button>
+            <button id="btn-cancel-profile" class="btn-secondary">취소</button>
 
         </div>
 
