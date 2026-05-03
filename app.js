@@ -1,13 +1,57 @@
 // =========================================
+// Firebase 초기화 + 익명 로그인 (2단계 B)
+// =========================================
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser = null;
+
+auth.signInAnonymously()
+    .then(function(result) {
+        currentUser = result.user;
+        console.log('✅ 익명 로그인 성공');
+        console.log('   User ID:', currentUser.uid);
+    })
+    .catch(function(error) {
+        console.error('❌ 익명 로그인 실패:', error.code, error.message);
+        alert('Firebase 연결 실패. 인터넷 연결을 확인하세요.');
+    });
+
+auth.onAuthStateChanged(function(user) {
+    if (user) {
+        currentUser = user;
+        console.log('🔐 로그인 상태 확인됨:', user.uid);
+    } else {
+        currentUser = null;
+        console.log('🚪 로그아웃 상태');
+    }
+});
+
+// =========================================
 // 화면 요소 가져오기
 // =========================================
 const screenMain = document.getElementById('screen-main');
+const screenModeSelect = document.getElementById('screen-mode-select');
+const screenShareLink = document.getElementById('screen-share-link');
+const screenJoinRound = document.getElementById('screen-join-round');
 const screenNewRound = document.getElementById('screen-new-round');
 const screenHoleInput = document.getElementById('screen-hole-input');
 const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
 
-const allScreens = [screenMain, screenNewRound, screenHoleInput, screenResult, screenProfile];
+const allScreens = [
+    screenMain,
+    screenModeSelect,
+    screenShareLink,
+    screenJoinRound,
+    screenNewRound,
+    screenHoleInput,
+    screenResult,
+    screenProfile
+];
 
 // 메인 화면 - 프로필 카드
 const profileNameDisplay = document.getElementById('profile-name-display');
@@ -31,6 +75,32 @@ const btnLoadPrevious = document.getElementById('btn-load-previous');
 const inputCourseName = document.getElementById('input-course-name');
 const parInputsFront = document.getElementById('par-inputs-front');
 const parInputsBack = document.getElementById('par-inputs-back');
+
+// 모드 선택 화면 (2단계 B)
+const btnModePersonal = document.getElementById('btn-mode-personal');
+const btnModeShared = document.getElementById('btn-mode-shared');
+const btnCancelModeSelect = document.getElementById('btn-cancel-mode-select');
+
+// 공유 링크 화면 (2단계 B)
+const shareCodeDisplay = document.getElementById('share-code-display');
+const shareLinkDisplay = document.getElementById('share-link-display');
+const btnCopyLink = document.getElementById('btn-copy-link');
+const copyFeedback = document.getElementById('copy-feedback');
+const shareMembersList = document.getElementById('share-members-list');
+const btnStartSharedRound = document.getElementById('btn-start-shared-round');
+const btnCancelSharedRound = document.getElementById('btn-cancel-shared-round');
+
+// 참여 확인 화면 (2단계 B - B5)
+const joinShareCode = document.getElementById('join-share-code');
+const joinCourseName = document.getElementById('join-course-name');
+const joinHostName = document.getElementById('join-host-name');
+const joinMemberCount = document.getElementById('join-member-count');
+const joinInfoCard = document.getElementById('join-info-card');
+const joinLoading = document.getElementById('join-loading');
+const joinError = document.getElementById('join-error');
+const joinErrorMessage = document.getElementById('join-error-message');
+const btnConfirmJoin = document.getElementById('btn-confirm-join');
+const btnCancelJoin = document.getElementById('btn-cancel-join');
 
 // 게임 모드 선택
 const selectGameMode = document.getElementById('select-game-mode');
@@ -72,7 +142,7 @@ const scorecardBack = document.getElementById('scorecard-back');
 const btnBackToMainFromResult = document.getElementById('btn-back-to-main-from-result');
 const btnDeleteRound = document.getElementById('btn-delete-round');
 
-// ★ A4 신규: 결과 화면 게임 모드/Net/퍼팅
+// 결과 화면 게임 모드/Net/퍼팅
 const resultGameModeBadge = document.getElementById('result-game-mode-badge');
 const resultNetSection = document.getElementById('result-net-section');
 const resultHandicapDisplay = document.getElementById('result-handicap-display');
@@ -85,8 +155,8 @@ const puttsOne = document.getElementById('putts-one');
 const puttsThreePlus = document.getElementById('putts-three-plus');
 const puttsCoverageNote = document.getElementById('putts-coverage-note');
 
-// 프로필 화면
-const inputUserName = document.getElementById('input-user-name');
+// 프로필 화면 (★ 수정: ID 충돌 방지를 위해 input-profile-name으로 변경됨)
+const inputProfileName = document.getElementById('input-profile-name');
 const inputHandicapIndex = document.getElementById('input-handicap-index');
 const btnSaveProfile = document.getElementById('btn-save-profile');
 const btnCancelProfile = document.getElementById('btn-cancel-profile');
@@ -95,16 +165,20 @@ const btnCancelProfile = document.getElementById('btn-cancel-profile');
 // 전역 상태
 // =========================================
 let currentRound = null;
+let currentRoundMode = null;       // 'personal' 또는 'shared'
+let currentSharedRoundId = null;   // 현재 공유 라운드 코드 (예: "ABC123")
+let pendingJoinCode = null;        // ★ B5: URL에서 추출한 참여 대기 코드
+let pendingJoinData = null;        // ★ B5: Firestore에서 가져온 라운드 정보
 let viewingPastRoundId = null;
 
 const STORAGE_KEYS = {
     ACTIVE_ROUND: 'golf_active_round',
     COMPLETED_ROUNDS: 'golf_rounds',
-    USER_PROFILE: 'golf_user_profile'
+    USER_PROFILE: 'golf_user_profile'   // ★ 추가: 누락되어 있던 키
 };
 
 // =========================================
-// localStorage (변경 없음)
+// localStorage
 // =========================================
 function saveActiveRound() {
     if (currentRound === null) {
@@ -198,7 +272,7 @@ function showScreen(screenToShow) {
 }
 
 // =========================================
-// 메인 화면 렌더링 (변경 없음)
+// 메인 화면 렌더링
 // =========================================
 function refreshMainScreen() {
     const activeRound = loadActiveRound();
@@ -309,18 +383,18 @@ function escapeHtml(str) {
 }
 
 // =========================================
-// 프로필 화면 (변경 없음)
+// 프로필 화면
 // =========================================
 function openProfileScreen() {
     const profile = loadUserProfile();
 
     if (profile !== null) {
-        inputUserName.value = profile.name || '';
+        inputProfileName.value = profile.name || '';
         inputHandicapIndex.value = (profile.handicapIndex !== null && profile.handicapIndex !== undefined)
             ? profile.handicapIndex
             : '';
     } else {
-        inputUserName.value = '';
+        inputProfileName.value = '';
         inputHandicapIndex.value = '';
     }
 
@@ -328,7 +402,7 @@ function openProfileScreen() {
 }
 
 function saveProfile() {
-    const name = inputUserName.value.trim();
+    const name = inputProfileName.value.trim();
 
     if (name === '') {
         alert('이름을 입력해주세요.');
@@ -372,7 +446,7 @@ function saveProfile() {
 }
 
 // =========================================
-// 새 라운드 폼 관련 (변경 없음)
+// 새 라운드 폼 관련
 // =========================================
 function createParInputs(prefilledPars) {
     parInputsFront.innerHTML = '';
@@ -533,7 +607,7 @@ function loadPreviousRound() {
 }
 
 // =========================================
-// 홀 입력 화면 (변경 없음)
+// 홀 입력 화면
 // =========================================
 function renderHoleInputScreen() {
     courseNameDisplay.textContent = currentRound.courseName;
@@ -676,7 +750,7 @@ function finishRound() {
 }
 
 // =========================================
-// ★ A4 변경: 결과 화면 (Net Score + 퍼팅 통계)
+// 결과 화면 (Net Score + 퍼팅 통계)
 // =========================================
 function calculateStats(round) {
     let totalScore = 0;
@@ -730,10 +804,9 @@ function calculateStats(round) {
     };
 }
 
-// ★ A4 신규: 퍼팅 통계 계산
 function calculatePuttsStats(round) {
     if (!round.putts) {
-        return null;  // 옛날 라운드 (퍼팅 데이터 없음)
+        return null;
     }
 
     const recordedPutts = round.putts.filter(function(p) {
@@ -741,7 +814,7 @@ function calculatePuttsStats(round) {
     });
 
     if (recordedPutts.length === 0) {
-        return null;  // 입력 안 한 라운드
+        return null;
     }
 
     const total = recordedPutts.reduce(function(a, b) { return a + b; }, 0);
@@ -787,8 +860,7 @@ function renderResultHeader(round) {
     resultCourseName.textContent = round.courseName;
     resultDate.textContent = formatDate(round.date);
 
-    // ★ A4 신규: 게임 모드 배지
-    const mode = round.gameMode || 'gross';  // 옛날 라운드 호환
+    const mode = round.gameMode || 'gross';
     if (mode === 'net') {
         resultGameModeBadge.textContent = 'NET';
         resultGameModeBadge.classList.add('net-mode');
@@ -803,7 +875,6 @@ function renderResultTotal(stats) {
     resultOverUnder.textContent = formatOverUnder(stats.overUnder);
 }
 
-// ★ A4 신규: Net Score 섹션 렌더링
 function renderResultNet(round, stats) {
     const mode = round.gameMode || 'gross';
 
@@ -812,7 +883,6 @@ function renderResultNet(round, stats) {
         return;
     }
 
-    // Net 모드인데 핸디 정보 없으면 표시 안 함
     if (round.courseHandicap === null || round.courseHandicap === undefined) {
         resultNetSection.classList.add('hidden');
         return;
@@ -842,7 +912,6 @@ function renderScoreDistribution(stats) {
     countDoublePlus.textContent = stats.doublePlus;
 }
 
-// ★ A4 신규: 퍼팅 통계 렌더링
 function renderPuttsStats(round) {
     const puttsStats = calculatePuttsStats(round);
 
@@ -910,16 +979,15 @@ function renderScorecardTable(tableElement, round, startHole, endHole) {
     tableElement.appendChild(scoreRow);
 }
 
-// ★ A4 변경: 결과 화면 렌더링 (Net + 퍼팅 추가)
 function renderResultScreen(round) {
     const stats = calculateStats(round);
 
     renderResultHeader(round);
     renderResultTotal(stats);
-    renderResultNet(round, stats);          // ★ 신규
+    renderResultNet(round, stats);
     renderResultHalves(stats);
     renderScoreDistribution(stats);
-    renderPuttsStats(round);                // ★ 신규
+    renderPuttsStats(round);
     renderScorecardTable(scorecardFront, round, 1, 9);
     renderScorecardTable(scorecardBack, round, 10, 18);
 
@@ -964,6 +1032,372 @@ function deleteViewingRound() {
 }
 
 // =========================================
+// 공유 라운드 — Firestore 관련 함수 (2단계 B)
+// =========================================
+
+// 6자리 공유 코드 생성 (대문자 + 숫자, 헷갈리는 글자 제외)
+function generateShareCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+
+// 공유 링크 만들기 (현재 호스팅 환경 기반)
+function buildShareLink(code) {
+    // 현재 도메인 + 경로 + ?r=코드
+    // 예: http://127.0.0.1:5500/index.html?r=ABC123
+    // 예: https://username.github.io/jeongmo/?r=ABC123
+    const base = window.location.origin + window.location.pathname;
+    return base + '?r=' + code;
+}
+
+// Firestore에 공유 라운드 만들기
+function createSharedRound(formData) {
+    if (currentUser === null) {
+        alert('로그인 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
+    const profile = loadUserProfile();
+    if (profile === null) {
+        alert('프로필이 설정되지 않았습니다.');
+        return;
+    }
+
+    const shareCode = generateShareCode();
+    const userId = currentUser.uid;
+
+    console.log('🔵 공유 라운드 생성 중...', shareCode);
+
+    // 1. 라운드 문서 만들기
+    const roundData = {
+        courseName: formData.courseName,
+        pars: formData.pars,
+        gameMode: formData.gameMode,
+        hostId: userId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'active'
+    };
+
+    db.collection('rounds').doc(shareCode).set(roundData)
+        .then(function() {
+            console.log('✅ 라운드 문서 생성 완료');
+
+            // 2. 호스트를 멤버로 추가
+            const memberData = {
+                name: profile.name,
+                handicapIndex: profile.handicapIndex !== null ? profile.handicapIndex : null,
+                courseHandicap: formData.courseHandicap,
+                scores: new Array(18).fill(null),
+                putts: new Array(18).fill(null),
+                currentHole: 1,
+                joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            return db.collection('rounds').doc(shareCode)
+                .collection('members').doc(userId).set(memberData);
+        })
+        .then(function() {
+            console.log('✅ 호스트 멤버 등록 완료');
+            currentSharedRoundId = shareCode;
+            showShareLinkScreen(shareCode);
+        })
+        .catch(function(error) {
+            console.error('❌ 공유 라운드 생성 실패:', error);
+            alert('공유 라운드 생성 실패: ' + error.message);
+        });
+}
+
+// 공유 링크 화면 표시
+function showShareLinkScreen(shareCode) {
+    const link = buildShareLink(shareCode);
+    const profile = loadUserProfile();
+
+    shareCodeDisplay.textContent = shareCode;
+    shareLinkDisplay.value = link;
+
+    // 멤버 목록 (지금은 호스트만)
+    shareMembersList.innerHTML = '';
+    const memberDiv = document.createElement('div');
+    memberDiv.className = 'share-member';
+    memberDiv.textContent = '👑 ' + (profile ? profile.name : '나') + ' (호스트)';
+    shareMembersList.appendChild(memberDiv);
+
+    copyFeedback.classList.add('hidden');
+    showScreen(screenShareLink);
+}
+
+// 클립보드 복사
+function copyShareLink() {
+    const link = shareLinkDisplay.value;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link)
+            .then(function() {
+                showCopyFeedback();
+            })
+            .catch(function(error) {
+                console.error('클립보드 복사 실패:', error);
+                fallbackCopy();
+            });
+    } else {
+        fallbackCopy();
+    }
+}
+
+function fallbackCopy() {
+    shareLinkDisplay.select();
+    try {
+        document.execCommand('copy');
+        showCopyFeedback();
+    } catch (error) {
+        alert('복사 실패. 링크를 직접 선택해서 복사하세요.');
+    }
+}
+
+function showCopyFeedback() {
+    copyFeedback.classList.remove('hidden');
+    setTimeout(function() {
+        copyFeedback.classList.add('hidden');
+    }, 2000);
+}
+
+// =========================================
+// 공유 라운드 — 참여 (URL 라우팅) (2단계 B - B5)
+// =========================================
+
+// URL에서 공유 코드 추출
+function extractShareCodeFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('r');
+
+    if (code === null || code === '') return null;
+
+    // 6자리 영숫자 검증 (generateShareCode 형식)
+    const validPattern = /^[A-HJ-NP-Z2-9]{6}$/;
+    if (!validPattern.test(code)) {
+        console.warn('⚠️ 잘못된 공유 코드 형식:', code);
+        return null;
+    }
+
+    return code;
+}
+
+// URL에서 ?r=... 제거 (참여 후 깔끔하게)
+function clearShareCodeFromUrl() {
+    if (window.history && window.history.replaceState) {
+        const newUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+    }
+}
+
+// 라운드 정보를 Firestore에서 가져오기
+function fetchSharedRound(shareCode) {
+    return db.collection('rounds').doc(shareCode).get()
+        .then(function(doc) {
+            if (!doc.exists) {
+                throw new Error('NOT_FOUND');
+            }
+
+            const roundData = doc.data();
+
+            // 호스트 멤버 정보도 같이 가져오기 (호스트 이름 표시용)
+            return db.collection('rounds').doc(shareCode)
+                .collection('members').doc(roundData.hostId).get()
+                .then(function(hostDoc) {
+                    return {
+                        roundData: roundData,
+                        hostName: hostDoc.exists ? (hostDoc.data().name || '알 수 없음') : '알 수 없음'
+                    };
+                });
+        });
+}
+
+// 참여 화면 표시
+function showJoinRoundScreen(shareCode) {
+    // 화면 초기화
+    joinShareCode.textContent = shareCode;
+    joinCourseName.textContent = '-';
+    joinHostName.textContent = '-';
+    joinMemberCount.textContent = '-';
+
+    joinInfoCard.classList.add('hidden');
+    joinError.classList.add('hidden');
+    joinLoading.classList.remove('hidden');
+    btnConfirmJoin.disabled = true;
+
+    showScreen(screenJoinRound);
+
+    // Firestore에서 정보 가져오기
+    fetchSharedRound(shareCode)
+        .then(function(result) {
+            const roundData = result.roundData;
+            const hostName = result.hostName;
+
+            // 본인이 호스트인 경우
+            if (currentUser !== null && currentUser.uid === roundData.hostId) {
+                console.log('ℹ️ 본인이 호스트 - 참여 불필요');
+                alert('이 라운드는 당신이 호스트입니다!\n공유 라운드 화면으로 이동합니다.');
+                currentSharedRoundId = shareCode;
+                pendingJoinCode = null;
+                showShareLinkScreen(shareCode);
+                return;
+            }
+
+            // 멤버 수 조회
+            return db.collection('rounds').doc(shareCode)
+                .collection('members').get()
+                .then(function(membersSnapshot) {
+                    pendingJoinData = {
+                        shareCode: shareCode,
+                        roundData: roundData,
+                        hostName: hostName,
+                        memberCount: membersSnapshot.size
+                    };
+
+                    // 화면 업데이트
+                    joinCourseName.textContent = roundData.courseName;
+                    joinHostName.textContent = hostName;
+                    joinMemberCount.textContent = membersSnapshot.size + '명';
+
+                    joinLoading.classList.add('hidden');
+                    joinInfoCard.classList.remove('hidden');
+                    btnConfirmJoin.disabled = false;
+                });
+        })
+        .catch(function(error) {
+            console.error('❌ 라운드 조회 실패:', error);
+
+            joinLoading.classList.add('hidden');
+            joinInfoCard.classList.add('hidden');
+            joinError.classList.remove('hidden');
+            btnConfirmJoin.disabled = true;
+
+            if (error.message === 'NOT_FOUND') {
+                joinErrorMessage.textContent = '⚠️ 라운드를 찾을 수 없습니다.\n링크가 만료되었거나 잘못된 코드입니다.';
+            } else {
+                joinErrorMessage.textContent = '⚠️ 오류: ' + (error.message || '알 수 없는 오류');
+            }
+        });
+}
+
+// 라운드 참여 확정 (members 서브컬렉션에 추가)
+function confirmJoinRound() {
+    if (pendingJoinData === null) {
+        alert('참여할 라운드 정보가 없습니다.');
+        return;
+    }
+
+    const profile = loadUserProfile();
+    if (profile === null || !profile.name) {
+        alert('프로필이 설정되지 않았습니다. 프로필을 먼저 설정해주세요.');
+        openProfileScreen();
+        return;
+    }
+
+    if (currentUser === null) {
+        alert('로그인 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
+    const shareCode = pendingJoinData.shareCode;
+    const userId = currentUser.uid;
+
+    btnConfirmJoin.disabled = true;
+    btnConfirmJoin.textContent = '⏳ 참여 중...';
+
+    // 본인 멤버 정보
+    const memberData = {
+        name: profile.name,
+        handicapIndex: profile.handicapIndex !== null ? profile.handicapIndex : null,
+        courseHandicap: profile.handicapIndex !== null ? calculateCourseHandicap(profile.handicapIndex) : null,
+        scores: new Array(18).fill(null),
+        putts: new Array(18).fill(null),
+        currentHole: 1,
+        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    db.collection('rounds').doc(shareCode)
+        .collection('members').doc(userId).set(memberData, { merge: true })
+        .then(function() {
+            console.log('✅ 라운드 참여 완료:', shareCode);
+
+            currentSharedRoundId = shareCode;
+            currentRoundMode = 'shared';
+            pendingJoinCode = null;
+            pendingJoinData = null;
+
+            btnConfirmJoin.disabled = false;
+            btnConfirmJoin.textContent = '✅ 참여하기';
+
+            // B6에서 본격 화면 구현 — 지금은 임시 알림
+            alert('🎉 라운드에 참여했습니다!\n\n공유 코드: ' + shareCode +
+                  '\n골프장: ' + pendingJoinData?.roundData?.courseName +
+                  '\n\n실시간 동기화 + 스코어 입력은 다음 단계(B6)에서 구현됩니다.');
+
+            showScreen(screenMain);
+        })
+        .catch(function(error) {
+            console.error('❌ 라운드 참여 실패:', error);
+            alert('참여 실패: ' + error.message);
+            btnConfirmJoin.disabled = false;
+            btnConfirmJoin.textContent = '✅ 참여하기';
+        });
+}
+
+// 앱 시작 시 URL 라우팅 처리
+function handleInitialRouting() {
+    const shareCode = extractShareCodeFromUrl();
+
+    if (shareCode === null) {
+        // URL에 ?r=... 없음 → 평소대로 메인
+        return;
+    }
+
+    console.log('🔗 공유 링크 감지:', shareCode);
+    pendingJoinCode = shareCode;
+
+    // URL 정리 (새로고침해도 다시 묻지 않게)
+    clearShareCodeFromUrl();
+
+    // 프로필 체크
+    const profile = loadUserProfile();
+    if (profile === null || !profile.name) {
+        alert('공유 라운드에 참여하려면 먼저 이름을 설정해주세요.\n프로필 설정 후 다시 링크를 클릭하세요.');
+        openProfileScreen();
+        return;
+    }
+
+    // 익명 로그인 완료 후 참여 화면으로
+    // (currentUser가 아직 null일 수 있으므로 onAuthStateChanged에서 처리하는 게 안전)
+    waitForAuthAndShowJoin(shareCode);
+}
+
+// 익명 로그인 완료를 기다린 후 참여 화면 표시
+function waitForAuthAndShowJoin(shareCode) {
+    if (currentUser !== null) {
+        showJoinRoundScreen(shareCode);
+        return;
+    }
+
+    // 1초마다 체크 (최대 10초)
+    let attempts = 0;
+    const checkInterval = setInterval(function() {
+        attempts++;
+        if (currentUser !== null) {
+            clearInterval(checkInterval);
+            showJoinRoundScreen(shareCode);
+        } else if (attempts >= 10) {
+            clearInterval(checkInterval);
+            alert('Firebase 연결 실패. 인터넷 연결을 확인하고 다시 시도하세요.');
+        }
+    }, 1000);
+}
+
+// =========================================
 // 이벤트 리스너 등록
 // =========================================
 btnEditProfile.addEventListener('click', openProfileScreen);
@@ -972,7 +1406,9 @@ btnCancelProfile.addEventListener('click', function() {
     showScreen(screenMain);
 });
 
-btnNewRound.addEventListener('click', openNewRoundScreen);
+btnNewRound.addEventListener('click', function() {
+    showScreen(screenModeSelect);
+});
 
 btnContinueRound.addEventListener('click', function() {
     const activeRound = loadActiveRound();
@@ -992,9 +1428,48 @@ btnContinueRound.addEventListener('click', function() {
     renderHoleInputScreen();
 });
 
-btnStartRound.addEventListener('click', startNewRound);
+btnStartRound.addEventListener('click', function() {
+    if (currentRoundMode === 'shared') {
+        // 공유 라운드: Firestore에 만들고 공유 링크 화면으로
+        const formData = readNewRoundForm();
+        if (formData === null) return;
+
+        createSharedRound(formData);
+    } else {
+        // 개인 라운드: 1단계 그대로
+        startNewRound();
+    }
+});
 
 btnCancelNewRound.addEventListener('click', function() {
+    currentRoundMode = null;
+    showScreen(screenMain);
+});
+
+// 모드 선택 화면 이벤트
+btnModePersonal.addEventListener('click', function() {
+    currentRoundMode = 'personal';
+    console.log('🟢 개인 라운드 모드 선택');
+    openNewRoundScreen();
+});
+
+btnModeShared.addEventListener('click', function() {
+    console.log('🔵 공유 라운드 모드 선택 시도');
+
+    // 프로필 체크: 이름이 있어야 친구들에게 보여줄 수 있음
+    const profile = loadUserProfile();
+    if (profile === null || !profile.name) {
+        alert('공유 라운드를 만들려면 먼저 이름을 설정해주세요.\n프로필 설정 화면으로 이동합니다.');
+        openProfileScreen();
+        return;
+    }
+
+    currentRoundMode = 'shared';
+    console.log('🔵 공유 라운드 모드 확정 (호스트:', profile.name + ')');
+    openNewRoundScreen();
+});
+
+btnCancelModeSelect.addEventListener('click', function() {
     showScreen(screenMain);
 });
 
@@ -1039,6 +1514,39 @@ btnBackToMainFromResult.addEventListener('click', function() {
 btnDeleteRound.addEventListener('click', deleteViewingRound);
 
 // =========================================
+// 2단계 B: 공유 링크 화면 이벤트
+// =========================================
+btnCopyLink.addEventListener('click', copyShareLink);
+
+btnStartSharedRound.addEventListener('click', function() {
+    // B5/B6에서 본격 구현 — 지금은 임시 메시지
+    alert('공유 라운드 시작은 다음 단계(B5/B6)에서 구현됩니다!\n지금은 라운드가 Firestore에 만들어지는 것까지만 확인하세요.');
+    showScreen(screenMain);
+});
+
+btnCancelSharedRound.addEventListener('click', function() {
+    if (confirm('정말 취소하시겠습니까? 만든 공유 라운드는 그대로 남습니다.')) {
+        currentSharedRoundId = null;
+        currentRoundMode = null;
+        showScreen(screenMain);
+    }
+});
+
+// =========================================
+// 2단계 B - B5: 라운드 참여 화면 이벤트
+// =========================================
+btnConfirmJoin.addEventListener('click', confirmJoinRound);
+
+btnCancelJoin.addEventListener('click', function() {
+    if (confirm('참여를 취소하시겠습니까?')) {
+        pendingJoinCode = null;
+        pendingJoinData = null;
+        showScreen(screenMain);
+    }
+});
+
+// =========================================
 // 앱 시작 시 초기화
 // =========================================
 refreshMainScreen();
+handleInitialRouting();   // ★ B5: URL에 공유 코드 있으면 참여 흐름 시작

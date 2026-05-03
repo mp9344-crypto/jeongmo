@@ -764,3 +764,221 @@ select:focus {
     font-weight: bold;
     color: #2d6a4f;
 }
+/* =========================================
+   라운드 모드 선택 화면 (2단계 B)
+   ========================================= */
+
+.mode-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 24px 0;
+}
+
+.mode-card {
+    width: 100%;
+    padding: 24px 20px;
+    background: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.mode-card:hover {
+    border-color: #2e7d32;
+    background: #f1f8e9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.mode-card:active {
+    transform: translateY(0);
+}
+
+.mode-icon {
+    font-size: 48px;
+    margin-bottom: 8px;
+}
+
+.mode-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #2e7d32;
+    margin-bottom: 6px;
+}
+
+.mode-desc {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+}
+/* =========================================
+   사용자 이름 입력 화면 (2단계 B)
+   ========================================= */
+
+#input-user-name {
+    width: 100%;
+    padding: 14px;
+    font-size: 18px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+#input-user-name:focus {
+    border-color: #2e7d32;
+    outline: none;
+}
+
+/* =========================================
+   공유 링크 표시 화면 (2단계 B)
+   ========================================= */
+
+.share-info {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+}
+
+.share-label {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.share-code {
+    font-size: 36px;
+    font-weight: bold;
+    color: #2e7d32;
+    text-align: center;
+    letter-spacing: 4px;
+    font-family: 'Courier New', monospace;
+    background: #fff;
+    padding: 16px;
+    border-radius: 8px;
+    border: 2px dashed #2e7d32;
+}
+
+.share-link-box {
+    display: flex;
+    gap: 8px;
+}
+
+.share-link-box input {
+    flex: 1;
+    padding: 12px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    font-family: inherit;
+    color: #333;
+}
+
+#btn-copy-link {
+    padding: 12px 16px;
+    background: #2e7d32;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#btn-copy-link:hover {
+    background: #1b5e20;
+}
+
+.copy-feedback {
+    margin-top: 8px;
+    color: #2e7d32;
+    font-weight: 600;
+    text-align: center;
+    font-size: 14px;
+}
+
+.share-members {
+    background: #fff;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.share-member {
+    padding: 8px 0;
+    font-size: 16px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.share-member:last-child {
+    border-bottom: none;
+}
+/* =========================================
+   라운드 참여 확인 화면 (2단계 B - B5)
+   ========================================= */
+
+.join-info {
+    background: #fff;
+    border: 2px solid #2e7d32;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.join-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.join-row:last-child {
+    border-bottom: none;
+}
+
+.join-label {
+    font-size: 14px;
+    color: #666;
+    font-weight: 600;
+}
+
+.join-value {
+    font-size: 16px;
+    color: #2e7d32;
+    font-weight: bold;
+    text-align: right;
+}
+
+#join-share-code {
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+}
+
+.join-loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    font-size: 16px;
+}
+
+.join-error {
+    background: #ffebee;
+    border: 2px solid #c62828;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.error-message {
+    color: #c62828;
+    font-weight: 600;
+    margin: 0;
+    text-align: center;
+}
