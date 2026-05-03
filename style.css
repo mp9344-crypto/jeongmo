@@ -1253,3 +1253,19 @@ select:focus {
     color: #555;
     line-height: 1.6;
 }
+
+/* 정모 참여 화면 - 본인 정보 미리보기 (C2-2) */
+.my-profile-preview {
+    background: #f1f8e9;
+    border: 2px solid #aed581;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 16px 0;
+}
+
+.my-profile-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #2e7d32;
+    margin-bottom: 10px;
+}

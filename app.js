@@ -40,6 +40,7 @@ const screenJoinRound = document.getElementById('screen-join-round');
 const screenNewRound = document.getElementById('screen-new-round');
 const screenTournamentCreate = document.getElementById('screen-tournament-create');
 const screenTournamentLink = document.getElementById('screen-tournament-link');
+const screenTournamentJoin = document.getElementById('screen-tournament-join');
 const screenHoleInput = document.getElementById('screen-hole-input');
 const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
@@ -52,6 +53,7 @@ const allScreens = [
     screenNewRound,
     screenTournamentCreate,
     screenTournamentLink,
+    screenTournamentJoin,
     screenHoleInput,
     screenResult,
     screenProfile
@@ -114,6 +116,27 @@ const tournamentCopyFeedback = document.getElementById('tournament-copy-feedback
 const tournamentLinkMembersList = document.getElementById('tournament-link-members-list');
 const btnGoToWaitingRoom = document.getElementById('btn-go-to-waiting-room');
 const btnBackToMainFromTournamentLink = document.getElementById('btn-back-to-main-from-tournament-link');
+
+// 정모 참여 확인 화면 (2단계 C - C2-2)
+const tournamentJoinLoading = document.getElementById('tournament-join-loading');
+const tournamentJoinInfoCard = document.getElementById('tournament-join-info-card');
+const tournamentJoinName = document.getElementById('tournament-join-name');
+const tournamentJoinCode = document.getElementById('tournament-join-code');
+const tournamentJoinCourse = document.getElementById('tournament-join-course');
+const tournamentJoinDate = document.getElementById('tournament-join-date');
+const tournamentJoinHost = document.getElementById('tournament-join-host');
+const tournamentJoinMode = document.getElementById('tournament-join-mode');
+const tournamentJoinMemberCount = document.getElementById('tournament-join-member-count');
+const tournamentJoinMyProfile = document.getElementById('tournament-join-my-profile');
+const tournamentJoinMyName = document.getElementById('tournament-join-my-name');
+const tournamentJoinMyHandicapRow = document.getElementById('tournament-join-my-handicap-row');
+const tournamentJoinMyHandicap = document.getElementById('tournament-join-my-handicap');
+const tournamentJoinMyCourseHandicapRow = document.getElementById('tournament-join-my-course-handicap-row');
+const tournamentJoinMyCourseHandicap = document.getElementById('tournament-join-my-course-handicap');
+const tournamentJoinError = document.getElementById('tournament-join-error');
+const tournamentJoinErrorMessage = document.getElementById('tournament-join-error-message');
+const btnConfirmTournamentJoin = document.getElementById('btn-confirm-tournament-join');
+const btnCancelTournamentJoin = document.getElementById('btn-cancel-tournament-join');
 
 // 공유 링크 화면 (2단계 B)
 const shareCodeDisplay = document.getElementById('share-code-display');
@@ -812,6 +835,13 @@ btnCancelTournamentCreate.addEventListener('click', function() {
 // 정모 코드/링크 화면 이벤트 (C1-3)
 btnCopyTournamentLink.addEventListener('click', copyTournamentLink);
 btnBackToMainFromTournamentLink.addEventListener('click', function() {
+    showScreen(screenMain);
+});
+
+// 정모 참여 확인 화면 이벤트 (C2-2)
+btnConfirmTournamentJoin.addEventListener('click', joinTournament);
+btnCancelTournamentJoin.addEventListener('click', function() {
+    pendingTournamentJoin = null;
     showScreen(screenMain);
 });
 
@@ -1548,6 +1578,159 @@ function createTournament(formData) {
         });
 }
 
+// =========================================
+// 정모 참여 (C2-2)
+// =========================================
+
+// 현재 참여 화면에 띄워진 정모 정보 (참여 버튼 클릭 시 사용)
+let pendingTournamentJoin = null;
+// { tournamentId, tournamentData, courseHandicap }
+
+// 정모 참여 확인 화면 표시
+function showTournamentJoinScreen(tournamentId, tournamentData, hostName, memberCount) {
+    const profile = loadUserProfile();
+    if (profile === null || !profile.name) {
+        alert('프로필이 설정되지 않았습니다. 먼저 이름을 설정해주세요.');
+        openProfileScreen();
+        return;
+    }
+
+    // 화면 초기화
+    tournamentJoinLoading.classList.add('hidden');
+    tournamentJoinError.classList.add('hidden');
+    tournamentJoinInfoCard.classList.remove('hidden');
+    tournamentJoinMyProfile.classList.remove('hidden');
+    btnConfirmTournamentJoin.disabled = false;
+    btnConfirmTournamentJoin.textContent = '✅ 정모 참여하기';
+
+    // 정모 정보 채우기
+    tournamentJoinName.textContent = tournamentData.name;
+    tournamentJoinCode.textContent = tournamentId;
+    tournamentJoinCourse.textContent = tournamentData.courseName;
+    tournamentJoinDate.textContent = tournamentData.date;
+    tournamentJoinHost.textContent = hostName;
+    tournamentJoinMode.textContent = tournamentData.gameMode === 'net' ? 'Net (핸디 적용)' : 'Gross (총 타수)';
+    tournamentJoinMemberCount.textContent = memberCount + ' / ' + tournamentData.maxMembers + '명';
+
+    // 본인 정보 채우기
+    tournamentJoinMyName.textContent = profile.name;
+
+    // Net 모드면 핸디 표시 (Gross는 핸디 행 숨김)
+    let courseHandicap = 0;
+    if (tournamentData.gameMode === 'net') {
+        courseHandicap = (profile.handicapIndex !== null && profile.handicapIndex !== undefined)
+            ? calculateCourseHandicap(profile.handicapIndex)
+            : 0;
+
+        tournamentJoinMyHandicap.textContent = profile.handicapIndex !== null ? profile.handicapIndex : '-';
+        tournamentJoinMyCourseHandicap.textContent = courseHandicap;
+
+        tournamentJoinMyHandicapRow.classList.remove('hidden');
+        tournamentJoinMyCourseHandicapRow.classList.remove('hidden');
+    } else {
+        tournamentJoinMyHandicapRow.classList.add('hidden');
+        tournamentJoinMyCourseHandicapRow.classList.add('hidden');
+    }
+
+    // 참여 대기 상태 보관
+    pendingTournamentJoin = {
+        tournamentId: tournamentId,
+        tournamentData: tournamentData,
+        courseHandicap: courseHandicap
+    };
+
+    showScreen(screenTournamentJoin);
+}
+
+// 실제 정모 참여 (Firestore에 멤버 등록)
+function joinTournament() {
+    if (pendingTournamentJoin === null) {
+        alert('참여할 정모 정보가 없습니다. 페이지를 새로고침하고 다시 시도해주세요.');
+        return;
+    }
+    if (currentUser === null) {
+        alert('로그인 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
+    const profile = loadUserProfile();
+    if (profile === null || !profile.name) {
+        alert('프로필이 설정되지 않았습니다.');
+        return;
+    }
+
+    const tournamentId = pendingTournamentJoin.tournamentId;
+    const tournamentData = pendingTournamentJoin.tournamentData;
+    const courseHandicap = pendingTournamentJoin.courseHandicap;
+    const userId = currentUser.uid;
+
+    console.log('🟢 정모 참여 시작:', tournamentId, '/', profile.name);
+
+    // 더블클릭 방지
+    btnConfirmTournamentJoin.disabled = true;
+    btnConfirmTournamentJoin.textContent = '참여 중...';
+
+    // 1. 다시 한번 cap 검증 (race condition 대비)
+    db.collection('tournaments').doc(tournamentId).collection('members').get()
+        .then(function(membersSnapshot) {
+            if (membersSnapshot.size >= tournamentData.maxMembers) {
+                throw new Error('FULL');
+            }
+
+            // 2. 본인이 이미 멤버인지 다시 한번 확인 (중복 방지)
+            const alreadyMember = membersSnapshot.docs.some(function(doc) {
+                return doc.id === userId;
+            });
+            if (alreadyMember) {
+                throw new Error('ALREADY_JOINED');
+            }
+
+            // 3. 멤버 등록
+            const memberData = {
+                name: profile.name,
+                handicapIndex: profile.handicapIndex !== null ? profile.handicapIndex : null,
+                courseHandicap: courseHandicap,
+                teamId: null,
+                scores: new Array(18).fill(null),
+                putts: new Array(18).fill(null),
+                currentHole: 1,
+                completed: false,
+                joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            return db.collection('tournaments').doc(tournamentId)
+                .collection('members').doc(userId).set(memberData);
+        })
+        .then(function() {
+            console.log('✅ 정모 참여 완료');
+            currentTournamentId = tournamentId;
+            pendingTournamentJoin = null;
+
+            // C2-3에서 여기에 대기실 화면 호출 추가됨
+            // 지금은 안내 alert만
+            alert('✅ 정모 참여 완료!\n\n' +
+                  '정모: ' + tournamentData.name +
+                  '\n호스트의 시작을 기다려주세요.\n\n' +
+                  '(대기실 화면은 C2-3 단계에서 추가됩니다)');
+            showScreen(screenMain);
+        })
+        .catch(function(error) {
+            console.error('❌ 정모 참여 실패:', error);
+
+            if (error.message === 'FULL') {
+                alert('정원이 찼습니다. 다른 분이 먼저 참여한 것 같아요.');
+            } else if (error.message === 'ALREADY_JOINED') {
+                alert('이미 참여 중인 정모입니다.');
+                showScreen(screenMain);
+            } else {
+                alert('정모 참여 실패: ' + error.message);
+            }
+            btnConfirmTournamentJoin.disabled = false;
+            btnConfirmTournamentJoin.textContent = '✅ 정모 참여하기';
+        });
+}
+
 // 정모 코드/링크 화면 표시
 function showTournamentLinkScreen(tournamentId, formData) {
     const link = buildTournamentLink(tournamentId);
@@ -1997,15 +2180,7 @@ function handleTournamentEntry(tournamentCode) {
                     }
 
                     // 검증 통과 — 참여 화면(C2-2)으로
-                    // C2-1에서는 일단 안내 alert만
-                    alert('✅ 정모 참여 가능!\n\n' +
-                          '정모: ' + tournamentData.name +
-                          '\n골프장: ' + tournamentData.courseName +
-                          '\n날짜: ' + tournamentData.date +
-                          '\n호스트: ' + hostName +
-                          '\n게임 모드: ' + (tournamentData.gameMode === 'net' ? 'Net' : 'Gross') +
-                          '\n현재 인원: ' + memberCount + '/' + tournamentData.maxMembers + '명' +
-                          '\n\n(참여 화면은 C2-2 단계에서 추가됩니다)');
+                    showTournamentJoinScreen(tournamentCode, tournamentData, hostName, memberCount);
                 });
         })
         .catch(function(error) {
