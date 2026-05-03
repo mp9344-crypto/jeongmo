@@ -2138,7 +2138,21 @@ function cancelTournamentAsHost() {
         })
         .catch(function(error) {
             console.error('❌ 정모 취소 실패:', error);
-            alert('정모 취소 실패: ' + error.message + '\n\n인터넷 연결을 확인하고 다시 시도해주세요.');
+
+            let userMessage;
+            if (error.code === 'permission-denied' ||
+                (error.message && error.message.indexOf('permissions') !== -1)) {
+                userMessage = '정모 취소 실패: 권한이 없습니다.\n\n' +
+                              'Firestore 보안 규칙이 최신 버전인지 확인하세요.\n' +
+                              '(Firebase Console → Firestore → 규칙 → 게시)';
+            } else if (error.code === 'unavailable' ||
+                       (error.message && error.message.indexOf('network') !== -1)) {
+                userMessage = '정모 취소 실패: 인터넷 연결을 확인하고 다시 시도해주세요.';
+            } else {
+                userMessage = '정모 취소 실패: ' + error.message;
+            }
+            alert(userMessage);
+
             btnCancelTournament.disabled = false;
             btnCancelTournament.textContent = '⚠️ 정모 취소하고 나가기';
         });
