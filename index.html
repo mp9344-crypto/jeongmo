@@ -333,7 +333,7 @@
                 <p class="hint">멤버들이 참여하면 여기에 실시간 표시됩니다 (C2 단계)</p>
             </section>
 
-            <button id="btn-go-to-waiting-room" disabled style="opacity: 0.5;">대기실로 → (C2 단계)</button>
+            <button id="btn-go-to-waiting-room">대기실로 →</button>
             <button id="btn-back-to-main-from-tournament-link" class="btn-secondary">메인으로</button>
 
         </div>
@@ -403,6 +403,72 @@
 
             <button id="btn-confirm-tournament-join">✅ 정모 참여하기</button>
             <button id="btn-cancel-tournament-join" class="btn-secondary">취소</button>
+
+        </div>
+
+       <!-- ===== 화면 13: 정모 대기실 (2단계 C - C2-3) ===== -->
+        <div id="screen-tournament-waiting" class="screen hidden">
+
+            <h2 id="waiting-tournament-name">🏌️ 정모 대기실</h2>
+            <p class="hint" id="waiting-tournament-meta">-</p>
+
+            <!-- 정모 코드 (호스트 안내용) -->
+            <section class="share-info waiting-code-section">
+                <div class="share-label">정모 코드</div>
+                <div class="share-code-box">
+                    <div class="share-code" id="waiting-code-display">------</div>
+                    <button id="btn-copy-waiting-code" class="btn-copy-code">📋 코드만 복사</button>
+                </div>
+                <div class="copy-feedback hidden" id="waiting-code-copy-feedback">✅ 코드 복사됨!</div>
+            </section>
+
+            <!-- 정모 링크 (호스트만) -->
+            <section class="share-info waiting-link-section hidden" id="waiting-link-section">
+                <div class="share-label">정모 링크 (단톡방 공유용)</div>
+                <div class="share-link-box">
+                    <input type="text" id="waiting-link-display" readonly>
+                    <button id="btn-copy-waiting-link">📋 복사</button>
+                </div>
+                <div class="copy-feedback hidden" id="waiting-link-copy-feedback">✅ 링크 복사됨!</div>
+            </section>
+
+            <!-- 참여자 리스트 -->
+            <section class="waiting-members-section">
+                <div class="waiting-members-header">
+                    <span class="waiting-members-title">참여자</span>
+                    <span class="waiting-members-count" id="waiting-members-count">0/0</span>
+                </div>
+
+                <div class="waiting-members-list" id="waiting-members-list">
+                    <!-- 동적 생성 -->
+                </div>
+            </section>
+
+            <!-- 호스트 전용 안내 -->
+            <div class="waiting-host-notice hidden" id="waiting-host-notice">
+                <div class="waiting-notice-title">👑 호스트 안내</div>
+                <div class="waiting-notice-body">
+                    참여자가 모두 들어온 후 <strong>팀 배정</strong>을 시작하세요.<br>
+                    팀 배정 후 라운드를 시작합니다.
+                </div>
+            </div>
+
+            <!-- 게스트 전용 안내 -->
+            <div class="waiting-guest-notice hidden" id="waiting-guest-notice">
+                <div class="waiting-notice-title">⏳ 호스트의 시작을 기다리는 중</div>
+                <div class="waiting-notice-body">
+                    호스트가 팀 배정 후 라운드를 시작하면 자동으로 다음 화면으로 이동합니다.
+                </div>
+            </div>
+
+            <!-- 호스트만 보이는 팀 배정 버튼 (C3에서 활성화) -->
+            <button id="btn-go-to-team-assignment" class="hidden">🎯 팀 배정 → (C3 단계)</button>
+
+            <!-- 게스트만 보이는 나가기 버튼 -->
+            <button id="btn-leave-tournament" class="btn-secondary hidden">정모 나가기</button>
+
+            <!-- 호스트용 - 메인으로 (정모 유지) -->
+            <button id="btn-back-to-main-from-waiting" class="btn-secondary hidden">메인으로 (정모 유지)</button>
 
         </div>
 

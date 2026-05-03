@@ -41,6 +41,7 @@ const screenNewRound = document.getElementById('screen-new-round');
 const screenTournamentCreate = document.getElementById('screen-tournament-create');
 const screenTournamentLink = document.getElementById('screen-tournament-link');
 const screenTournamentJoin = document.getElementById('screen-tournament-join');
+const screenTournamentWaiting = document.getElementById('screen-tournament-waiting');
 const screenHoleInput = document.getElementById('screen-hole-input');
 const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
@@ -54,6 +55,7 @@ const allScreens = [
     screenTournamentCreate,
     screenTournamentLink,
     screenTournamentJoin,
+    screenTournamentWaiting,
     screenHoleInput,
     screenResult,
     screenProfile
@@ -139,6 +141,24 @@ const tournamentJoinError = document.getElementById('tournament-join-error');
 const tournamentJoinErrorMessage = document.getElementById('tournament-join-error-message');
 const btnConfirmTournamentJoin = document.getElementById('btn-confirm-tournament-join');
 const btnCancelTournamentJoin = document.getElementById('btn-cancel-tournament-join');
+
+// 정모 대기실 화면 (2단계 C - C2-3)
+const waitingTournamentName = document.getElementById('waiting-tournament-name');
+const waitingTournamentMeta = document.getElementById('waiting-tournament-meta');
+const waitingCodeDisplay = document.getElementById('waiting-code-display');
+const btnCopyWaitingCode = document.getElementById('btn-copy-waiting-code');
+const waitingCodeCopyFeedback = document.getElementById('waiting-code-copy-feedback');
+const waitingLinkSection = document.getElementById('waiting-link-section');
+const waitingLinkDisplay = document.getElementById('waiting-link-display');
+const btnCopyWaitingLink = document.getElementById('btn-copy-waiting-link');
+const waitingLinkCopyFeedback = document.getElementById('waiting-link-copy-feedback');
+const waitingMembersCount = document.getElementById('waiting-members-count');
+const waitingMembersList = document.getElementById('waiting-members-list');
+const waitingHostNotice = document.getElementById('waiting-host-notice');
+const waitingGuestNotice = document.getElementById('waiting-guest-notice');
+const btnGoToTeamAssignment = document.getElementById('btn-go-to-team-assignment');
+const btnLeaveTournament = document.getElementById('btn-leave-tournament');
+const btnBackToMainFromWaiting = document.getElementById('btn-back-to-main-from-waiting');
 
 // 공유 링크 화면 (2단계 B)
 const shareCodeDisplay = document.getElementById('share-code-display');
@@ -845,6 +865,57 @@ btnBackToMainFromTournamentLink.addEventListener('click', function() {
 btnConfirmTournamentJoin.addEventListener('click', joinTournament);
 btnCancelTournamentJoin.addEventListener('click', function() {
     pendingTournamentJoin = null;
+    showScreen(screenMain);
+});
+
+// 정모 대기실 화면 이벤트 (C2-3)
+btnGoToWaitingRoom.addEventListener('click', function() {
+    if (currentTournamentId === null) {
+        alert('정모 정보가 없습니다.');
+        showScreen(screenMain);
+        return;
+    }
+    enterTournamentWaitingRoom(currentTournamentId);
+});
+
+btnCopyWaitingCode.addEventListener('click', function() {
+    const code = waitingCodeDisplay.textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(function() {
+            waitingCodeCopyFeedback.classList.remove('hidden');
+            setTimeout(function() { waitingCodeCopyFeedback.classList.add('hidden'); }, 2000);
+        }).catch(function() { alert('복사 실패'); });
+    }
+});
+
+btnCopyWaitingLink.addEventListener('click', function() {
+    const link = waitingLinkDisplay.value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(function() {
+            waitingLinkCopyFeedback.classList.remove('hidden');
+            setTimeout(function() { waitingLinkCopyFeedback.classList.add('hidden'); }, 2000);
+        }).catch(function() { alert('복사 실패'); });
+    } else {
+        waitingLinkDisplay.select();
+        waitingLinkDisplay.setSelectionRange(0, 99999);
+        try {
+            document.execCommand('copy');
+            waitingLinkCopyFeedback.classList.remove('hidden');
+            setTimeout(function() { waitingLinkCopyFeedback.classList.add('hidden'); }, 2000);
+        } catch (err) {
+            alert('복사 실패');
+        }
+    }
+});
+
+btnGoToTeamAssignment.addEventListener('click', function() {
+    alert('🎯 팀 배정 기능은 C3 단계에서 추가됩니다.\n\n현재는 호스트가 단톡방에서 수동으로 팀을 정해주세요.');
+});
+
+btnLeaveTournament.addEventListener('click', leaveTournamentAsGuest);
+btnBackToMainFromWaiting.addEventListener('click', function() {
+    // 호스트는 정모 유지하고 메인으로 (다른 일 보다가 다시 정모 링크 클릭하면 대기실로 복귀)
+    cleanupTournamentWaitingListeners();
     showScreen(screenMain);
 });
 
@@ -1710,13 +1781,12 @@ function joinTournament() {
             currentTournamentId = tournamentId;
             pendingTournamentJoin = null;
 
-            // C2-3에서 여기에 대기실 화면 호출 추가됨
-            // 지금은 안내 alert만
-            alert('✅ 정모 참여 완료!\n\n' +
-                  '정모: ' + tournamentData.name +
-                  '\n호스트의 시작을 기다려주세요.\n\n' +
-                  '(대기실 화면은 C2-3 단계에서 추가됩니다)');
-            showScreen(screenMain);
+            // 버튼 복구
+            btnConfirmTournamentJoin.disabled = false;
+            btnConfirmTournamentJoin.textContent = '✅ 정모 참여하기';
+
+            // 대기실로 진입
+            enterTournamentWaitingRoom(tournamentId);
         })
         .catch(function(error) {
             console.error('❌ 정모 참여 실패:', error);
@@ -1731,6 +1801,278 @@ function joinTournament() {
             }
             btnConfirmTournamentJoin.disabled = false;
             btnConfirmTournamentJoin.textContent = '✅ 정모 참여하기';
+        });
+}
+
+// =========================================
+// 정모 대기실 (C2-3)
+// =========================================
+
+// 대기실 onSnapshot 리스너 (메모리 누수 방지용 unsubscribe 핸들)
+let tournamentWaitingTournamentUnsub = null;  // tournaments/{id} 문서
+let tournamentWaitingMembersUnsub = null;     // tournaments/{id}/members 컬렉션
+
+// 현재 대기실에 표시된 멤버 ID 목록 (애니메이션용)
+let lastWaitingMemberIds = new Set();
+
+// 대기실 진입 (호스트든 게스트든 공통)
+function enterTournamentWaitingRoom(tournamentId) {
+    if (!tournamentId) {
+        console.error('❌ enterTournamentWaitingRoom: tournamentId 없음');
+        return;
+    }
+
+    currentTournamentId = tournamentId;
+
+    // 이전 리스너 정리 (중복 방지)
+    cleanupTournamentWaitingListeners();
+    lastWaitingMemberIds = new Set();
+
+    // UI 초기화
+    waitingTournamentName.textContent = '🏌️ 정모 대기실';
+    waitingTournamentMeta.textContent = '정보 로딩 중...';
+    waitingCodeDisplay.textContent = tournamentId;
+    waitingLinkDisplay.value = buildTournamentLink(tournamentId);
+    waitingMembersList.innerHTML = '';
+    waitingMembersCount.textContent = '...';
+    waitingCodeCopyFeedback.classList.add('hidden');
+    waitingLinkCopyFeedback.classList.add('hidden');
+
+    // 안내 박스 일단 숨김 (아래 호스트 판별 후 결정)
+    waitingHostNotice.classList.add('hidden');
+    waitingGuestNotice.classList.add('hidden');
+    btnGoToTeamAssignment.classList.add('hidden');
+    btnLeaveTournament.classList.add('hidden');
+    btnBackToMainFromWaiting.classList.add('hidden');
+    waitingLinkSection.classList.add('hidden');
+
+    showScreen(screenTournamentWaiting);
+
+    // Firestore 리스너 시작
+    const tournamentRef = db.collection('tournaments').doc(tournamentId);
+
+    // 1. 정모 본 문서 리스너 (status 변경 감지 - 라운드 시작 등)
+    tournamentWaitingTournamentUnsub = tournamentRef.onSnapshot(function(doc) {
+        if (!doc.exists) {
+            console.warn('⚠️ 정모가 삭제되었습니다');
+            alert('정모가 삭제되었습니다. 메인 화면으로 돌아갑니다.');
+            leaveTournamentWaitingRoom();
+            return;
+        }
+
+        const tData = doc.data();
+        renderTournamentWaitingHeader(tournamentId, tData);
+
+        // status가 in_progress로 바뀌면 (호스트가 라운드 시작)
+        // 모든 멤버에게 자동으로 라운드 진행 화면으로 가야 함
+        // → C4 리더보드/라운드 진행 단계에서 처리. C2-3에서는 안내만.
+        if (tData.status === 'in_progress') {
+            console.log('🟢 정모 라운드 시작됨 (C4 단계에서 자동 진입 추가 예정)');
+        }
+        if (tData.status === 'completed') {
+            console.log('🏁 정모 종료됨 (C5 단계에서 결과 화면 자동 진입 예정)');
+        }
+    }, function(error) {
+        console.error('❌ 정모 리스너 오류:', error);
+    });
+
+    // 2. 멤버 컬렉션 리스너 (참여/이탈 실시간 감지)
+    tournamentWaitingMembersUnsub = tournamentRef.collection('members')
+        .orderBy('joinedAt', 'asc')
+        .onSnapshot(function(snapshot) {
+            const members = [];
+            snapshot.forEach(function(doc) {
+                members.push({ id: doc.id, ...doc.data() });
+            });
+            console.log('🔄 대기실 멤버 업데이트:', members.length + '명');
+            renderTournamentWaitingMembers(members);
+        }, function(error) {
+            console.error('❌ 대기실 멤버 리스너 오류:', error);
+        });
+}
+
+function cleanupTournamentWaitingListeners() {
+    if (tournamentWaitingTournamentUnsub !== null) {
+        tournamentWaitingTournamentUnsub();
+        tournamentWaitingTournamentUnsub = null;
+        console.log('🧹 대기실 정모 리스너 해제');
+    }
+    if (tournamentWaitingMembersUnsub !== null) {
+        tournamentWaitingMembersUnsub();
+        tournamentWaitingMembersUnsub = null;
+        console.log('🧹 대기실 멤버 리스너 해제');
+    }
+}
+
+// 대기실 헤더(이름·메타·정모 코드 안내) 렌더링
+function renderTournamentWaitingHeader(tournamentId, tournamentData) {
+    // 다른 함수에서 사용할 캐시
+    currentTournamentHostId = tournamentData.hostId;
+    currentTournamentMaxMembers = tournamentData.maxMembers;
+
+    waitingTournamentName.textContent = '🏌️ ' + tournamentData.name;
+
+    const gameModeLabel = tournamentData.gameMode === 'net' ? 'Net' : 'Gross';
+    waitingTournamentMeta.textContent = tournamentData.courseName + ' · ' +
+                                        tournamentData.date + ' · ' +
+                                        gameModeLabel;
+
+    // 호스트인지 판별
+    const isHost = currentUser !== null && currentUser.uid === tournamentData.hostId;
+
+    if (isHost) {
+        waitingHostNotice.classList.remove('hidden');
+        waitingGuestNotice.classList.add('hidden');
+        btnGoToTeamAssignment.classList.remove('hidden');
+        btnGoToTeamAssignment.textContent = '🎯 팀 배정 → (C3 단계)';
+        btnGoToTeamAssignment.disabled = true;
+        btnGoToTeamAssignment.style.opacity = '0.5';
+        btnLeaveTournament.classList.add('hidden');
+        btnBackToMainFromWaiting.classList.remove('hidden');
+        // 호스트는 링크도 보임 (단톡방 공유)
+        waitingLinkSection.classList.remove('hidden');
+    } else {
+        waitingHostNotice.classList.add('hidden');
+        waitingGuestNotice.classList.remove('hidden');
+        btnGoToTeamAssignment.classList.add('hidden');
+        btnLeaveTournament.classList.remove('hidden');
+        btnBackToMainFromWaiting.classList.add('hidden');
+        // 게스트는 링크 영역 숨김 (어차피 단톡방 공유는 호스트의 일)
+        waitingLinkSection.classList.add('hidden');
+    }
+}
+
+// 멤버 리스트 렌더링
+function renderTournamentWaitingMembers(members) {
+    if (currentUser === null) return;
+
+    // 인원 카운트
+    // tournament 데이터에서 maxMembers 가져오려면 해당 onSnapshot 데이터가 필요한데
+    // 여기서는 우선 멤버 수만 표시. (cap 표시는 헤더 렌더링에서)
+    // 추후 필요 시 tournament 데이터 캐시 활용
+    const myUid = currentUser.uid;
+    const myMember = members.find(function(m) { return m.id === myUid; });
+    const isHost = members.some(function(m) {
+        // 호스트는 별도 표시: tournament.hostId 활용
+        // 여기서는 currentTournament 데이터 부재 시 일단 첫 멤버 가정 못하므로
+        // tournamentWaitingTournamentUnsub의 lastDoc 데이터 가져오는 게 정석
+        // 간단히: hostId는 정모 본 문서에 있고, 대기실 진입 시 캐시 가능
+        return false;
+    });
+
+    // 정모 본 문서에서 hostId 가져오기 위해 별도로 캐시
+    // (renderTournamentWaitingHeader에서 set, 여기서 read)
+    const hostId = currentTournamentHostId;
+
+    waitingMembersList.innerHTML = '';
+
+    // 새로 들어온 멤버 ID 식별 (애니메이션용)
+    const currentMemberIds = new Set(members.map(function(m) { return m.id; }));
+    const justJoinedIds = new Set();
+    currentMemberIds.forEach(function(id) {
+        if (!lastWaitingMemberIds.has(id)) {
+            justJoinedIds.add(id);
+        }
+    });
+
+    members.forEach(function(member) {
+        const div = document.createElement('div');
+        div.className = 'waiting-member';
+
+        const isMe = member.id === myUid;
+        const isThisHost = member.id === hostId;
+
+        if (isMe) div.classList.add('is-me');
+        if (isThisHost) div.classList.add('is-host');
+        if (justJoinedIds.has(member.id) && !lastWaitingMemberIds.has(member.id) && lastWaitingMemberIds.size > 0) {
+            // 첫 로딩이 아닐 때만 애니메이션
+            div.classList.add('just-joined');
+        }
+
+        // 이름 영역
+        const nameWrap = document.createElement('div');
+        nameWrap.className = 'waiting-member-name';
+
+        const icon = document.createElement('span');
+        icon.textContent = isThisHost ? '👑' : '👤';
+        nameWrap.appendChild(icon);
+
+        const nameText = document.createElement('span');
+        nameText.className = 'waiting-member-name-text';
+        nameText.textContent = member.name + (isMe ? ' (나)' : '');
+        nameWrap.appendChild(nameText);
+
+        if (isThisHost) {
+            const badge = document.createElement('span');
+            badge.className = 'waiting-member-badge';
+            badge.textContent = '호스트';
+            nameWrap.appendChild(badge);
+        }
+
+        div.appendChild(nameWrap);
+
+        // 핸디 표시
+        const hcpSpan = document.createElement('span');
+        hcpSpan.className = 'waiting-member-handicap';
+        if (member.courseHandicap !== null && member.courseHandicap !== undefined) {
+            hcpSpan.textContent = 'HCP ' + member.courseHandicap;
+        } else {
+            hcpSpan.textContent = '-';
+        }
+        div.appendChild(hcpSpan);
+
+        waitingMembersList.appendChild(div);
+    });
+
+    // 카운트 업데이트 (max는 currentTournamentMaxMembers에서)
+    if (currentTournamentMaxMembers !== null) {
+        waitingMembersCount.textContent = members.length + '/' + currentTournamentMaxMembers;
+    } else {
+        waitingMembersCount.textContent = members.length + '명';
+    }
+
+    lastWaitingMemberIds = currentMemberIds;
+}
+
+// 정모 본 문서 캐시 (렌더링 시 사용)
+let currentTournamentHostId = null;
+let currentTournamentMaxMembers = null;
+
+// 대기실 떠나기 (리스너 정리 + 메인 복귀)
+function leaveTournamentWaitingRoom() {
+    cleanupTournamentWaitingListeners();
+    currentTournamentId = null;
+    currentTournamentHostId = null;
+    currentTournamentMaxMembers = null;
+    lastWaitingMemberIds = new Set();
+    showScreen(screenMain);
+}
+
+// 게스트가 정모 나가기 (본인 멤버 문서 삭제)
+function leaveTournamentAsGuest() {
+    if (currentTournamentId === null || currentUser === null) return;
+
+    if (!confirm('이 정모에서 나가시겠습니까?\n다시 참여하려면 호스트의 링크가 필요합니다.')) {
+        return;
+    }
+
+    const tournamentId = currentTournamentId;
+    const userId = currentUser.uid;
+
+    btnLeaveTournament.disabled = true;
+    btnLeaveTournament.textContent = '나가는 중...';
+
+    db.collection('tournaments').doc(tournamentId)
+        .collection('members').doc(userId).delete()
+        .then(function() {
+            console.log('✅ 정모 나가기 완료');
+            leaveTournamentWaitingRoom();
+        })
+        .catch(function(error) {
+            console.error('❌ 정모 나가기 실패:', error);
+            alert('정모 나가기 실패: ' + error.message);
+            btnLeaveTournament.disabled = false;
+            btnLeaveTournament.textContent = '정모 나가기';
         });
 }
 
@@ -2204,10 +2546,9 @@ function handleTournamentEntry(tournamentCode) {
                 .collection('members').doc(currentUser.uid).get()
                 .then(function(memberDoc) {
                     if (memberDoc.exists) {
-                        console.log('ℹ️ 이미 참여 중인 멤버');
-                        alert('이미 참여 중인 정모입니다.\n\n정모: ' + tournamentData.name +
-                              '\n현재 인원: ' + memberCount + '/' + tournamentData.maxMembers + '명' +
-                              '\n\n(대기실 화면은 C2-3 단계에서 연결됩니다)');
+                        console.log('ℹ️ 이미 참여 중인 멤버 - 대기실로 자동 진입');
+                        currentTournamentId = tournamentCode;
+                        enterTournamentWaitingRoom(tournamentCode);
                         return;
                     }
 
