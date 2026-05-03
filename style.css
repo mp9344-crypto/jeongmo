@@ -1214,3 +1214,20 @@ select:focus {
     margin-top: 8px;
     font-weight: 500;
 }
+
+/* =========================================
+   정모 코드/링크 화면 (2단계 C - C1-3)
+   ========================================= */
+
+.tournament-name-display {
+    font-size: 22px;
+    font-weight: bold;
+    color: #2d6a4f;
+    margin-bottom: 4px;
+}
+
+.tournament-meta-display {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+}

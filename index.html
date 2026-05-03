@@ -286,6 +286,45 @@
 
         </div>
 
+        <!-- ===== 화면 11: 정모 코드/링크 표시 (2단계 C - C1-3) ===== -->
+        <div id="screen-tournament-link" class="screen hidden">
+
+            <h2>🎉 정모 생성 완료!</h2>
+            <p class="hint">아래 링크를 단톡방에 공유하세요</p>
+
+            <section class="share-info">
+                <div class="share-label">정모</div>
+                <div class="tournament-name-display" id="tournament-name-display-on-link">-</div>
+                <div class="tournament-meta-display" id="tournament-meta-display">-</div>
+            </section>
+
+            <section class="share-info">
+                <div class="share-label">정모 코드</div>
+                <div class="share-code" id="tournament-code-display">------</div>
+            </section>
+
+            <section class="share-info">
+                <div class="share-label">정모 링크</div>
+                <div class="share-link-box">
+                    <input type="text" id="tournament-link-display" readonly>
+                    <button id="btn-copy-tournament-link">📋 복사</button>
+                </div>
+                <div class="copy-feedback hidden" id="tournament-copy-feedback">✅ 복사됨!</div>
+            </section>
+
+            <section class="share-info">
+                <div class="share-label">참여자 (대기실)</div>
+                <div class="share-members" id="tournament-link-members-list">
+                    <div class="share-member">👑 나 (호스트)</div>
+                </div>
+                <p class="hint">멤버들이 참여하면 여기에 실시간 표시됩니다 (C2 단계)</p>
+            </section>
+
+            <button id="btn-go-to-waiting-room" disabled style="opacity: 0.5;">대기실로 → (C2 단계)</button>
+            <button id="btn-back-to-main-from-tournament-link" class="btn-secondary">메인으로</button>
+
+        </div>
+
        <!-- ===== 화면 3: 홀 입력 화면 ===== -->
         <div id="screen-hole-input" class="screen hidden">
 

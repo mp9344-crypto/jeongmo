@@ -39,6 +39,7 @@ const screenShareLink = document.getElementById('screen-share-link');
 const screenJoinRound = document.getElementById('screen-join-round');
 const screenNewRound = document.getElementById('screen-new-round');
 const screenTournamentCreate = document.getElementById('screen-tournament-create');
+const screenTournamentLink = document.getElementById('screen-tournament-link');
 const screenHoleInput = document.getElementById('screen-hole-input');
 const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
@@ -50,6 +51,7 @@ const allScreens = [
     screenJoinRound,
     screenNewRound,
     screenTournamentCreate,
+    screenTournamentLink,
     screenHoleInput,
     screenResult,
     screenProfile
@@ -101,6 +103,17 @@ const tournamentParInputsFront = document.getElementById('tournament-par-inputs-
 const tournamentParInputsBack = document.getElementById('tournament-par-inputs-back');
 const btnCreateTournament = document.getElementById('btn-create-tournament');
 const btnCancelTournamentCreate = document.getElementById('btn-cancel-tournament-create');
+
+// 정모 코드/링크 화면 (2단계 C - C1-3)
+const tournamentNameDisplayOnLink = document.getElementById('tournament-name-display-on-link');
+const tournamentMetaDisplay = document.getElementById('tournament-meta-display');
+const tournamentCodeDisplay = document.getElementById('tournament-code-display');
+const tournamentLinkDisplay = document.getElementById('tournament-link-display');
+const btnCopyTournamentLink = document.getElementById('btn-copy-tournament-link');
+const tournamentCopyFeedback = document.getElementById('tournament-copy-feedback');
+const tournamentLinkMembersList = document.getElementById('tournament-link-members-list');
+const btnGoToWaitingRoom = document.getElementById('btn-go-to-waiting-room');
+const btnBackToMainFromTournamentLink = document.getElementById('btn-back-to-main-from-tournament-link');
 
 // 공유 링크 화면 (2단계 B)
 const shareCodeDisplay = document.getElementById('share-code-display');
@@ -787,16 +800,18 @@ btnCreateTournament.addEventListener('click', function() {
     if (formData === null) {
         return;
     }
-    console.log('🟡 정모 만들기 폼 데이터 (C1-2 단계, Firebase 미연동):');
+    console.log('🟡 정모 만들기 (Firestore 저장 시작):');
     console.log(formData);
-    alert('✅ 폼 검증 통과!\n\n정모 이름: ' + formData.name +
-          '\n골프장: ' + formData.courseName +
-          '\n팀 수: ' + formData.teamCount + '팀 × ' + formData.teamSize + '명 = ' + formData.maxMembers + '명' +
-          '\n게임 모드: ' + formData.gameMode +
-          '\n\n(C1-3 단계에서 Firestore에 저장됩니다)');
+    createTournament(formData);
 });
 
 btnCancelTournamentCreate.addEventListener('click', function() {
+    showScreen(screenMain);
+});
+
+// 정모 코드/링크 화면 이벤트 (C1-3)
+btnCopyTournamentLink.addEventListener('click', copyTournamentLink);
+btnBackToMainFromTournamentLink.addEventListener('click', function() {
     showScreen(screenMain);
 });
 
@@ -1394,6 +1409,161 @@ function createSharedRound(formData) {
             console.error('❌ 공유 라운드 생성 실패:', error);
             alert('공유 라운드 생성 실패: ' + error.message);
         });
+}
+
+// =========================================
+// 정모 — Firestore 관련 함수 (2단계 C - C1-3)
+// =========================================
+
+// 현재 활성 정모 ID (정모 만들기/참여 후 저장)
+let currentTournamentId = null;
+
+// 정모 링크 만들기 (공유 라운드와 구분: ?t=)
+function buildTournamentLink(code) {
+    const base = window.location.origin + window.location.pathname;
+    return base + '?t=' + code;
+}
+
+// Firestore에 정모 만들기
+function createTournament(formData) {
+    if (currentUser === null) {
+        alert('로그인 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
+    const profile = loadUserProfile();
+    if (profile === null) {
+        alert('프로필이 설정되지 않았습니다.');
+        return;
+    }
+
+    const tournamentId = generateShareCode();
+    const userId = currentUser.uid;
+
+    console.log('🏌️ 정모 생성 중...', tournamentId);
+
+    // 버튼 더블클릭 방지
+    btnCreateTournament.disabled = true;
+    btnCreateTournament.textContent = '생성 중...';
+
+    // Course Handicap 계산 (Net 모드일 때 호스트 본인 핸디 적용)
+    const hostCourseHandicap = (profile.handicapIndex !== null && profile.handicapIndex !== undefined)
+        ? calculateCourseHandicap(profile.handicapIndex)
+        : 0;
+
+    // 1. 정모 본 문서 만들기
+    const tournamentData = {
+        name: formData.name,
+        courseName: formData.courseName,
+        date: formData.date,
+        pars: formData.pars,
+        gameMode: formData.gameMode,
+        teamCount: formData.teamCount,
+        teamSize: formData.teamSize,
+        maxMembers: formData.maxMembers,
+        hostId: userId,
+        hostName: profile.name,
+        status: 'waiting',
+        tier: 'free',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        startedAt: null,
+        completedAt: null
+    };
+
+    db.collection('tournaments').doc(tournamentId).set(tournamentData)
+        .then(function() {
+            console.log('✅ 정모 본 문서 생성 완료');
+
+            // 2. 호스트를 멤버로 추가
+            const memberData = {
+                name: profile.name,
+                handicapIndex: profile.handicapIndex !== null ? profile.handicapIndex : null,
+                courseHandicap: hostCourseHandicap,
+                teamId: null,
+                scores: new Array(18).fill(null),
+                putts: new Array(18).fill(null),
+                currentHole: 1,
+                completed: false,
+                joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            return db.collection('tournaments').doc(tournamentId)
+                .collection('members').doc(userId).set(memberData);
+        })
+        .then(function() {
+            console.log('✅ 호스트 멤버 등록 완료');
+            currentTournamentId = tournamentId;
+            showTournamentLinkScreen(tournamentId, formData);
+        })
+        .catch(function(error) {
+            console.error('❌ 정모 생성 실패:', error);
+            alert('정모 생성 실패: ' + error.message + '\n\n인터넷 연결 또는 보안 규칙을 확인하세요.');
+        })
+        .then(function() {
+            // 성공/실패 모두 버튼 복구 (finally 대용)
+            btnCreateTournament.disabled = false;
+            btnCreateTournament.textContent = '정모 만들기 →';
+        });
+}
+
+// 정모 코드/링크 화면 표시
+function showTournamentLinkScreen(tournamentId, formData) {
+    const link = buildTournamentLink(tournamentId);
+    const profile = loadUserProfile();
+
+    tournamentNameDisplayOnLink.textContent = formData.name;
+
+    // 메타 정보: "골프장 · 날짜 · 모드 · N명"
+    const gameModeLabel = formData.gameMode === 'net' ? 'Net' : 'Gross';
+    const metaText = formData.courseName + ' · ' + formData.date +
+                     ' · ' + gameModeLabel +
+                     ' · 최대 ' + formData.maxMembers + '명';
+    tournamentMetaDisplay.textContent = metaText;
+
+    tournamentCodeDisplay.textContent = tournamentId;
+    tournamentLinkDisplay.value = link;
+
+    // 멤버 목록 (지금은 호스트만)
+    tournamentLinkMembersList.innerHTML = '';
+    const memberDiv = document.createElement('div');
+    memberDiv.className = 'share-member';
+    memberDiv.textContent = '👑 ' + (profile ? profile.name : '나') + ' (호스트)';
+    tournamentLinkMembersList.appendChild(memberDiv);
+
+    tournamentCopyFeedback.classList.add('hidden');
+    showScreen(screenTournamentLink);
+}
+
+// 정모 링크 클립보드 복사
+function copyTournamentLink() {
+    const link = tournamentLinkDisplay.value;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link)
+            .then(showTournamentCopyFeedback)
+            .catch(fallbackCopyTournament);
+    } else {
+        fallbackCopyTournament();
+    }
+}
+
+function fallbackCopyTournament() {
+    tournamentLinkDisplay.select();
+    tournamentLinkDisplay.setSelectionRange(0, 99999);
+    try {
+        document.execCommand('copy');
+        showTournamentCopyFeedback();
+    } catch (err) {
+        alert('복사 실패. 직접 선택해서 복사해주세요.');
+    }
+}
+
+function showTournamentCopyFeedback() {
+    tournamentCopyFeedback.classList.remove('hidden');
+    setTimeout(function() {
+        tournamentCopyFeedback.classList.add('hidden');
+    }, 2000);
 }
 
 // 공유 링크 화면 표시
