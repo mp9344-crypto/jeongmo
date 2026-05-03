@@ -638,38 +638,27 @@ const TOURNAMENT_MAX_TEAMS = 10;
 
 function createTournamentParInputs(prefilledPars) {
     tournamentParInputsFront.innerHTML = '';
+    for (let i = 1; i <= 9; i++) {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '3';
+        input.max = '5';
+        input.value = prefilledPars ? prefilledPars[i - 1] : '4';
+        input.id = 'tournament-par-input-' + i;
+        input.className = 'par-input-tournament';
+        tournamentParInputsFront.appendChild(input);
+    }
+
     tournamentParInputsBack.innerHTML = '';
-
-    for (let i = 0; i < 18; i++) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'par-input-wrapper';
-
-        const label = document.createElement('div');
-        label.className = 'par-hole-label';
-        label.textContent = (i + 1);
-
-        const select = document.createElement('select');
-        select.className = 'par-input';
-        select.setAttribute('data-hole', i);
-
-        [3, 4, 5].forEach(function(p) {
-            const opt = document.createElement('option');
-            opt.value = p;
-            opt.textContent = 'Par ' + p;
-            select.appendChild(opt);
-        });
-
-        const defaultPar = prefilledPars && prefilledPars[i] ? prefilledPars[i] : 4;
-        select.value = defaultPar;
-
-        wrapper.appendChild(label);
-        wrapper.appendChild(select);
-
-        if (i < 9) {
-            tournamentParInputsFront.appendChild(wrapper);
-        } else {
-            tournamentParInputsBack.appendChild(wrapper);
-        }
+    for (let i = 10; i <= 18; i++) {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '3';
+        input.max = '5';
+        input.value = prefilledPars ? prefilledPars[i - 1] : '4';
+        input.id = 'tournament-par-input-' + i;
+        input.className = 'par-input-tournament';
+        tournamentParInputsBack.appendChild(input);
     }
 }
 
@@ -731,10 +720,20 @@ function readTournamentForm() {
 
     // 파 정보 수집
     const pars = [];
-    const parSelects = document.querySelectorAll('#tournament-par-inputs-front .par-input, #tournament-par-inputs-back .par-input');
-    parSelects.forEach(function(sel) {
-        pars.push(parseInt(sel.value, 10));
-    });
+    for (let i = 1; i <= 18; i++) {
+        const input = document.getElementById('tournament-par-input-' + i);
+        if (!input) {
+            alert('파 입력 필드 누락 (홀 ' + i + '). 페이지를 새로고침해주세요.');
+            return null;
+        }
+        const v = parseInt(input.value, 10);
+        if (isNaN(v) || v < 3 || v > 5) {
+            alert((i) + '번 홀의 파를 3~5 사이로 입력해주세요. (현재: "' + input.value + '")');
+            input.focus();
+            return null;
+        }
+        pars.push(v);
+    }
 
     if (pars.length !== 18) {
         alert('파 정보 수집 오류 (' + pars.length + '/18). 페이지를 새로고침해주세요.');
