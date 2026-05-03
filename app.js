@@ -159,6 +159,7 @@ const waitingGuestNotice = document.getElementById('waiting-guest-notice');
 const btnGoToTeamAssignment = document.getElementById('btn-go-to-team-assignment');
 const btnLeaveTournament = document.getElementById('btn-leave-tournament');
 const btnBackToMainFromWaiting = document.getElementById('btn-back-to-main-from-waiting');
+const btnCancelTournament = document.getElementById('btn-cancel-tournament');
 
 // 공유 링크 화면 (2단계 B)
 const shareCodeDisplay = document.getElementById('share-code-display');
@@ -918,6 +919,7 @@ btnBackToMainFromWaiting.addEventListener('click', function() {
     cleanupTournamentWaitingListeners();
     showScreen(screenMain);
 });
+btnCancelTournament.addEventListener('click', cancelTournamentAsHost);
 
 function loadPreviousRound() {
     const rounds = loadCompletedRounds();
@@ -1855,7 +1857,11 @@ function enterTournamentWaitingRoom(tournamentId) {
     tournamentWaitingTournamentUnsub = tournamentRef.onSnapshot(function(doc) {
         if (!doc.exists) {
             console.warn('⚠️ 정모가 삭제되었습니다');
-            alert('정모가 삭제되었습니다. 메인 화면으로 돌아갑니다.');
+            // 호스트가 본인이 취소한 경우엔 별도 alert 안 띄움 (이미 cancelTournamentAsHost가 처리)
+            const wasHost = currentUser !== null && currentTournamentHostId === currentUser.uid;
+            if (!wasHost) {
+                alert('정모가 취소되었습니다.\n메인 화면으로 돌아갑니다.');
+            }
             leaveTournamentWaitingRoom();
             return;
         }
@@ -1929,6 +1935,7 @@ function renderTournamentWaitingHeader(tournamentId, tournamentData) {
         btnGoToTeamAssignment.style.opacity = '0.5';
         btnLeaveTournament.classList.add('hidden');
         btnBackToMainFromWaiting.classList.remove('hidden');
+        btnCancelTournament.classList.remove('hidden');
         // 호스트는 링크도 보임 (단톡방 공유)
         waitingLinkSection.classList.remove('hidden');
     } else {
@@ -1937,6 +1944,7 @@ function renderTournamentWaitingHeader(tournamentId, tournamentData) {
         btnGoToTeamAssignment.classList.add('hidden');
         btnLeaveTournament.classList.remove('hidden');
         btnBackToMainFromWaiting.classList.add('hidden');
+        btnCancelTournament.classList.add('hidden');
         // 게스트는 링크 영역 숨김 (어차피 단톡방 공유는 호스트의 일)
         waitingLinkSection.classList.add('hidden');
     }
@@ -2073,6 +2081,66 @@ function leaveTournamentAsGuest() {
             alert('정모 나가기 실패: ' + error.message);
             btnLeaveTournament.disabled = false;
             btnLeaveTournament.textContent = '정모 나가기';
+        });
+}
+
+// 호스트가 정모 취소 (모든 멤버 삭제 + 정모 본 문서 삭제) - C2-4
+function cancelTournamentAsHost() {
+    if (currentTournamentId === null || currentUser === null) return;
+
+    // 호스트 권한 재확인
+    if (currentTournamentHostId !== currentUser.uid) {
+        alert('호스트만 정모를 취소할 수 있습니다.');
+        return;
+    }
+
+    // 강한 confirm — 멤버가 있을 경우 더 강조
+    const memberCountText = waitingMembersCount.textContent;
+    const warningMessage =
+        '⚠️ 정모를 취소하시겠습니까?\n\n' +
+        '• 현재 참여자: ' + memberCountText + '\n' +
+        '• 모든 멤버가 자동으로 나가게 됩니다\n' +
+        '• 정모 코드와 링크는 더 이상 작동하지 않습니다\n' +
+        '• 이 작업은 되돌릴 수 없습니다\n\n' +
+        '정말로 취소하시겠습니까?';
+
+    if (!confirm(warningMessage)) {
+        return;
+    }
+
+    const tournamentId = currentTournamentId;
+
+    btnCancelTournament.disabled = true;
+    btnCancelTournament.textContent = '취소 중...';
+
+    console.log('🗑️ 정모 취소 시작:', tournamentId);
+
+    // 1. 모든 멤버 문서 먼저 삭제 (Firestore는 서브컬렉션을 자동 삭제 안함)
+    db.collection('tournaments').doc(tournamentId)
+        .collection('members').get()
+        .then(function(membersSnapshot) {
+            const batch = db.batch();
+            membersSnapshot.forEach(function(doc) {
+                batch.delete(doc.ref);
+            });
+            return batch.commit();
+        })
+        .then(function() {
+            console.log('✅ 모든 멤버 문서 삭제 완료');
+            // 2. 정모 본 문서 삭제
+            // (이 시점에 게스트들의 onSnapshot이 doc.exists=false 감지 → 자동 메인 복귀)
+            return db.collection('tournaments').doc(tournamentId).delete();
+        })
+        .then(function() {
+            console.log('✅ 정모 본 문서 삭제 완료');
+            alert('✅ 정모가 취소되었습니다.\n모든 멤버에게도 안내됩니다.');
+            leaveTournamentWaitingRoom();
+        })
+        .catch(function(error) {
+            console.error('❌ 정모 취소 실패:', error);
+            alert('정모 취소 실패: ' + error.message + '\n\n인터넷 연결을 확인하고 다시 시도해주세요.');
+            btnCancelTournament.disabled = false;
+            btnCancelTournament.textContent = '⚠️ 정모 취소하고 나가기';
         });
 }
 
