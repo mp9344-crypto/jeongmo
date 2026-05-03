@@ -38,6 +38,7 @@ const screenModeSelect = document.getElementById('screen-mode-select');
 const screenShareLink = document.getElementById('screen-share-link');
 const screenJoinRound = document.getElementById('screen-join-round');
 const screenNewRound = document.getElementById('screen-new-round');
+const screenTournamentCreate = document.getElementById('screen-tournament-create');
 const screenHoleInput = document.getElementById('screen-hole-input');
 const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
@@ -48,6 +49,7 @@ const allScreens = [
     screenShareLink,
     screenJoinRound,
     screenNewRound,
+    screenTournamentCreate,
     screenHoleInput,
     screenResult,
     screenProfile
@@ -79,7 +81,26 @@ const parInputsBack = document.getElementById('par-inputs-back');
 // 모드 선택 화면 (2단계 B)
 const btnModePersonal = document.getElementById('btn-mode-personal');
 const btnModeShared = document.getElementById('btn-mode-shared');
+const btnModeTournament = document.getElementById('btn-mode-tournament');
 const btnCancelModeSelect = document.getElementById('btn-cancel-mode-select');
+
+// 메인 - 코드 입력 진입점 (2단계 C)
+const btnJoinByCode = document.getElementById('btn-join-by-code');
+
+// 정모 만들기 화면 (2단계 C)
+const inputTournamentName = document.getElementById('input-tournament-name');
+const inputTournamentCourse = document.getElementById('input-tournament-course');
+const inputTournamentDate = document.getElementById('input-tournament-date');
+const selectTournamentGameMode = document.getElementById('select-tournament-game-mode');
+const tournamentGameModeHint = document.getElementById('tournament-game-mode-hint');
+const selectTeamCount = document.getElementById('select-team-count');
+const selectTeamSize = document.getElementById('select-team-size');
+const memberCountDisplay = document.getElementById('member-count-display');
+const memberCountWarning = document.getElementById('member-count-warning');
+const tournamentParInputsFront = document.getElementById('tournament-par-inputs-front');
+const tournamentParInputsBack = document.getElementById('tournament-par-inputs-back');
+const btnCreateTournament = document.getElementById('btn-create-tournament');
+const btnCancelTournamentCreate = document.getElementById('btn-cancel-tournament-create');
 
 // 공유 링크 화면 (2단계 B)
 const shareCodeDisplay = document.getElementById('share-code-display');
@@ -607,6 +628,178 @@ function openNewRoundScreen() {
 
     showScreen(screenNewRound);
 }
+
+// =========================================
+// 정모 만들기 (2단계 C) - 화면/폼 로직만, Firebase는 C1-3에서
+// =========================================
+
+const TOURNAMENT_MAX_MEMBERS = 40;
+const TOURNAMENT_MAX_TEAMS = 10;
+
+function createTournamentParInputs(prefilledPars) {
+    tournamentParInputsFront.innerHTML = '';
+    tournamentParInputsBack.innerHTML = '';
+
+    for (let i = 0; i < 18; i++) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'par-input-wrapper';
+
+        const label = document.createElement('div');
+        label.className = 'par-hole-label';
+        label.textContent = (i + 1);
+
+        const select = document.createElement('select');
+        select.className = 'par-input';
+        select.setAttribute('data-hole', i);
+
+        [3, 4, 5].forEach(function(p) {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = 'Par ' + p;
+            select.appendChild(opt);
+        });
+
+        const defaultPar = prefilledPars && prefilledPars[i] ? prefilledPars[i] : 4;
+        select.value = defaultPar;
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(select);
+
+        if (i < 9) {
+            tournamentParInputsFront.appendChild(wrapper);
+        } else {
+            tournamentParInputsBack.appendChild(wrapper);
+        }
+    }
+}
+
+function updateMemberCountPreview() {
+    const teamCount = parseInt(selectTeamCount.value, 10);
+    const teamSize = parseInt(selectTeamSize.value, 10);
+    const total = teamCount * teamSize;
+
+    memberCountDisplay.textContent = total;
+
+    const previewBox = memberCountDisplay.parentElement;
+    if (total > TOURNAMENT_MAX_MEMBERS) {
+        previewBox.classList.add('over-cap');
+        memberCountWarning.classList.remove('hidden');
+        btnCreateTournament.disabled = true;
+        btnCreateTournament.style.opacity = '0.5';
+    } else {
+        previewBox.classList.remove('over-cap');
+        memberCountWarning.classList.add('hidden');
+        btnCreateTournament.disabled = false;
+        btnCreateTournament.style.opacity = '1';
+    }
+}
+
+function onTournamentGameModeChange() {
+    const mode = selectTournamentGameMode.value;
+    if (mode === 'gross') {
+        tournamentGameModeHint.textContent = '총 타수 그대로 비교합니다. 핸디 무관, 실력 그대로.';
+    } else {
+        tournamentGameModeHint.textContent = '총 타수에서 Course Handicap을 빼서 공정하게 비교합니다.';
+    }
+}
+
+function readTournamentForm() {
+    const name = inputTournamentName.value.trim();
+    const courseName = inputTournamentCourse.value.trim();
+    const date = inputTournamentDate.value;
+    const gameMode = selectTournamentGameMode.value;
+    const teamCount = parseInt(selectTeamCount.value, 10);
+    const teamSize = parseInt(selectTeamSize.value, 10);
+
+    if (!name) {
+        alert('정모 이름을 입력해주세요.');
+        return null;
+    }
+    if (!courseName) {
+        alert('골프장 이름을 입력해주세요.');
+        return null;
+    }
+    if (!date) {
+        alert('날짜를 선택해주세요.');
+        return null;
+    }
+    const maxMembers = teamCount * teamSize;
+    if (maxMembers > TOURNAMENT_MAX_MEMBERS) {
+        alert('최대 ' + TOURNAMENT_MAX_MEMBERS + '명까지 참여 가능합니다.');
+        return null;
+    }
+
+    // 파 정보 수집
+    const pars = [];
+    const parSelects = document.querySelectorAll('#tournament-par-inputs-front .par-input, #tournament-par-inputs-back .par-input');
+    parSelects.forEach(function(sel) {
+        pars.push(parseInt(sel.value, 10));
+    });
+
+    if (pars.length !== 18) {
+        alert('파 정보 수집 오류 (' + pars.length + '/18). 페이지를 새로고침해주세요.');
+        return null;
+    }
+
+    return {
+        name: name,
+        courseName: courseName,
+        date: date,
+        gameMode: gameMode,
+        teamCount: teamCount,
+        teamSize: teamSize,
+        maxMembers: maxMembers,
+        pars: pars,
+        tier: 'free'  // 미래 수익화 대비 (현재 모든 정모 free)
+    };
+}
+
+function openTournamentCreateScreen() {
+    // 폼 초기화
+    inputTournamentName.value = '';
+    inputTournamentCourse.value = '';
+
+    // 날짜 기본값: 오늘
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    inputTournamentDate.value = yyyy + '-' + mm + '-' + dd;
+
+    selectTournamentGameMode.value = 'net';
+    onTournamentGameModeChange();
+
+    selectTeamCount.value = '4';
+    selectTeamSize.value = '4';
+    updateMemberCountPreview();
+
+    createTournamentParInputs(null);
+
+    showScreen(screenTournamentCreate);
+}
+
+// 정모 만들기 화면 이벤트 (C1-2 단계: console.log만)
+selectTeamCount.addEventListener('change', updateMemberCountPreview);
+selectTeamSize.addEventListener('change', updateMemberCountPreview);
+selectTournamentGameMode.addEventListener('change', onTournamentGameModeChange);
+
+btnCreateTournament.addEventListener('click', function() {
+    const formData = readTournamentForm();
+    if (formData === null) {
+        return;
+    }
+    console.log('🟡 정모 만들기 폼 데이터 (C1-2 단계, Firebase 미연동):');
+    console.log(formData);
+    alert('✅ 폼 검증 통과!\n\n정모 이름: ' + formData.name +
+          '\n골프장: ' + formData.courseName +
+          '\n팀 수: ' + formData.teamCount + '팀 × ' + formData.teamSize + '명 = ' + formData.maxMembers + '명' +
+          '\n게임 모드: ' + formData.gameMode +
+          '\n\n(C1-3 단계에서 Firestore에 저장됩니다)');
+});
+
+btnCancelTournamentCreate.addEventListener('click', function() {
+    showScreen(screenMain);
+});
 
 function loadPreviousRound() {
     const rounds = loadCompletedRounds();
@@ -1787,6 +1980,22 @@ btnNewRound.addEventListener('click', function() {
     showScreen(screenModeSelect);
 });
 
+// 코드로 참여 (2단계 C) — 정모 코드 또는 공유 코드 입력으로 참여
+btnJoinByCode.addEventListener('click', function() {
+    const code = prompt('정모 코드 또는 공유 코드를 입력하세요 (6자리)');
+    if (!code) {
+        return;
+    }
+    const trimmed = code.trim().toUpperCase();
+    if (trimmed.length !== 6) {
+        alert('코드는 6자리여야 합니다.');
+        return;
+    }
+    console.log('🎯 코드로 참여 시도:', trimmed);
+    // C2 단계에서 실제 참여 로직 연결됨. 지금은 안내만.
+    alert('코드 참여 기능은 C2 단계에서 연결됩니다.\n현재는 링크/QR로 참여해주세요.');
+});
+
 btnContinueRound.addEventListener('click', function() {
     const activeRound = loadActiveRound();
     if (activeRound === null) {
@@ -1844,6 +2053,21 @@ btnModeShared.addEventListener('click', function() {
     currentRoundMode = 'shared';
     console.log('🔵 공유 라운드 모드 확정 (호스트:', profile.name + ')');
     openNewRoundScreen();
+});
+
+// 정모 모드 (2단계 C)
+btnModeTournament.addEventListener('click', function() {
+    console.log('🟡 정모 모드 선택 시도');
+
+    const profile = loadUserProfile();
+    if (profile === null || !profile.name) {
+        alert('정모를 만들려면 먼저 이름을 설정해주세요.\n프로필 설정 화면으로 이동합니다.');
+        openProfileScreen();
+        return;
+    }
+
+    console.log('🟡 정모 호스트:', profile.name);
+    openTournamentCreateScreen();
 });
 
 btnCancelModeSelect.addEventListener('click', function() {

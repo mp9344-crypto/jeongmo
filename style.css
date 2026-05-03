@@ -1143,3 +1143,74 @@ select:focus {
     font-size: 12px;
     opacity: 0.85;
 }
+
+/* =========================================
+   정모 만들기 화면 (2단계 C)
+   ========================================= */
+
+.team-config-section {
+    background: #f8faf8;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px 0;
+}
+
+.team-config-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.team-config-col {
+    flex: 1;
+}
+
+.team-config-col label {
+    display: block;
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.team-config-col select {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    background: #fff;
+    font-family: inherit;
+}
+
+.member-count-preview {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px;
+    background: #e8f5e9;
+    border-radius: 10px;
+    color: #2e7d32;
+    margin-top: 8px;
+}
+
+.member-count-preview strong {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.member-count-label {
+    font-size: 15px;
+}
+
+.member-count-preview.over-cap {
+    background: #ffebee;
+    color: #c62828;
+}
+
+#member-count-warning {
+    color: #c62828;
+    margin-top: 8px;
+    font-weight: 500;
+}

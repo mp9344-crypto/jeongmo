@@ -29,6 +29,7 @@
 
             <button id="btn-new-round">새 라운드 시작</button>
             <button id="btn-continue-round" class="btn-continue hidden">▶ 진행 중 라운드 이어하기</button>
+            <button id="btn-join-by-code" class="btn-secondary">🎯 정모/공유 코드로 참여</button>
 
             <section>
                 <h2>📊 전체 통계</h2>
@@ -74,7 +75,13 @@
                 <button id="btn-mode-shared" class="mode-card">
                     <div class="mode-icon">👥</div>
                     <div class="mode-title">공유 라운드</div>
-                    <div class="mode-desc">친구와 라이브 공유<br>인터넷 필요</div>
+                    <div class="mode-desc">친구 1명과 라이브 공유<br>인터넷 필요</div>
+                </button>
+
+                <button id="btn-mode-tournament" class="mode-card">
+                    <div class="mode-icon">🏌️</div>
+                    <div class="mode-title">정모</div>
+                    <div class="mode-desc">2명 이상 (최대 10팀 / 40명)<br>팀 + 라이브 리더보드</div>
                 </button>
 
             </div>
@@ -195,6 +202,87 @@
 
             <button id="btn-start-round">라운드 시작</button>
             <button id="btn-cancel-new-round" class="btn-secondary">취소</button>
+
+        </div>
+
+        <!-- ===== 화면 10: 정모 만들기 (2단계 C) ===== -->
+        <div id="screen-tournament-create" class="screen hidden">
+
+            <h2>🏌️ 정모 만들기</h2>
+            <p class="hint">최대 10팀 / 40명까지 참여 가능</p>
+
+            <section>
+                <label for="input-tournament-name">정모 이름</label>
+                <input type="text" id="input-tournament-name" placeholder="예: 4월 정모, 민준 생일 라운드" maxlength="30">
+            </section>
+
+            <section>
+                <label for="input-tournament-course">골프장</label>
+                <input type="text" id="input-tournament-course" placeholder="예: Swaneset Resort">
+            </section>
+
+            <section>
+                <label for="input-tournament-date">날짜</label>
+                <input type="date" id="input-tournament-date">
+            </section>
+
+            <section>
+                <label for="select-tournament-game-mode">게임 모드</label>
+                <select id="select-tournament-game-mode">
+                    <option value="gross">Gross — 총 타수 (실력 그대로)</option>
+                    <option value="net" selected>Net — 핸디 적용 (공정한 게임)</option>
+                </select>
+                <p class="hint" id="tournament-game-mode-hint">총 타수에서 Course Handicap을 빼서 공정하게 비교합니다.</p>
+            </section>
+
+            <section class="team-config-section">
+                <div class="team-config-row">
+                    <div class="team-config-col">
+                        <label for="select-team-count">팀 수</label>
+                        <select id="select-team-count">
+                            <option value="2">2팀</option>
+                            <option value="3">3팀</option>
+                            <option value="4" selected>4팀</option>
+                            <option value="5">5팀</option>
+                            <option value="6">6팀</option>
+                            <option value="7">7팀</option>
+                            <option value="8">8팀</option>
+                            <option value="9">9팀</option>
+                            <option value="10">10팀</option>
+                        </select>
+                    </div>
+                    <div class="team-config-col">
+                        <label for="select-team-size">팀당 인원</label>
+                        <select id="select-team-size">
+                            <option value="2">2명</option>
+                            <option value="3">3명</option>
+                            <option value="4" selected>4명</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="member-count-preview">
+                    <span class="member-count-label">총</span>
+                    <strong id="member-count-display">16</strong>
+                    <span class="member-count-label">명 참여 가능</span>
+                </div>
+
+                <p class="hint hidden" id="member-count-warning">⚠️ 40명 cap 초과. 팀 수 또는 팀당 인원을 줄여주세요.</p>
+            </section>
+
+            <section>
+                <h3>18홀 파 정보</h3>
+                <p class="hint">각 홀의 파를 입력하세요 (3, 4, 5)</p>
+
+                <h4>전반 9홀</h4>
+                <div id="tournament-par-inputs-front" class="par-inputs"></div>
+
+                <h4>후반 9홀</h4>
+                <div id="tournament-par-inputs-back" class="par-inputs"></div>
+            </section>
+
+            <button id="btn-create-tournament">정모 만들기 →</button>
+            <button id="btn-cancel-tournament-create" class="btn-secondary">취소</button>
 
         </div>
 
