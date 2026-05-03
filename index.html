@@ -201,12 +201,22 @@
        <!-- ===== 화면 3: 홀 입력 화면 ===== -->
         <div id="screen-hole-input" class="screen hidden">
 
+            <!-- ★ B6: 공유 모드 배지 (공유 라운드일 때만 표시) -->
+            <div id="shared-mode-badge" class="shared-mode-badge hidden">
+                👥 공유 라운드 — 라이브 동기화 중
+            </div>
+
             <div class="progress-bar">
                 <div class="progress-info">
                     <span id="course-name-display">-</span>
                     <span id="hole-progress">0/18 홀</span>
                 </div>
                 <div class="progress-score" id="cumulative-score">현재 0 (0타)</div>
+            </div>
+
+            <!-- ★ B6: 멤버 미니 스트립 (공유 라운드일 때만 표시) -->
+            <div id="members-strip" class="members-strip hidden">
+                <!-- 동적 생성 -->
             </div>
 
             <section class="hole-input-section">

@@ -124,6 +124,10 @@ const puttsDisplay = document.getElementById('putts-display');
 const btnPuttsMinus = document.getElementById('btn-putts-minus');
 const btnPuttsPlus = document.getElementById('btn-putts-plus');
 
+// ★ B6 신규: 멤버 미니 스트립 (홀 입력 화면)
+const membersStrip = document.getElementById('members-strip');
+const sharedModeBadge = document.getElementById('shared-mode-badge');
+
 // 결과 화면
 const resultScreenTitle = document.getElementById('result-screen-title');
 const resultCourseName = document.getElementById('result-course-name');
@@ -155,7 +159,7 @@ const puttsOne = document.getElementById('putts-one');
 const puttsThreePlus = document.getElementById('putts-three-plus');
 const puttsCoverageNote = document.getElementById('putts-coverage-note');
 
-// 프로필 화면 (★ 수정: ID 충돌 방지를 위해 input-profile-name으로 변경됨)
+// 프로필 화면
 const inputProfileName = document.getElementById('input-profile-name');
 const inputHandicapIndex = document.getElementById('input-handicap-index');
 const btnSaveProfile = document.getElementById('btn-save-profile');
@@ -167,14 +171,21 @@ const btnCancelProfile = document.getElementById('btn-cancel-profile');
 let currentRound = null;
 let currentRoundMode = null;       // 'personal' 또는 'shared'
 let currentSharedRoundId = null;   // 현재 공유 라운드 코드 (예: "ABC123")
-let pendingJoinCode = null;        // ★ B5: URL에서 추출한 참여 대기 코드
-let pendingJoinData = null;        // ★ B5: Firestore에서 가져온 라운드 정보
+let pendingJoinCode = null;        // B5: URL에서 추출한 참여 대기 코드
+let pendingJoinData = null;        // B5: Firestore에서 가져온 라운드 정보
 let viewingPastRoundId = null;
+
+// ★ B6 신규: 실시간 동기화 상태
+let allMembersData = {};           // { userId: { name, scores, putts, currentHole, ... } }
+let roundUnsubscribe = null;       // 라운드 문서 리스너 해제 함수
+let membersUnsubscribe = null;     // 멤버 컬렉션 리스너 해제 함수
+let scoreSyncTimer = null;         // 디바운스 타이머
+const SCORE_SYNC_DELAY = 500;      // 500ms 디바운스
 
 const STORAGE_KEYS = {
     ACTIVE_ROUND: 'golf_active_round',
     COMPLETED_ROUNDS: 'golf_rounds',
-    USER_PROFILE: 'golf_user_profile'   // ★ 추가: 누락되어 있던 키
+    USER_PROFILE: 'golf_user_profile'
 };
 
 // =========================================
@@ -183,9 +194,14 @@ const STORAGE_KEYS = {
 function saveActiveRound() {
     if (currentRound === null) {
         localStorage.removeItem(STORAGE_KEYS.ACTIVE_ROUND);
-    } else {
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_ROUND, JSON.stringify(currentRound));
+        return;
     }
+    // ★ B6: 공유 라운드는 localStorage에 진행상황 저장 안 함
+    // (Firestore가 진실의 원천 - source of truth)
+    if (currentRound.isShared) {
+        return;
+    }
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_ROUND, JSON.stringify(currentRound));
 }
 
 function loadActiveRound() {
@@ -359,9 +375,12 @@ function createPastRoundItem(round) {
     const item = document.createElement('div');
     item.className = 'past-round-item';
 
+    // ★ B6: 공유 라운드 표시 배지
+    const sharedBadge = round.isShared ? '<span class="shared-badge-mini">👥</span>' : '';
+
     item.innerHTML =
         '<div class="past-round-top">' +
-            '<span class="past-round-course">' + escapeHtml(round.courseName) + '</span>' +
+            '<span class="past-round-course">' + sharedBadge + escapeHtml(round.courseName) + '</span>' +
             '<span class="past-round-date">' + round.date + '</span>' +
         '</div>' +
         '<div class="past-round-bottom">' +
@@ -563,7 +582,8 @@ function startNewRound() {
         currentHole: 1,
         completed: false,
         gameMode: formData.gameMode,
-        courseHandicap: formData.courseHandicap
+        courseHandicap: formData.courseHandicap,
+        isShared: false
     };
 
     saveActiveRound();
@@ -646,6 +666,9 @@ function renderHoleInputScreen() {
     }
 
     renderPuttsDisplay();
+
+    // ★ B6: 공유 라운드면 멤버 스트립과 배지 표시
+    renderSharedModeUI();
 }
 
 function renderPuttsDisplay() {
@@ -693,6 +716,11 @@ function changeScore(delta) {
 
     saveActiveRound();
     renderHoleInputScreen();
+
+    // ★ B6: 공유 라운드면 Firestore 동기화 (디바운스)
+    if (currentRound.isShared) {
+        scheduleSyncMyScoreToFirestore();
+    }
 }
 
 function changePutts(delta) {
@@ -715,6 +743,11 @@ function changePutts(delta) {
     currentRound.putts[holeIndex] = newPutts;
     saveActiveRound();
     renderPuttsDisplay();
+
+    // ★ B6: 공유 라운드면 Firestore 동기화 (디바운스)
+    if (currentRound.isShared) {
+        scheduleSyncMyScoreToFirestore();
+    }
 }
 
 function goToHole(holeNumber) {
@@ -727,6 +760,11 @@ function goToHole(holeNumber) {
     currentRound.currentHole = holeNumber;
     saveActiveRound();
     renderHoleInputScreen();
+
+    // ★ B6: 공유 라운드면 Firestore 동기화 (즉시 - 홀 이동은 디바운스 불필요)
+    if (currentRound.isShared) {
+        syncMyScoreToFirestore();
+    }
 }
 
 function finishRound() {
@@ -739,14 +777,71 @@ function finishRound() {
     if (!confirmed) return;
 
     currentRound.completed = true;
+
+    // ★ B6: 공유 라운드와 개인 라운드 분기
+    if (currentRound.isShared) {
+        finishSharedRound();
+    } else {
+        finishPersonalRound();
+    }
+}
+
+function finishPersonalRound() {
     addCompletedRound(currentRound);
-    console.log('라운드 종료:', currentRound);
+    console.log('라운드 종료 (개인):', currentRound);
 
     viewingPastRoundId = null;
     showScreen(screenResult);
     renderResultScreen(currentRound);
 
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_ROUND);
+}
+
+// ★ B6: 공유 라운드 종료
+function finishSharedRound() {
+    // 1. 본인 멤버 데이터에 completed 마킹 (마지막 동기화 + completed 필드)
+    if (currentSharedRoundId !== null && currentUser !== null) {
+        const updateData = {
+            scores: currentRound.scores,
+            putts: currentRound.putts,
+            currentHole: currentRound.currentHole,
+            completed: true,
+            completedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        db.collection('rounds').doc(currentSharedRoundId)
+            .collection('members').doc(currentUser.uid)
+            .update(updateData)
+            .then(function() {
+                console.log('✅ 공유 라운드 완료 마킹 성공');
+            })
+            .catch(function(error) {
+                console.error('❌ 공유 라운드 완료 마킹 실패:', error);
+            });
+    }
+
+    // 2. 로컬 과거 라운드에도 저장 (사용자 결정: 통계 통합)
+    const localCopy = {
+        id: Date.now(),
+        courseName: currentRound.courseName,
+        date: currentRound.date,
+        pars: currentRound.pars.slice(),
+        scores: currentRound.scores.slice(),
+        putts: currentRound.putts.slice(),
+        currentHole: 18,
+        completed: true,
+        gameMode: currentRound.gameMode,
+        courseHandicap: currentRound.courseHandicap,
+        isShared: true,
+        shareCode: currentSharedRoundId
+    };
+    addCompletedRound(localCopy);
+    console.log('라운드 종료 (공유, 로컬 복사본 저장):', localCopy);
+
+    // 3. 결과 화면으로 (리스너는 결과 화면에서 메인 갈 때 정리)
+    viewingPastRoundId = null;
+    showScreen(screenResult);
+    renderResultScreen(currentRound);
 }
 
 // =========================================
@@ -1047,9 +1142,6 @@ function generateShareCode() {
 
 // 공유 링크 만들기 (현재 호스팅 환경 기반)
 function buildShareLink(code) {
-    // 현재 도메인 + 경로 + ?r=코드
-    // 예: http://127.0.0.1:5500/index.html?r=ABC123
-    // 예: https://username.github.io/jeongmo/?r=ABC123
     const base = window.location.origin + window.location.pathname;
     return base + '?r=' + code;
 }
@@ -1094,6 +1186,7 @@ function createSharedRound(formData) {
                 scores: new Array(18).fill(null),
                 putts: new Array(18).fill(null),
                 currentHole: 1,
+                completed: false,
                 joinedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
@@ -1237,13 +1330,12 @@ function showJoinRoundScreen(shareCode) {
             const roundData = result.roundData;
             const hostName = result.hostName;
 
-            // 본인이 호스트인 경우
+            // ★ B6: 본인이 호스트인 경우 → 바로 홀 입력 화면으로 (이어하기)
             if (currentUser !== null && currentUser.uid === roundData.hostId) {
-                console.log('ℹ️ 본인이 호스트 - 참여 불필요');
-                alert('이 라운드는 당신이 호스트입니다!\n공유 라운드 화면으로 이동합니다.');
-                currentSharedRoundId = shareCode;
+                console.log('ℹ️ 본인이 호스트 - 라운드 이어하기로 진입');
                 pendingJoinCode = null;
-                showShareLinkScreen(shareCode);
+                pendingJoinData = null;
+                enterSharedHoleInput(shareCode, true);
                 return;
             }
 
@@ -1285,6 +1377,7 @@ function showJoinRoundScreen(shareCode) {
 }
 
 // 라운드 참여 확정 (members 서브컬렉션에 추가)
+// ★ B6: alert 제거, 참여 성공 시 즉시 홀 입력 화면으로
 function confirmJoinRound() {
     if (pendingJoinData === null) {
         alert('참여할 라운드 정보가 없습니다.');
@@ -1304,19 +1397,25 @@ function confirmJoinRound() {
     }
 
     const shareCode = pendingJoinData.shareCode;
+    const roundData = pendingJoinData.roundData;
     const userId = currentUser.uid;
 
     btnConfirmJoin.disabled = true;
     btnConfirmJoin.textContent = '⏳ 참여 중...';
 
-    // 본인 멤버 정보
+    // ★ B6: 호스트가 정한 게임모드에 본인 핸디캡 적용
+    const myCourseHandicap = (roundData.gameMode === 'net' && profile.handicapIndex !== null && profile.handicapIndex !== undefined)
+        ? calculateCourseHandicap(profile.handicapIndex)
+        : null;
+
     const memberData = {
         name: profile.name,
         handicapIndex: profile.handicapIndex !== null ? profile.handicapIndex : null,
-        courseHandicap: profile.handicapIndex !== null ? calculateCourseHandicap(profile.handicapIndex) : null,
+        courseHandicap: myCourseHandicap,
         scores: new Array(18).fill(null),
         putts: new Array(18).fill(null),
         currentHole: 1,
+        completed: false,
         joinedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
 
@@ -1333,12 +1432,8 @@ function confirmJoinRound() {
             btnConfirmJoin.disabled = false;
             btnConfirmJoin.textContent = '✅ 참여하기';
 
-            // B6에서 본격 화면 구현 — 지금은 임시 알림
-            alert('🎉 라운드에 참여했습니다!\n\n공유 코드: ' + shareCode +
-                  '\n골프장: ' + pendingJoinData?.roundData?.courseName +
-                  '\n\n실시간 동기화 + 스코어 입력은 다음 단계(B6)에서 구현됩니다.');
-
-            showScreen(screenMain);
+            // ★ B6: alert 없이 바로 홀 입력 화면으로
+            enterSharedHoleInput(shareCode, false);
         })
         .catch(function(error) {
             console.error('❌ 라운드 참여 실패:', error);
@@ -1372,7 +1467,6 @@ function handleInitialRouting() {
     }
 
     // 익명 로그인 완료 후 참여 화면으로
-    // (currentUser가 아직 null일 수 있으므로 onAuthStateChanged에서 처리하는 게 안전)
     waitForAuthAndShowJoin(shareCode);
 }
 
@@ -1395,6 +1489,289 @@ function waitForAuthAndShowJoin(shareCode) {
             alert('Firebase 연결 실패. 인터넷 연결을 확인하고 다시 시도하세요.');
         }
     }, 1000);
+}
+
+// =========================================
+// ★ B6: 공유 라운드 — 실시간 동기화 + 홀 입력 진입
+// =========================================
+
+// 공유 라운드 홀 입력 화면 진입 (호스트/게스트 공통)
+function enterSharedHoleInput(shareCode, isHost) {
+    if (currentUser === null) {
+        alert('로그인 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
+    console.log('▶ 공유 라운드 홀 입력 진입:', shareCode, isHost ? '(호스트)' : '(게스트)');
+
+    currentSharedRoundId = shareCode;
+    currentRoundMode = 'shared';
+
+    // 1. 라운드 문서 + 본인 멤버 문서 가져와서 currentRound 구성
+    const roundRef = db.collection('rounds').doc(shareCode);
+    const myMemberRef = roundRef.collection('members').doc(currentUser.uid);
+
+    Promise.all([roundRef.get(), myMemberRef.get()])
+        .then(function(results) {
+            const roundDoc = results[0];
+            const myMemberDoc = results[1];
+
+            if (!roundDoc.exists) {
+                throw new Error('라운드를 찾을 수 없습니다.');
+            }
+            if (!myMemberDoc.exists) {
+                throw new Error('멤버 정보를 찾을 수 없습니다.');
+            }
+
+            const roundData = roundDoc.data();
+            const myData = myMemberDoc.data();
+
+            // currentRound 구성 (Firestore 데이터 + 공유 모드 메타)
+            currentRound = {
+                id: shareCode,                           // 공유 코드를 ID로
+                courseName: roundData.courseName,
+                date: new Date().toISOString().split('T')[0],
+                pars: roundData.pars,
+                scores: myData.scores || new Array(18).fill(null),
+                putts: myData.putts || new Array(18).fill(null),
+                currentHole: myData.currentHole || 1,
+                completed: false,
+                gameMode: roundData.gameMode,
+                courseHandicap: myData.courseHandicap !== undefined ? myData.courseHandicap : null,
+                isShared: true,                          // ★ 공유 라운드 표시
+                shareCode: shareCode,
+                isHost: isHost
+            };
+
+            // 2. 실시간 리스너 설정
+            setupSharedRoundListeners(shareCode);
+
+            // 3. 홀 입력 화면 진입
+            showScreen(screenHoleInput);
+            renderHoleInputScreen();
+        })
+        .catch(function(error) {
+            console.error('❌ 공유 라운드 진입 실패:', error);
+            alert('공유 라운드 진입 실패: ' + error.message);
+            cleanupSharedListeners();
+            currentSharedRoundId = null;
+            currentRoundMode = null;
+            currentRound = null;
+            showScreen(screenMain);
+        });
+}
+
+// 실시간 리스너 설정 (라운드 문서 + 멤버 컬렉션)
+function setupSharedRoundListeners(shareCode) {
+    // 기존 리스너 정리 (중복 방지)
+    cleanupSharedListeners();
+
+    const roundRef = db.collection('rounds').doc(shareCode);
+
+    // 라운드 문서 리스너 (status, gameMode 등 변경 감지)
+    roundUnsubscribe = roundRef.onSnapshot(function(doc) {
+        if (!doc.exists) {
+            console.warn('⚠️ 라운드가 삭제되었습니다.');
+            alert('라운드가 더 이상 존재하지 않습니다.');
+            backToMainFromShared();
+            return;
+        }
+
+        const roundData = doc.data();
+
+        // 게임모드 변경 감지 (호스트가 바꿨을 때)
+        if (currentRound && currentRound.gameMode !== roundData.gameMode) {
+            console.log('🔄 게임모드 변경 감지:', roundData.gameMode);
+            currentRound.gameMode = roundData.gameMode;
+        }
+    }, function(error) {
+        console.error('❌ 라운드 리스너 오류:', error);
+    });
+
+    // 멤버 컬렉션 리스너 (모든 멤버 스코어/현재홀 변경 감지)
+    membersUnsubscribe = roundRef.collection('members').onSnapshot(function(snapshot) {
+        const newMembersData = {};
+        snapshot.forEach(function(doc) {
+            newMembersData[doc.id] = doc.data();
+        });
+        allMembersData = newMembersData;
+
+        console.log('🔄 멤버 데이터 업데이트:', Object.keys(allMembersData).length + '명');
+
+        // 홀 입력 화면이 열려있으면 멤버 스트립 다시 그리기
+        if (!screenHoleInput.classList.contains('hidden')) {
+            renderMembersStrip();
+        }
+    }, function(error) {
+        console.error('❌ 멤버 리스너 오류:', error);
+    });
+}
+
+// 리스너 정리 (메모리 누수 방지 - PRD 4.8)
+function cleanupSharedListeners() {
+    if (roundUnsubscribe !== null) {
+        roundUnsubscribe();
+        roundUnsubscribe = null;
+        console.log('🧹 라운드 리스너 해제');
+    }
+    if (membersUnsubscribe !== null) {
+        membersUnsubscribe();
+        membersUnsubscribe = null;
+        console.log('🧹 멤버 리스너 해제');
+    }
+    if (scoreSyncTimer !== null) {
+        clearTimeout(scoreSyncTimer);
+        scoreSyncTimer = null;
+    }
+    allMembersData = {};
+}
+
+// 본인 스코어를 Firestore에 동기화 (디바운스)
+function scheduleSyncMyScoreToFirestore() {
+    if (scoreSyncTimer !== null) {
+        clearTimeout(scoreSyncTimer);
+    }
+    scoreSyncTimer = setTimeout(function() {
+        syncMyScoreToFirestore();
+    }, SCORE_SYNC_DELAY);
+}
+
+// 본인 스코어 즉시 동기화
+function syncMyScoreToFirestore() {
+    if (scoreSyncTimer !== null) {
+        clearTimeout(scoreSyncTimer);
+        scoreSyncTimer = null;
+    }
+
+    if (!currentRound || !currentRound.isShared) return;
+    if (currentSharedRoundId === null || currentUser === null) return;
+
+    const updateData = {
+        scores: currentRound.scores,
+        putts: currentRound.putts,
+        currentHole: currentRound.currentHole
+    };
+
+    db.collection('rounds').doc(currentSharedRoundId)
+        .collection('members').doc(currentUser.uid)
+        .update(updateData)
+        .then(function() {
+            console.log('✅ 스코어 동기화 완료 (홀', currentRound.currentHole + ')');
+        })
+        .catch(function(error) {
+            console.error('❌ 스코어 동기화 실패:', error);
+        });
+}
+
+// 공유 모드 UI 렌더링 (배지 + 멤버 스트립)
+function renderSharedModeUI() {
+    if (!currentRound || !currentRound.isShared) {
+        if (membersStrip) membersStrip.classList.add('hidden');
+        if (sharedModeBadge) sharedModeBadge.classList.add('hidden');
+        return;
+    }
+
+    if (sharedModeBadge) sharedModeBadge.classList.remove('hidden');
+    if (membersStrip) membersStrip.classList.remove('hidden');
+
+    renderMembersStrip();
+}
+
+// 멤버 미니 스트립 렌더링 (이름 · 홀 · 스코어 · 퍼팅)
+function renderMembersStrip() {
+    if (!membersStrip) return;
+    if (!currentRound || !currentRound.isShared) return;
+
+    const myUid = currentUser ? currentUser.uid : null;
+    const memberIds = Object.keys(allMembersData);
+
+    if (memberIds.length === 0) {
+        membersStrip.innerHTML = '<div class="member-chip-loading">⏳ 멤버 정보 로딩 중...</div>';
+        return;
+    }
+
+    // 정렬: 본인 먼저, 그 다음 이름순
+    memberIds.sort(function(a, b) {
+        if (a === myUid) return -1;
+        if (b === myUid) return 1;
+        const nameA = (allMembersData[a].name || '').toLowerCase();
+        const nameB = (allMembersData[b].name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+
+    membersStrip.innerHTML = '';
+
+    for (let i = 0; i < memberIds.length; i++) {
+        const uid = memberIds[i];
+        const m = allMembersData[uid];
+        const chip = createMemberChip(m, uid === myUid);
+        membersStrip.appendChild(chip);
+    }
+}
+
+// 멤버 칩 1개 만들기 (이름 · 홀 · 스코어 · 퍼팅)
+function createMemberChip(memberData, isMe) {
+    // 누적 스코어/퍼팅/홀 계산
+    let totalScore = 0;
+    let totalPar = 0;
+    let totalPutts = 0;
+    let puttsRecorded = 0;
+    let lastPlayedHole = 0;
+    const pars = currentRound.pars;
+
+    for (let i = 0; i < 18; i++) {
+        if (memberData.scores && memberData.scores[i] !== null && memberData.scores[i] !== undefined) {
+            totalScore += memberData.scores[i];
+            totalPar += pars[i];
+            lastPlayedHole = i + 1;
+        }
+        if (memberData.putts && memberData.putts[i] !== null && memberData.putts[i] !== undefined) {
+            totalPutts += memberData.putts[i];
+            puttsRecorded++;
+        }
+    }
+
+    const overUnder = totalScore - totalPar;
+    let overUnderText;
+    if (lastPlayedHole === 0) {
+        overUnderText = 'E';
+    } else if (overUnder === 0) {
+        overUnderText = 'E';
+    } else if (overUnder > 0) {
+        overUnderText = '+' + overUnder;
+    } else {
+        overUnderText = String(overUnder);
+    }
+
+    const currentHole = memberData.currentHole || 1;
+    const completed = memberData.completed === true;
+
+    const chip = document.createElement('div');
+    chip.className = 'member-chip' + (isMe ? ' member-chip-me' : '') + (completed ? ' member-chip-done' : '');
+
+    const name = memberData.name || '알 수 없음';
+    const holeText = completed ? '✓ 18홀' : currentHole + '홀';
+    const puttsText = puttsRecorded > 0 ? '· P ' + totalPutts : '';
+
+    chip.innerHTML =
+        '<div class="chip-name">' + (isMe ? '👤 ' : '') + escapeHtml(name) + '</div>' +
+        '<div class="chip-stats">' +
+            '<span class="chip-hole">' + holeText + '</span>' +
+            '<span class="chip-score">' + overUnderText + '</span>' +
+            (puttsText ? '<span class="chip-putts">' + puttsText + '</span>' : '') +
+        '</div>';
+
+    return chip;
+}
+
+// 공유 라운드에서 메인으로 (리스너 정리 포함)
+function backToMainFromShared() {
+    cleanupSharedListeners();
+    currentSharedRoundId = null;
+    currentRoundMode = null;
+    currentRound = null;
+    refreshMainScreen();
+    showScreen(screenMain);
 }
 
 // =========================================
@@ -1505,6 +1882,12 @@ btnNextHole.addEventListener('click', function() {
 });
 
 btnBackToMainFromResult.addEventListener('click', function() {
+    // ★ B6: 공유 라운드였으면 리스너 정리
+    if (currentRound && currentRound.isShared) {
+        cleanupSharedListeners();
+        currentSharedRoundId = null;
+        currentRoundMode = null;
+    }
     currentRound = null;
     viewingPastRoundId = null;
     refreshMainScreen();
@@ -1518,10 +1901,14 @@ btnDeleteRound.addEventListener('click', deleteViewingRound);
 // =========================================
 btnCopyLink.addEventListener('click', copyShareLink);
 
+// ★ B6: 호스트 "라운드 시작하기" → 홀 입력 화면 진입
 btnStartSharedRound.addEventListener('click', function() {
-    // B5/B6에서 본격 구현 — 지금은 임시 메시지
-    alert('공유 라운드 시작은 다음 단계(B5/B6)에서 구현됩니다!\n지금은 라운드가 Firestore에 만들어지는 것까지만 확인하세요.');
-    showScreen(screenMain);
+    if (currentSharedRoundId === null) {
+        alert('공유 라운드 정보가 없습니다.');
+        showScreen(screenMain);
+        return;
+    }
+    enterSharedHoleInput(currentSharedRoundId, true);
 });
 
 btnCancelSharedRound.addEventListener('click', function() {

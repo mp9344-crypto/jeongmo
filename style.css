@@ -982,3 +982,164 @@ select:focus {
     margin: 0;
     text-align: center;
 }
+
+/* =========================================
+   ★ B6: 공유 라운드 — 실시간 동기화 UI
+   ========================================= */
+
+/* 공유 모드 배지 (홀 입력 화면 상단) */
+.shared-mode-badge {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+    animation: pulse-shared 2s ease-in-out infinite;
+}
+
+@keyframes pulse-shared {
+    0%, 100% { box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3); }
+    50% { box-shadow: 0 2px 12px rgba(59, 130, 246, 0.6); }
+}
+
+/* 멤버 미니 스트립 (가로 스크롤) */
+.members-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 4px 12px 4px;
+    margin-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.members-strip::-webkit-scrollbar {
+    height: 4px;
+}
+
+.members-strip::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
+}
+
+.members-strip::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* 멤버 칩 (1명) */
+.member-chip {
+    flex: 0 0 auto;
+    min-width: 110px;
+    background: white;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: transform 0.15s ease;
+}
+
+.member-chip:active {
+    transform: scale(0.97);
+}
+
+/* 본인 칩 강조 */
+.member-chip-me {
+    background: linear-gradient(135deg, #dbeafe, #eff6ff);
+    border-color: #3b82f6;
+    border-width: 2px;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+/* 라운드 완료된 멤버 */
+.member-chip-done {
+    background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+    border-color: #10b981;
+    opacity: 0.92;
+}
+
+.member-chip-done.member-chip-me {
+    background: linear-gradient(135deg, #bfdbfe, #d1fae5);
+    border-color: #2563eb;
+}
+
+/* 칩 안의 이름 */
+.chip-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+.member-chip-me .chip-name {
+    color: #1d4ed8;
+}
+
+.member-chip-done .chip-name {
+    color: #065f46;
+}
+
+/* 칩 안의 통계 (홀 · 스코어 · 퍼팅) */
+.chip-stats {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: nowrap;
+    font-size: 11px;
+    color: #475569;
+}
+
+.chip-hole {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.member-chip-me .chip-hole {
+    background: #bfdbfe;
+    color: #1e40af;
+}
+
+.member-chip-done .chip-hole {
+    background: #a7f3d0;
+    color: #065f46;
+}
+
+.chip-score {
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
+.chip-putts {
+    color: #64748b;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+/* 멤버 데이터 로딩 중 */
+.member-chip-loading {
+    flex: 1;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    padding: 10px;
+}
+
+/* 과거 라운드 목록의 공유 라운드 배지 */
+.shared-badge-mini {
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 12px;
+    opacity: 0.85;
+}
