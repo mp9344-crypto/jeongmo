@@ -1424,6 +1424,47 @@ function buildTournamentLink(code) {
     return base + '?t=' + code;
 }
 
+// Firestore에서 정모 정보 가져오기 (참여용)
+// 반환: { tournamentData, hostName, currentMemberCount } 또는 throw Error
+function fetchTournament(tournamentId) {
+    return db.collection('tournaments').doc(tournamentId).get()
+        .then(function(doc) {
+            if (!doc.exists) {
+                throw new Error('NOT_FOUND');
+            }
+
+            const tournamentData = doc.data();
+
+            // 1. 종료된 정모는 참여 불가
+            if (tournamentData.status === 'completed') {
+                throw new Error('COMPLETED');
+            }
+
+            // 2. 진행 중인 정모도 (현재로선) 참여 불가 — C2 단계에서는
+            //    "waiting"일 때만 참여 가능. 진행 중 추가 입장은 v1.1에서 검토.
+            if (tournamentData.status === 'in_progress') {
+                throw new Error('IN_PROGRESS');
+            }
+
+            // 3. 멤버 수 확인 (cap 검증)
+            return db.collection('tournaments').doc(tournamentId)
+                .collection('members').get()
+                .then(function(membersSnapshot) {
+                    const memberCount = membersSnapshot.size;
+
+                    if (memberCount >= tournamentData.maxMembers) {
+                        throw new Error('FULL');
+                    }
+
+                    return {
+                        tournamentData: tournamentData,
+                        hostName: tournamentData.hostName || '알 수 없음',
+                        currentMemberCount: memberCount
+                    };
+                });
+        });
+}
+
 // Firestore에 정모 만들기
 function createTournament(formData) {
     if (currentUser === null) {
@@ -1523,6 +1564,16 @@ function showTournamentLinkScreen(tournamentId, formData) {
 
     tournamentCodeDisplay.textContent = tournamentId;
     tournamentLinkDisplay.value = link;
+
+    // Net 정모 안내 (호스트가 단톡방에 함께 보낼 수 있도록)
+    const netNoticeBox = document.getElementById('tournament-net-notice');
+    if (netNoticeBox) {
+        if (formData.gameMode === 'net') {
+            netNoticeBox.classList.remove('hidden');
+        } else {
+            netNoticeBox.classList.add('hidden');
+        }
+    }
 
     // 멤버 목록 (지금은 호스트만)
     tournamentLinkMembersList.innerHTML = '';
@@ -1639,6 +1690,31 @@ function extractShareCodeFromUrl() {
     }
 
     return code;
+}
+
+// URL에서 정모 코드 추출 (?t=ABCDEF) - C1-3
+function extractTournamentCodeFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('t');
+
+    if (code === null || code === '') return null;
+
+    // 6자리 영숫자 검증 (generateShareCode와 같은 형식)
+    const validPattern = /^[A-HJ-NP-Z2-9]{6}$/;
+    if (!validPattern.test(code)) {
+        console.warn('⚠️ 잘못된 정모 코드 형식:', code);
+        return null;
+    }
+
+    return code;
+}
+
+// URL에서 ?t=... 또는 ?r=... 제거 (참여 후 깔끔하게)
+function clearTournamentCodeFromUrl() {
+    if (window.history && window.history.replaceState) {
+        const newUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+    }
 }
 
 // URL에서 ?r=... 제거 (참여 후 깔끔하게)
@@ -1807,6 +1883,28 @@ function confirmJoinRound() {
 
 // 앱 시작 시 URL 라우팅 처리
 function handleInitialRouting() {
+    // 정모 코드 (?t=...) 우선 확인
+    const tournamentCode = extractTournamentCodeFromUrl();
+    if (tournamentCode !== null) {
+        console.log('🏌️ 정모 링크 감지:', tournamentCode);
+
+        // URL 정리 (새로고침해도 다시 묻지 않게)
+        clearTournamentCodeFromUrl();
+
+        // 프로필 체크
+        const profile = loadUserProfile();
+        if (profile === null || !profile.name) {
+            alert('정모에 참여하려면 먼저 이름을 설정해주세요.\n프로필 설정 후 다시 링크를 클릭하세요.');
+            openProfileScreen();
+            return;
+        }
+
+        // 익명 로그인 완료 후 정모 진입 처리
+        waitForAuthAndHandleTournament(tournamentCode);
+        return;
+    }
+
+    // 공유 라운드 코드 (?r=...) 처리 (기존 로직)
     const shareCode = extractShareCodeFromUrl();
 
     if (shareCode === null) {
@@ -1830,6 +1928,101 @@ function handleInitialRouting() {
 
     // 익명 로그인 완료 후 참여 화면으로
     waitForAuthAndShowJoin(shareCode);
+}
+
+// 정모 진입 처리 (인증 완료 대기 후) - C2-1
+function waitForAuthAndHandleTournament(tournamentCode) {
+    if (currentUser !== null) {
+        handleTournamentEntry(tournamentCode);
+        return;
+    }
+
+    // 인증 완료까지 짧게 대기 (최대 5초)
+    let waitCount = 0;
+    const waitInterval = setInterval(function() {
+        waitCount++;
+        if (currentUser !== null) {
+            clearInterval(waitInterval);
+            handleTournamentEntry(tournamentCode);
+        } else if (waitCount > 50) {
+            clearInterval(waitInterval);
+            alert('로그인 대기 시간 초과. 페이지를 새로고침해주세요.');
+        }
+    }, 100);
+}
+
+// 정모 코드로 진입 — 정보 fetch 후 분기
+// (C2-1에서는 검증과 안내만, 참여 화면 자체는 C2-2에서)
+function handleTournamentEntry(tournamentCode) {
+    console.log('🏌️ 정모 진입 처리:', tournamentCode);
+
+    fetchTournament(tournamentCode)
+        .then(function(result) {
+            const tournamentData = result.tournamentData;
+            const hostName = result.hostName;
+            const memberCount = result.currentMemberCount;
+
+            // ★ 본인이 호스트인 경우 → 자기가 만든 정모 링크 클릭
+            //    → 정모 코드/링크 화면으로 (이어서 관리 가능)
+            if (currentUser !== null && currentUser.uid === tournamentData.hostId) {
+                console.log('ℹ️ 본인이 호스트 - 정모 코드 화면으로');
+                currentTournamentId = tournamentCode;
+                showTournamentLinkScreen(tournamentCode, tournamentData);
+                return;
+            }
+
+            // ★ 본인이 이미 참여한 멤버인 경우 → 대기실로 (C2-3에서 구현)
+            //    지금은 안내만
+            return db.collection('tournaments').doc(tournamentCode)
+                .collection('members').doc(currentUser.uid).get()
+                .then(function(memberDoc) {
+                    if (memberDoc.exists) {
+                        console.log('ℹ️ 이미 참여 중인 멤버');
+                        alert('이미 참여 중인 정모입니다.\n\n정모: ' + tournamentData.name +
+                              '\n현재 인원: ' + memberCount + '/' + tournamentData.maxMembers + '명' +
+                              '\n\n(대기실 화면은 C2-3 단계에서 연결됩니다)');
+                        return;
+                    }
+
+                    // ★ 새로 참여하는 사용자 — Net 정모면 핸디 체크
+                    const profile = loadUserProfile();
+                    if (tournamentData.gameMode === 'net') {
+                        if (profile === null ||
+                            profile.handicapIndex === null ||
+                            profile.handicapIndex === undefined) {
+                            alert('이 정모는 Net 모드입니다.\n\n참여하려면 Handicap Index를 먼저 설정해주세요.\n프로필 설정 화면으로 이동합니다.');
+                            openProfileScreen();
+                            return;
+                        }
+                    }
+
+                    // 검증 통과 — 참여 화면(C2-2)으로
+                    // C2-1에서는 일단 안내 alert만
+                    alert('✅ 정모 참여 가능!\n\n' +
+                          '정모: ' + tournamentData.name +
+                          '\n골프장: ' + tournamentData.courseName +
+                          '\n날짜: ' + tournamentData.date +
+                          '\n호스트: ' + hostName +
+                          '\n게임 모드: ' + (tournamentData.gameMode === 'net' ? 'Net' : 'Gross') +
+                          '\n현재 인원: ' + memberCount + '/' + tournamentData.maxMembers + '명' +
+                          '\n\n(참여 화면은 C2-2 단계에서 추가됩니다)');
+                });
+        })
+        .catch(function(error) {
+            console.error('❌ 정모 진입 실패:', error);
+
+            if (error.message === 'NOT_FOUND') {
+                alert('해당 정모를 찾을 수 없습니다.\n\n코드를 다시 확인하거나, 호스트에게 새 링크를 요청하세요.');
+            } else if (error.message === 'COMPLETED') {
+                alert('이 정모는 이미 종료되었습니다.\n\n결과를 확인하려면 호스트에게 문의하세요.');
+            } else if (error.message === 'IN_PROGRESS') {
+                alert('이 정모는 이미 시작되었습니다.\n\n진행 중인 정모에는 참여할 수 없습니다. 호스트에게 문의하세요.');
+            } else if (error.message === 'FULL') {
+                alert('이 정모는 정원이 가득 찼습니다.\n\n호스트에게 문의하세요.');
+            } else {
+                alert('정모 정보를 불러올 수 없습니다.\n\n오류: ' + error.message);
+            }
+        });
 }
 
 // 익명 로그인 완료를 기다린 후 참여 화면 표시
@@ -2156,13 +2349,44 @@ btnJoinByCode.addEventListener('click', function() {
         return;
     }
     const trimmed = code.trim().toUpperCase();
-    if (trimmed.length !== 6) {
-        alert('코드는 6자리여야 합니다.');
+    const validPattern = /^[A-HJ-NP-Z2-9]{6}$/;
+    if (!validPattern.test(trimmed)) {
+        alert('잘못된 코드 형식입니다.\n\n6자리 영문 대문자/숫자로 구성되어야 합니다.\n(헷갈리는 글자 I, O, 0, 1은 사용하지 않습니다)');
         return;
     }
     console.log('🎯 코드로 참여 시도:', trimmed);
-    // C2 단계에서 실제 참여 로직 연결됨. 지금은 안내만.
-    alert('코드 참여 기능은 C2 단계에서 연결됩니다.\n현재는 링크/QR로 참여해주세요.');
+
+    // 정모 코드인지 공유 라운드 코드인지 모름 → 정모 먼저 시도
+    // 정모로 찾으면 정모, 못 찾으면 공유 라운드 시도
+    db.collection('tournaments').doc(trimmed).get()
+        .then(function(doc) {
+            if (doc.exists) {
+                // 정모 발견 → 정모 진입 처리
+                console.log('ℹ️ 정모 코드로 확인됨');
+                const profile = loadUserProfile();
+                if (profile === null || !profile.name) {
+                    alert('정모에 참여하려면 먼저 이름을 설정해주세요.');
+                    openProfileScreen();
+                    return;
+                }
+                handleTournamentEntry(trimmed);
+            } else {
+                // 정모 없음 → 공유 라운드로 시도
+                console.log('ℹ️ 정모 아님 — 공유 라운드로 시도');
+                pendingJoinCode = trimmed;
+                const profile = loadUserProfile();
+                if (profile === null || !profile.name) {
+                    alert('참여하려면 먼저 이름을 설정해주세요.');
+                    openProfileScreen();
+                    return;
+                }
+                waitForAuthAndShowJoin(trimmed);
+            }
+        })
+        .catch(function(error) {
+            console.error('❌ 코드 조회 실패:', error);
+            alert('코드 조회 실패: ' + error.message);
+        });
 });
 
 btnContinueRound.addEventListener('click', function() {

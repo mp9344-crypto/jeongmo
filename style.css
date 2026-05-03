@@ -1231,3 +1231,25 @@ select:focus {
     color: #666;
     line-height: 1.5;
 }
+
+/* 정모 코드 화면 - Net 정모 안내 박스 (C2-1) */
+.net-notice-box {
+    background: #fff8e1;
+    border: 2px solid #ffc107;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 16px 0;
+}
+
+.net-notice-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #b85c00;
+    margin-bottom: 6px;
+}
+
+.net-notice-body {
+    font-size: 14px;
+    color: #555;
+    line-height: 1.6;
+}
