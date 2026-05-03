@@ -112,7 +112,9 @@ const tournamentMetaDisplay = document.getElementById('tournament-meta-display')
 const tournamentCodeDisplay = document.getElementById('tournament-code-display');
 const tournamentLinkDisplay = document.getElementById('tournament-link-display');
 const btnCopyTournamentLink = document.getElementById('btn-copy-tournament-link');
+const btnCopyTournamentCode = document.getElementById('btn-copy-tournament-code');
 const tournamentCopyFeedback = document.getElementById('tournament-copy-feedback');
+const tournamentCodeCopyFeedback = document.getElementById('tournament-code-copy-feedback');
 const tournamentLinkMembersList = document.getElementById('tournament-link-members-list');
 const btnGoToWaitingRoom = document.getElementById('btn-go-to-waiting-room');
 const btnBackToMainFromTournamentLink = document.getElementById('btn-back-to-main-from-tournament-link');
@@ -834,6 +836,7 @@ btnCancelTournamentCreate.addEventListener('click', function() {
 
 // 정모 코드/링크 화면 이벤트 (C1-3)
 btnCopyTournamentLink.addEventListener('click', copyTournamentLink);
+btnCopyTournamentCode.addEventListener('click', copyTournamentCodeOnly);
 btnBackToMainFromTournamentLink.addEventListener('click', function() {
     showScreen(screenMain);
 });
@@ -1766,6 +1769,9 @@ function showTournamentLinkScreen(tournamentId, formData) {
     tournamentLinkMembersList.appendChild(memberDiv);
 
     tournamentCopyFeedback.classList.add('hidden');
+    if (tournamentCodeCopyFeedback) {
+        tournamentCodeCopyFeedback.classList.add('hidden');
+    }
     showScreen(screenTournamentLink);
 }
 
@@ -1797,6 +1803,44 @@ function showTournamentCopyFeedback() {
     tournamentCopyFeedback.classList.remove('hidden');
     setTimeout(function() {
         tournamentCopyFeedback.classList.add('hidden');
+    }, 2000);
+}
+
+// 정모 코드만 클립보드 복사 (C2-2 추가)
+function copyTournamentCodeOnly() {
+    const code = tournamentCodeDisplay.textContent;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code)
+            .then(showTournamentCodeCopyFeedback)
+            .catch(fallbackCopyTournamentCode);
+    } else {
+        fallbackCopyTournamentCode();
+    }
+}
+
+function fallbackCopyTournamentCode() {
+    // textarea 생성해서 selectionrange로 복사
+    const code = tournamentCodeDisplay.textContent;
+    const textarea = document.createElement('textarea');
+    textarea.value = code;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showTournamentCodeCopyFeedback();
+    } catch (err) {
+        alert('복사 실패. 직접 선택해서 복사해주세요.');
+    }
+    document.body.removeChild(textarea);
+}
+
+function showTournamentCodeCopyFeedback() {
+    tournamentCodeCopyFeedback.classList.remove('hidden');
+    setTimeout(function() {
+        tournamentCodeCopyFeedback.classList.add('hidden');
     }, 2000);
 }
 

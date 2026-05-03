@@ -1269,3 +1269,37 @@ select:focus {
     color: #2e7d32;
     margin-bottom: 10px;
 }
+
+/* 정모 코드 박스 (코드 + 복사 버튼 가로 배치) - C2-2 추가 */
+.share-code-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.share-code-box .share-code {
+    flex: 1;
+    margin: 0;
+}
+
+.btn-copy-code {
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    background: #2d6a4f;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: inherit;
+}
+
+.btn-copy-code:hover {
+    background: #25553f;
+}
+
+.btn-copy-code:active {
+    transform: scale(0.97);
+}
