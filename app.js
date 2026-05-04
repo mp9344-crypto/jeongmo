@@ -164,7 +164,6 @@ const waitingHostNotice = document.getElementById('waiting-host-notice');
 const waitingGuestNotice = document.getElementById('waiting-guest-notice');
 const btnGoToTeamAssignment = document.getElementById('btn-go-to-team-assignment');
 const btnLeaveTournament = document.getElementById('btn-leave-tournament');
-const btnBackToMainFromWaiting = document.getElementById('btn-back-to-main-from-waiting');
 const btnCancelTournament = document.getElementById('btn-cancel-tournament');
 
 // 팀 배정 화면 (2단계 C - C3)
@@ -427,6 +426,18 @@ function loadUserProfile() {
         console.error('프로필 불러오기 실패:', error);
         return null;
     }
+}
+
+// =========================================
+// 호스트성 액션 게이팅 (D0)
+// 현재는 항상 true. D7 이후 유료/구독 분기 도입 시 이 함수 수정.
+// =========================================
+function canUserHostTournament() {
+    return true;
+}
+
+function canUserCreateRound() {
+    return true;
 }
 
 function calculateCourseHandicap(handicapIndex) {
@@ -1047,11 +1058,6 @@ screenTeamAssignment.addEventListener('click', function(e) {
 });
 
 btnLeaveTournament.addEventListener('click', leaveTournamentAsGuest);
-btnBackToMainFromWaiting.addEventListener('click', function() {
-    // 호스트는 정모 유지하고 메인으로 (다른 일 보다가 다시 정모 링크 클릭하면 대기실로 복귀)
-    cleanupTournamentWaitingListeners();
-    showScreen(screenMain);
-});
 btnCancelTournament.addEventListener('click', cancelTournamentAsHost);
 
 function loadPreviousRound() {
@@ -2022,7 +2028,6 @@ function enterTournamentWaitingRoom(tournamentId) {
     waitingGuestNotice.classList.add('hidden');
     btnGoToTeamAssignment.classList.add('hidden');
     btnLeaveTournament.classList.add('hidden');
-    btnBackToMainFromWaiting.classList.add('hidden');
     waitingLinkSection.classList.add('hidden');
 
     showScreen(screenTournamentWaiting);
@@ -2919,7 +2924,6 @@ function renderTournamentWaitingHeader(tournamentId, tournamentData) {
         btnGoToTeamAssignment.classList.remove('hidden');
         btnGoToTeamAssignment.textContent = '🎯 팀 배정';
         btnLeaveTournament.classList.add('hidden');
-        btnBackToMainFromWaiting.classList.remove('hidden');
         btnCancelTournament.classList.remove('hidden');
         // 호스트는 링크도 보임 (단톡방 공유)
         waitingLinkSection.classList.remove('hidden');
@@ -2929,7 +2933,6 @@ function renderTournamentWaitingHeader(tournamentId, tournamentData) {
         waitingGuestNotice.classList.remove('hidden');
         btnGoToTeamAssignment.classList.add('hidden');
         btnLeaveTournament.classList.remove('hidden');
-        btnBackToMainFromWaiting.classList.add('hidden');
         btnCancelTournament.classList.add('hidden');
         // 게스트는 링크 영역 숨김 (어차피 단톡방 공유는 호스트의 일)
         waitingLinkSection.classList.add('hidden');
@@ -4788,6 +4791,10 @@ btnCancelProfile.addEventListener('click', function() {
 });
 
 btnNewRound.addEventListener('click', function() {
+    if (!canUserCreateRound()) {
+        alert('라운드 생성 기능은 현재 사용 불가합니다.');
+        return;
+    }
     showScreen(screenModeSelect);
 });
 
@@ -4900,6 +4907,11 @@ btnModeShared.addEventListener('click', function() {
 // 정모 모드 (2단계 C)
 btnModeTournament.addEventListener('click', function() {
     console.log('🟡 정모 모드 선택 시도');
+
+    if (!canUserHostTournament()) {
+        alert('호스트 기능은 현재 사용 불가합니다.');
+        return;
+    }
 
     const profile = loadUserProfile();
     if (profile === null || !profile.name) {

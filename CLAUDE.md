@@ -1,8 +1,8 @@
 ## 현재 상태
 
-- **2단계 C 완료** (2026-05-04) — C1~C5 전 단계 구현 + 검증 완료
-- 다음: 1주일 후 실제 정모 라운딩 검증 → 그 후 D 단계 시작 (새 채팅 + 새 세션)
-- 배포 상태: GitHub Pages (app.js?v=c48) + Firestore 규칙 변경 없음
+- **D0 완료** (2026-05-04) — 호스트 메인 복귀 제거 + 호스트성 액션 게이팅 구조 도입
+- **배포 상태**: GitHub Pages (app.js?v=d0) + Firestore 규칙 변경 없음
+- 다음: D1 이후 단계 (골프장 DB + 티박스 선택, PRD 6장)
 
 ---
 
@@ -99,12 +99,25 @@
 
 ---
 
+## 비즈니스 모델 메모 (D0에서 정립)
+
+- 호스트성 액션 = 미래 유료/구독 후보
+  - 정모 만들기 (`canUserHostTournament`)
+  - (D8 이후) 프록시 멤버 추가
+- 영구 무료 = 개인 라운드, 정모 참여 (게스트), B6 1:1 공유
+- 게이팅 함수 위치: `app.js` `calculateCourseHandicap` 직전
+- D0에선 항상 true 반환 — 구조만 도입. 강제는 D7 이후.
+
+---
+
 ## 진행 원칙
 
 - 마일스톤 잘게 쪼개기 (C3은 5단계, C4는 6~7단계 예상)
 - 각 단계마다 Playwright + Firebase MCP 자동 검증
 - 보안 규칙 변경은 별도 세션 권장 (코드 동작 검증 후 `firebase deploy --only firestore:rules`)
 - 새 화면 만들 때 `.hidden` 우선순위 주의: `.hidden { display: none !important; }` 패턴 필수 (나중에 오는 `display: flex` 규칙에 덮임)
+- 호스트 정모 진행 중 메인 복귀 금지 (D0). 일시 이탈은 `?t=코드` URL 새로고침으로 복귀 (C4-7).
+- 호스트성 액션 추가 시 `canUserHostTournament()` 가드 필수.
 
 ---
 
