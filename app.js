@@ -166,6 +166,8 @@ const btnCancelTournament = document.getElementById('btn-cancel-tournament');
 // 팀 배정 화면 (2단계 C - C3)
 const teamAssignmentMeta = document.getElementById('team-assignment-meta');
 const teamAssignmentMemberCount = document.getElementById('team-assignment-member-count');
+const teamAssignmentStatus = document.getElementById('team-assignment-status');
+const teamCardsGrid = document.getElementById('team-cards-grid');
 const btnBackToWaitingFromTeams = document.getElementById('btn-back-to-waiting-from-teams');
 
 // 공유 링크 화면 (2단계 B)
@@ -701,6 +703,21 @@ function openNewRoundScreen() {
 
 const TOURNAMENT_MAX_MEMBERS = 40;
 const TOURNAMENT_MAX_TEAMS = 10;
+
+// 팀 색상 풀 (10개) - colorIndex 1~10
+const TEAM_COLORS = [
+    null, // index 0 안 씀 (1-based)
+    { name: '빨강', main: '#dc2626', bg: '#fee2e2' },
+    { name: '파랑', main: '#2563eb', bg: '#dbeafe' },
+    { name: '초록', main: '#16a34a', bg: '#dcfce7' },
+    { name: '주황', main: '#ea580c', bg: '#ffedd5' },
+    { name: '보라', main: '#9333ea', bg: '#f3e8ff' },
+    { name: '청록', main: '#0891b2', bg: '#cffafe' },
+    { name: '분홍', main: '#db2777', bg: '#fce7f3' },
+    { name: '노랑', main: '#ca8a04', bg: '#fef9c3' },
+    { name: '회색', main: '#475569', bg: '#e2e8f0' },
+    { name: '갈색', main: '#78350f', bg: '#fed7aa' }
+];
 
 function createTournamentParInputs(prefilledPars) {
     tournamentParInputsFront.innerHTML = '';
@@ -1942,6 +1959,7 @@ function renderTournamentWaitingHeader(tournamentId, tournamentData) {
     // 다른 함수에서 사용할 캐시
     currentTournamentHostId = tournamentData.hostId;
     currentTournamentMaxMembers = tournamentData.maxMembers;
+    currentTournamentTeamCount = tournamentData.teamCount;
 
     waitingTournamentName.textContent = '🏌️ ' + tournamentData.name;
 
@@ -2083,15 +2101,113 @@ function updateTeamAssignmentButton() {
     }
 }
 
+function ensureTeamsExist(tournamentId, teamCount) {
+    return db.collection('tournaments').doc(tournamentId)
+        .collection('teams').get()
+        .then(function(snapshot) {
+            if (snapshot.size >= teamCount) {
+                console.log('ℹ️ 팀 이미 존재 (' + snapshot.size + '개) - 재생성 안 함');
+                return { created: false, count: snapshot.size };
+            }
+
+            console.log('🔨 팀 ' + teamCount + '개 생성 중... (현재: ' + snapshot.size + '개)');
+            const batch = db.batch();
+            for (let i = 1; i <= teamCount; i++) {
+                const teamRef = db.collection('tournaments').doc(tournamentId)
+                                  .collection('teams').doc('team-' + i);
+                batch.set(teamRef, {
+                    name: i + '팀',
+                    colorIndex: i,
+                    memberIds: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+            return batch.commit().then(function() {
+                console.log('✅ 팀 ' + teamCount + '개 생성 완료');
+                return { created: true, count: teamCount };
+            });
+        });
+}
+
+function renderTeamCards(teams) {
+    teamCardsGrid.innerHTML = '';
+
+    teams.sort(function(a, b) {
+        return (a.colorIndex || 0) - (b.colorIndex || 0);
+    });
+
+    teams.forEach(function(team) {
+        const color = TEAM_COLORS[team.colorIndex] || TEAM_COLORS[9];
+
+        const card = document.createElement('div');
+        card.className = 'team-card';
+        card.style.borderColor = color.main;
+        card.style.backgroundColor = color.bg;
+        card.dataset.teamId = team.id;
+
+        const header = document.createElement('div');
+        header.className = 'team-card-header';
+        header.style.color = color.main;
+        header.textContent = team.name;
+        card.appendChild(header);
+
+        const memberCount = (team.memberIds || []).length;
+        const meta = document.createElement('div');
+        meta.className = 'team-card-meta';
+        meta.textContent = memberCount + '명';
+        card.appendChild(meta);
+
+        const memberArea = document.createElement('div');
+        memberArea.className = 'team-card-members';
+        memberArea.innerHTML = '<p class="team-card-empty">아직 배정된 멤버 없음</p>';
+        card.appendChild(memberArea);
+
+        teamCardsGrid.appendChild(card);
+    });
+}
+
 function showTeamAssignmentScreen() {
+    if (currentTournamentTeamCount === null) {
+        alert('정모 정보 로딩 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
     teamAssignmentMeta.textContent = '정모 코드: ' + currentTournamentId;
-    teamAssignmentMemberCount.textContent = '참여자: ' + lastWaitingMemberIds.size + '명';
+    teamAssignmentMemberCount.textContent =
+        '참여자: ' + lastWaitingMemberIds.size + '명 / 팀: ' + currentTournamentTeamCount + '개';
+
+    teamCardsGrid.innerHTML = '';
+    teamAssignmentStatus.classList.remove('hidden');
+    teamAssignmentStatus.textContent = '⏳ 팀 정보 로딩 중...';
     showScreen(screenTeamAssignment);
+
+    ensureTeamsExist(currentTournamentId, currentTournamentTeamCount)
+        .then(function() {
+            return db.collection('tournaments').doc(currentTournamentId)
+                .collection('teams').get();
+        })
+        .then(function(snapshot) {
+            const teams = [];
+            snapshot.forEach(function(doc) {
+                const data = doc.data();
+                data.id = doc.id;
+                teams.push(data);
+            });
+
+            teamAssignmentStatus.classList.add('hidden');
+            renderTeamCards(teams);
+        })
+        .catch(function(error) {
+            console.error('❌ 팀 로딩/생성 실패:', error);
+            teamAssignmentStatus.textContent =
+                '❌ 팀 정보 로딩 실패: ' + error.message + ' (보안 규칙 또는 네트워크 확인)';
+        });
 }
 
 // 정모 본 문서 캐시 (렌더링 시 사용)
 let currentTournamentHostId = null;
 let currentTournamentMaxMembers = null;
+let currentTournamentTeamCount = null;
 
 // 대기실 떠나기 (리스너 정리 + 메인 복귀)
 function leaveTournamentWaitingRoom() {
@@ -2099,6 +2215,7 @@ function leaveTournamentWaitingRoom() {
     currentTournamentId = null;
     currentTournamentHostId = null;
     currentTournamentMaxMembers = null;
+    currentTournamentTeamCount = null;
     lastWaitingMemberIds = new Set();
     showScreen(screenMain);
 }

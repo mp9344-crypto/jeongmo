@@ -1493,23 +1493,63 @@ select:focus {
 /* =========================================
    팀 배정 화면 (2단계 C - C3)
    ========================================= */
-.team-assignment-placeholder {
-    background: #f8faf8;
-    border-radius: 12px;
-    padding: 20px;
-    margin: 20px 0;
+.team-status-msg {
     text-align: center;
-}
-.team-assignment-placeholder p {
-    margin: 8px 0;
-    color: #2d6a4f;
-    font-weight: 500;
-}
-.team-assignment-placeholder ul {
-    list-style: none;
-    padding-left: 0 !important;
-}
-.team-assignment-placeholder li {
-    padding: 6px 0;
+    padding: 16px;
     color: #555;
+    font-size: 14px;
+}
+
+.team-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+}
+
+@media (max-width: 360px) {
+    .team-cards-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.team-card {
+    border: 2px solid #ccc;
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.15s ease;
+}
+
+.team-card-header {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.team-card-meta {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.team-card-members {
+    flex: 1;
+}
+
+.team-card-empty {
+    font-size: 12px;
+    color: #999;
+    font-style: italic;
+    text-align: center;
+    margin: 12px 0;
+}
+
+.team-assignment-info {
+    margin-top: 16px;
+    padding: 12px;
+    background: #f8faf8;
+    border-radius: 8px;
 }
