@@ -1,9 +1,8 @@
 ## 현재 상태
 
-- 마지막 완료: **C4-5** (Net 모드 + 팀별 합계, 코드·단위 테스트 검증 통과)
-- 미완료: C4-5 시각 확인 (Playwright 미연결로 못함 → 내일 새 세션에서 재시도)
-- 다음: C4-5 시각 확인 → C4-6 (1초 throttle + 누수 방지)
-- 배포 상태: GitHub Pages + Firestore 규칙 모두 동기화 완료
+- 마지막 완료: **C4-7** (in_progress 재진입 동선 — 호스트/게스트 자동 + 신규 사용자 차단 + URL 새로고침 복귀)
+- 다음: C5 (정모 종료 결과 화면)
+- 배포 상태: GitHub Pages (app.js?v=c47) + Firestore 규칙 변경 없음
 
 ---
 
@@ -13,9 +12,9 @@
 - C4-2 ✅ 스코어 Firestore sync (500ms debounce, `scheduleSyncMyScoreToTournament`)
 - C4-3 ✅ 본인 팀 멤버 미니 스트립 (`where('teamId')` 서버 필터, onSnapshot cleanup)
 - C4-4 ✅ 라이브 리더보드 Gross (개인 순위, onSnapshot, cleanup 연동)
-- C4-5 ✅ Net 모드 + 팀별 합계 (개인+팀 양쪽 표시, 비례 핸디) — 시각 확인 보류
-- C4-6 ⏳ 다음 (1초 throttle + 32명 부하 + 누수 정리)
-- C4-7 in_progress 호스트/게스트 재진입 동선
+- C4-5 ✅ Net 모드 + 팀별 합계 (개인+팀 양쪽 표시, 비례 핸디) — 시각 확인 완료
+- C4-6 ✅ 1초 throttle + beforeunload 누수 방지 + 32명 부하 테스트 (20회 onSnapshot → 2회 render, 90% 감소 확인)
+- C4-7 ✅ in_progress 재진입 동선 (호스트/기존멤버 자동 화면3, 신규 차단, URL 새로고침 복귀, 종료 감지)
 
 ---
 
@@ -77,6 +76,8 @@
 - **C4-3 미니 스트립**: `subscribeTournamentTeamMembers(tournamentId, teamId)` — `where('teamId','==',myTeamId)` 서버 필터, `allMembersData` 재사용, `cleanupTournamentRoundListeners()`가 unsub + flushAndClear + allMembersData 초기화 통합 처리
 - **renderSharedModeUI() 분기**: tournamentId 있으면 스트립만, shareCode 있으면 B6 배지+스트립, 없으면 모두 숨김. B6 진입 시 tournament-mode-badge 강제 hidden 처리 필요 (이전 정모 세션 badge 누수 방지)
 - **C4-4/C4-5 리더보드**: `subscribeAllTournamentMembers(tournamentId)` — 팀 필터 없이 전체 구독. `cleanupLeaderboardListener()`는 `cleanupTournamentRoundListeners()` 내부에서도 호출됨 (이중 보장). `computeMemberStats(member, pars)` — Gross+Net 동시 계산, 비례 핸디 `(playedHoles/18) * courseHandicap`. `fetchLeaderboardTeams(tournamentId)` — teams one-shot fetch, `leaderboardTeams[]` 캐시. `renderLeaderboard()`는 gameMode 분기로 Gross/Net 자동 전환 + 팀 섹션 동시 렌더. 팀 row는 `TEAM_COLORS[colorIndex]`로 컬러 적용.
+- **C4-6 throttle 패턴**: `createThrottle(fn, delayMs)` — 첫 호출 즉시 실행 + delayMs 내 후속 호출은 pending 1회로 합산. `renderLeaderboardThrottled`, `renderMembersStripThrottled`가 onSnapshot 콜백에서 사용. `cleanupAllListenersOnUnload()`를 `window.addEventListener('beforeunload', ...)`에 등록. 부하 테스트: 20회 Firestore 업데이트 → renderLeaderboard 2회 호출 (90% 감소). monkey-patch 주의: `renderLeaderboardThrottled`는 생성 시 `renderLeaderboard` 원본 참조를 캡처하므로 이후 `window.renderLeaderboard` 교체가 throttle 내부 fn에 미치지 않음.
+- **C4-7 재진입 패턴**: `fetchTournament`가 in_progress 시 데이터 반환(throw 안 함). `handleTournamentEntry`에서 in_progress → `handleInProgressTournamentEntry` 분기. 호스트 즉시 진입 / 기존 멤버 memberDoc.exists 체크 후 진입 / 신규 차단 alert. `subscribeTournamentStatusForRound` — 대기실 거치지 않은 재진입 시 completed 감지용 onSnapshot. `enterTournamentRound` 진입 시 `?t=코드` URL 갱신 (새로고침 복귀). `cleanupTournamentRoundListeners`에서 `roundTournamentStatusUnsub` 정리 + URL 정리. 대기실 onSnapshot의 `.orderBy('joinedAt')` 주의: joinedAt 없는 Firebase MCP 주입 멤버는 대기실에서 보이지 않음 (Firestore orderBy는 해당 필드 없는 문서 제외).
 
 ---
 
@@ -101,21 +102,17 @@
 
 ---
 
-## 내일 첫 작업 — C4-5 시각 확인 시나리오
+## 다음 작업 — C5 정모 종료 + 결과 화면
 
-새 Claude Code 세션에서 Playwright MCP 정상 연결 확인부터 시작.
+**C5 목표:**
+1. 모든 멤버가 18홀 완료 시 자동 status: completed 전환 (클라이언트 감지 or Cloud Function)
+2. 결과 화면 (화면 16): 최종 순위 + 우승자 하이라이트
+3. 결과 단톡방 공유 (이미지 or 텍스트)
+4. 호스트가 수동 종료 버튼 (강제 완료)
 
-**시나리오 순서:**
-1. `browser_snapshot` 으로 Playwright MCP 연결 확인
-2. Net 모드 정모 생성 (4명, 핸디 5/18/25/30, 2팀 2명씩)
-3. 라운드 시작 → 화면 3 자동 진입 확인
-4. 호스트가 "🏆 리더보드" 클릭 → 화면 15 진입
-5. `browser_take_screenshot` 캡처:
-   - 개인 순위 섹션 (자기 row 노란 강조 + "(나)" 표시 확인)
-   - 팀 순위 섹션 (팀 컬러 배경 + 좌측 컬러 바 확인)
-   - "Net" 배지 표시 확인
-6. Firebase MCP로 멤버 scores 직접 수정 → 1초 내 화면 자동 갱신 확인
-7. 캡처 이미지 사용자에게 보고 후 C4-6 진행
+**C4-7에서 남긴 임시 처리:**
+- completed 감지 시 alert "결과 화면은 C5 단계에서 추가됩니다." → C5에서 결과 화면으로 교체
+- `subscribeTournamentStatusForRound`의 completed 분기에 결과 화면 진입 로직 추가 필요
 
 ---
 
