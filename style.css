@@ -1489,3 +1489,27 @@ select:focus {
     padding: 20px;
     font-size: 14px;
 }
+
+/* =========================================
+   팀 배정 화면 (2단계 C - C3)
+   ========================================= */
+.team-assignment-placeholder {
+    background: #f8faf8;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    text-align: center;
+}
+.team-assignment-placeholder p {
+    margin: 8px 0;
+    color: #2d6a4f;
+    font-weight: 500;
+}
+.team-assignment-placeholder ul {
+    list-style: none;
+    padding-left: 0 !important;
+}
+.team-assignment-placeholder li {
+    padding: 6px 0;
+    color: #555;
+}

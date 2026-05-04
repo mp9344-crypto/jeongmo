@@ -42,6 +42,7 @@ const screenTournamentCreate = document.getElementById('screen-tournament-create
 const screenTournamentLink = document.getElementById('screen-tournament-link');
 const screenTournamentJoin = document.getElementById('screen-tournament-join');
 const screenTournamentWaiting = document.getElementById('screen-tournament-waiting');
+const screenTeamAssignment = document.getElementById('screen-team-assignment');
 const screenHoleInput = document.getElementById('screen-hole-input');
 const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
@@ -56,6 +57,7 @@ const allScreens = [
     screenTournamentLink,
     screenTournamentJoin,
     screenTournamentWaiting,
+    screenTeamAssignment,
     screenHoleInput,
     screenResult,
     screenProfile
@@ -160,6 +162,11 @@ const btnGoToTeamAssignment = document.getElementById('btn-go-to-team-assignment
 const btnLeaveTournament = document.getElementById('btn-leave-tournament');
 const btnBackToMainFromWaiting = document.getElementById('btn-back-to-main-from-waiting');
 const btnCancelTournament = document.getElementById('btn-cancel-tournament');
+
+// 팀 배정 화면 (2단계 C - C3)
+const teamAssignmentMeta = document.getElementById('team-assignment-meta');
+const teamAssignmentMemberCount = document.getElementById('team-assignment-member-count');
+const btnBackToWaitingFromTeams = document.getElementById('btn-back-to-waiting-from-teams');
 
 // 공유 링크 화면 (2단계 B)
 const shareCodeDisplay = document.getElementById('share-code-display');
@@ -910,7 +917,27 @@ btnCopyWaitingLink.addEventListener('click', function() {
 });
 
 btnGoToTeamAssignment.addEventListener('click', function() {
-    alert('🎯 팀 배정 기능은 C3 단계에서 추가됩니다.\n\n현재는 호스트가 단톡방에서 수동으로 팀을 정해주세요.');
+    if (currentTournamentId === null) {
+        alert('정모 정보가 없습니다.');
+        return;
+    }
+    if (currentUser === null || currentTournamentHostId !== currentUser.uid) {
+        alert('호스트만 팀 배정을 할 수 있습니다.');
+        return;
+    }
+    if (lastWaitingMemberIds.size < 2) {
+        alert('참여자가 2명 이상이어야 팀 배정이 가능합니다.');
+        return;
+    }
+    showTeamAssignmentScreen();
+});
+
+btnBackToWaitingFromTeams.addEventListener('click', function() {
+    if (currentTournamentId === null) {
+        showScreen(screenMain);
+        return;
+    }
+    showScreen(screenTournamentWaiting);
 });
 
 btnLeaveTournament.addEventListener('click', leaveTournamentAsGuest);
@@ -1930,14 +1957,13 @@ function renderTournamentWaitingHeader(tournamentId, tournamentData) {
         waitingHostNotice.classList.remove('hidden');
         waitingGuestNotice.classList.add('hidden');
         btnGoToTeamAssignment.classList.remove('hidden');
-        btnGoToTeamAssignment.textContent = '🎯 팀 배정 → (C3 단계)';
-        btnGoToTeamAssignment.disabled = true;
-        btnGoToTeamAssignment.style.opacity = '0.5';
+        btnGoToTeamAssignment.textContent = '🎯 팀 배정';
         btnLeaveTournament.classList.add('hidden');
         btnBackToMainFromWaiting.classList.remove('hidden');
         btnCancelTournament.classList.remove('hidden');
         // 호스트는 링크도 보임 (단톡방 공유)
         waitingLinkSection.classList.remove('hidden');
+        updateTeamAssignmentButton();
     } else {
         waitingHostNotice.classList.add('hidden');
         waitingGuestNotice.classList.remove('hidden');
@@ -2040,6 +2066,27 @@ function renderTournamentWaitingMembers(members) {
     }
 
     lastWaitingMemberIds = currentMemberIds;
+    updateTeamAssignmentButton();
+}
+
+function updateTeamAssignmentButton() {
+    if (currentUser === null || currentTournamentHostId !== currentUser.uid) return;
+    const memberCount = lastWaitingMemberIds.size;
+    if (memberCount >= 2) {
+        btnGoToTeamAssignment.disabled = false;
+        btnGoToTeamAssignment.style.opacity = '1';
+        btnGoToTeamAssignment.title = '';
+    } else {
+        btnGoToTeamAssignment.disabled = true;
+        btnGoToTeamAssignment.style.opacity = '0.5';
+        btnGoToTeamAssignment.title = '참여자가 2명 이상 있어야 팀 배정 가능';
+    }
+}
+
+function showTeamAssignmentScreen() {
+    teamAssignmentMeta.textContent = '정모 코드: ' + currentTournamentId;
+    teamAssignmentMemberCount.textContent = '참여자: ' + lastWaitingMemberIds.size + '명';
+    showScreen(screenTeamAssignment);
 }
 
 // 정모 본 문서 캐시 (렌더링 시 사용)
