@@ -275,7 +275,8 @@ let viewingPastRoundId = null;
 let allMembersData = {};           // { userId: { name, scores, putts, currentHole, ... } }
 let roundUnsubscribe = null;       // 라운드 문서 리스너 해제 함수
 let membersUnsubscribe = null;     // 멤버 컬렉션 리스너 해제 함수
-let scoreSyncTimer = null;         // 디바운스 타이머
+let scoreSyncTimer = null;         // 디바운스 타이머 (B6 공유 라운드)
+let tournamentScoreSyncTimer = null; // 디바운스 타이머 (C4-2 정모 라운드)
 const SCORE_SYNC_DELAY = 500;      // 500ms 디바운스
 
 const STORAGE_KEYS = {
@@ -1079,10 +1080,6 @@ function renderPuttsDisplay() {
 }
 
 function changeScore(delta) {
-    if (currentRound !== null && currentRound.tournamentId) {
-        alert('🚧 정모 라운드 스코어 입력은 C4-2에서 활성화됩니다.\n현재는 입력 차단 상태입니다.');
-        return;
-    }
     const holeIndex = currentRound.currentHole - 1;
 
     let currentScore = currentRound.scores[holeIndex];
@@ -1103,17 +1100,14 @@ function changeScore(delta) {
     saveActiveRound();
     renderHoleInputScreen();
 
-    // ★ B6: 공유 라운드면 Firestore 동기화 (디바운스)
-    if (currentRound.isShared) {
+    if (currentRound.tournamentId) {
+        scheduleSyncMyScoreToTournament();
+    } else if (currentRound.isShared && currentRound.shareCode) {
         scheduleSyncMyScoreToFirestore();
     }
 }
 
 function changePutts(delta) {
-    if (currentRound !== null && currentRound.tournamentId) {
-        alert('🚧 정모 라운드 퍼팅 입력은 C4-2에서 활성화됩니다.');
-        return;
-    }
     const holeIndex = currentRound.currentHole - 1;
     let currentPutts = currentRound.putts[holeIndex];
 
@@ -1134,8 +1128,9 @@ function changePutts(delta) {
     saveActiveRound();
     renderPuttsDisplay();
 
-    // ★ B6: 공유 라운드면 Firestore 동기화 (디바운스)
-    if (currentRound.isShared) {
+    if (currentRound.tournamentId) {
+        scheduleSyncMyScoreToTournament();
+    } else if (currentRound.isShared && currentRound.shareCode) {
         scheduleSyncMyScoreToFirestore();
     }
 }
@@ -1151,8 +1146,9 @@ function goToHole(holeNumber) {
     saveActiveRound();
     renderHoleInputScreen();
 
-    // ★ B6: 공유 라운드면 Firestore 동기화 (즉시 - 홀 이동은 디바운스 불필요)
-    if (currentRound.isShared) {
+    if (currentRound.tournamentId) {
+        syncMyScoreToTournament();
+    } else if (currentRound.isShared && currentRound.shareCode) {
         syncMyScoreToFirestore();
     }
 }
@@ -2873,6 +2869,7 @@ let selectedMemberIdForMove = null;
 
 // 대기실 떠나기 (리스너 정리 + 메인 복귀)
 function leaveTournamentWaitingRoom() {
+    flushAndClearTournamentScoreSync();
     cleanupTournamentWaitingListeners();
     currentTournamentId = null;
     currentTournamentHostId = null;
@@ -3661,6 +3658,60 @@ function scheduleSyncMyScoreToFirestore() {
     }, SCORE_SYNC_DELAY);
 }
 
+// C4-2: 정모 라운드 본인 스코어 → tournaments/{id}/members/{uid} 동기화 (debounce)
+function scheduleSyncMyScoreToTournament() {
+    if (tournamentScoreSyncTimer !== null) {
+        clearTimeout(tournamentScoreSyncTimer);
+    }
+    tournamentScoreSyncTimer = setTimeout(function() {
+        syncMyScoreToTournament();
+    }, SCORE_SYNC_DELAY);
+}
+
+// C4-2: 정모 라운드 본인 스코어 즉시 동기화 (홀 이동 등)
+function syncMyScoreToTournament() {
+    if (tournamentScoreSyncTimer !== null) {
+        clearTimeout(tournamentScoreSyncTimer);
+        tournamentScoreSyncTimer = null;
+    }
+
+    if (!currentRound || !currentRound.tournamentId) return;
+    if (currentUser === null) return;
+
+    const tournamentId = currentRound.tournamentId;
+    const userId = currentUser.uid;
+    const updates = {
+        scores: currentRound.scores,
+        putts: currentRound.putts,
+        currentHole: currentRound.currentHole,
+        completed: currentRound.completed,
+        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    console.log('💾 정모 스코어 sync:', tournamentId, 'hole', currentRound.currentHole);
+
+    db.collection('tournaments').doc(tournamentId)
+        .collection('members').doc(userId)
+        .update(updates)
+        .then(function() {
+            console.log('✅ 정모 스코어 sync 완료');
+        })
+        .catch(function(error) {
+            console.error('❌ 정모 스코어 sync 실패:', error);
+            if (error.code === 'permission-denied') {
+                alert('스코어 저장 권한이 없습니다. 호스트에게 문의하세요.');
+            }
+        });
+}
+
+// C4-2: 정모 라운드 떠날 때 pending sync 타이머 정리
+function flushAndClearTournamentScoreSync() {
+    if (tournamentScoreSyncTimer !== null) {
+        clearTimeout(tournamentScoreSyncTimer);
+        tournamentScoreSyncTimer = null;
+    }
+}
+
 // 본인 스코어 즉시 동기화
 function syncMyScoreToFirestore() {
     if (scoreSyncTimer !== null) {
@@ -3957,18 +4008,10 @@ btnPuttsPlus.addEventListener('click', function() {
 });
 
 btnPrevHole.addEventListener('click', function() {
-    if (currentRound !== null && currentRound.tournamentId) {
-        alert('🚧 정모 라운드 홀 이동은 C4-2에서 활성화됩니다.');
-        return;
-    }
     goToHole(currentRound.currentHole - 1);
 });
 
 btnNextHole.addEventListener('click', function() {
-    if (currentRound !== null && currentRound.tournamentId) {
-        alert('🚧 정모 라운드 홀 이동은 C4-2에서 활성화됩니다.');
-        return;
-    }
     if (currentRound.currentHole === 18) {
         finishRound();
     } else {
