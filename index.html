@@ -587,7 +587,39 @@
                 <!-- 동적 생성 -->
             </div>
 
+            <button id="btn-end-tournament" class="btn-end-tournament hidden">🏁 정모 종료</button>
             <button id="btn-back-to-round-from-leaderboard" class="btn-secondary">← 라운드로</button>
+
+        </div>
+
+        <!-- ===== 화면 16: 정모 최종 결과 (C5) ===== -->
+        <div id="screen-tournament-result" class="screen hidden">
+
+            <h2>🏆 정모 결과</h2>
+            <p class="hint" id="result-tournament-meta">-</p>
+
+            <div class="result-winner-card" id="result-winner-card">
+                <div class="winner-label">🥇 우승자</div>
+                <div class="winner-name" id="result-winner-name">-</div>
+                <div class="winner-score" id="result-winner-score">-</div>
+            </div>
+
+            <h3 class="leaderboard-section-title">🏌️ 최종 개인 순위</h3>
+            <div id="result-rankings-list" class="leaderboard-list">
+                <!-- 동적 생성 -->
+            </div>
+
+            <h3 class="leaderboard-section-title hidden" id="result-team-section-title">👥 최종 팀 순위</h3>
+            <div id="result-team-rankings-list" class="leaderboard-list leaderboard-team-list hidden">
+                <!-- 동적 생성 -->
+            </div>
+
+            <h3 class="leaderboard-section-title">📋 나의 스코어카드</h3>
+            <div id="result-my-scorecard" class="result-scorecard">
+                <!-- 동적 생성 -->
+            </div>
+
+            <button id="btn-result-back-to-main" class="btn-secondary">← 메인으로</button>
 
         </div>
 
@@ -729,7 +761,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=c47"></script>
+    <script src="app.js?v=c48"></script>
 
 </body>
 </html>
