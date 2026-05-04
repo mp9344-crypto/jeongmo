@@ -48,6 +48,7 @@ const screenLeaderboard = document.getElementById('screen-leaderboard');
 const screenTournamentResult = document.getElementById('screen-tournament-result');
 const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
+const screenAddProxyMember = document.getElementById('screen-add-proxy-member');
 
 const allScreens = [
     screenMain,
@@ -64,7 +65,8 @@ const allScreens = [
     screenResult,
     screenLeaderboard,
     screenTournamentResult,
-    screenProfile
+    screenProfile,
+    screenAddProxyMember
 ];
 
 // 메인 화면 - 프로필 카드
@@ -163,8 +165,15 @@ const waitingMembersList = document.getElementById('waiting-members-list');
 const waitingHostNotice = document.getElementById('waiting-host-notice');
 const waitingGuestNotice = document.getElementById('waiting-guest-notice');
 const btnGoToTeamAssignment = document.getElementById('btn-go-to-team-assignment');
+const btnAddProxyMember = document.getElementById('btn-add-proxy-member');
 const btnLeaveTournament = document.getElementById('btn-leave-tournament');
 const btnCancelTournament = document.getElementById('btn-cancel-tournament');
+
+// D8: 수동 멤버 추가 모달
+const inputProxyName = document.getElementById('input-proxy-name');
+const inputProxyHandicap = document.getElementById('input-proxy-handicap');
+const btnConfirmAddProxy = document.getElementById('btn-confirm-add-proxy');
+const btnCancelAddProxy = document.getElementById('btn-cancel-add-proxy');
 
 // 팀 배정 화면 (2단계 C - C3)
 const teamAssignmentMeta = document.getElementById('team-assignment-meta');
@@ -426,6 +435,100 @@ function loadUserProfile() {
         console.error('프로필 불러오기 실패:', error);
         return null;
     }
+}
+
+// =========================================
+// D8: 프록시 멤버 헬퍼
+// =========================================
+function generateProxyMemberId() {
+    const ts = Date.now().toString(36);
+    const rand = Math.random().toString(36).substring(2, 6);
+    return 'proxy_' + ts + rand;
+}
+
+function openAddProxyMemberScreen() {
+    if (!canUserHostTournament()) {
+        alert('호스트 기능은 현재 사용 불가합니다.');
+        return;
+    }
+    inputProxyName.value = '';
+    inputProxyHandicap.value = '';
+    showScreen(screenAddProxyMember);
+}
+
+function confirmAddProxyMember() {
+    if (currentTournamentId === null || currentUser === null) {
+        alert('정모 정보가 없습니다.');
+        return;
+    }
+
+    const name = inputProxyName.value.trim();
+    const handicapRaw = inputProxyHandicap.value.trim();
+
+    if (!name) { alert('이름을 입력해주세요.'); return; }
+    if (name.length > 12) { alert('이름은 12자 이내로 입력해주세요.'); return; }
+
+    const handicapIndex = parseFloat(handicapRaw);
+    if (isNaN(handicapIndex) || handicapIndex < 0 || handicapIndex > 54) {
+        alert('핸디캡을 0~54 사이로 입력해주세요.');
+        return;
+    }
+
+    db.collection('tournaments').doc(currentTournamentId).collection('members').get()
+        .then(function(snapshot) {
+            if (snapshot.size >= currentTournamentMaxMembers) {
+                throw new Error('FULL');
+            }
+
+            const proxyId = generateProxyMemberId();
+            const courseHandicap = calculateCourseHandicap(handicapIndex);
+
+            const memberData = {
+                name: name,
+                handicapIndex: handicapIndex,
+                courseHandicap: courseHandicap,
+                teamId: null,
+                scores: new Array(18).fill(null),
+                putts: new Array(18).fill(null),
+                currentHole: 1,
+                completed: false,
+                proxyMember: true,
+                proxyHostId: currentUser.uid,
+                joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            return db.collection('tournaments').doc(currentTournamentId)
+                .collection('members').doc(proxyId).set(memberData);
+        })
+        .then(function() {
+            console.log('✅ 프록시 멤버 추가 완료:', name);
+            showScreen(screenTournamentWaiting);
+        })
+        .catch(function(error) {
+            console.error('❌ 프록시 추가 실패:', error);
+            if (error.message === 'FULL') {
+                alert('정모 정원이 가득 찼습니다 (' + currentTournamentMaxMembers + '명).');
+            } else if (error.code === 'permission-denied') {
+                alert('권한이 없습니다. 보안 규칙을 확인하세요.');
+            } else {
+                alert('프록시 멤버 추가 실패: ' + error.message);
+            }
+        });
+}
+
+function deleteProxyMember(proxyId, proxyName) {
+    if (!confirm('"' + proxyName + '" 멤버를 삭제하시겠습니까?\n입력된 스코어도 함께 삭제됩니다.')) return;
+
+    db.collection('tournaments').doc(currentTournamentId)
+        .collection('members').doc(proxyId).delete()
+        .then(function() {
+            console.log('🗑️ 프록시 멤버 삭제:', proxyName);
+        })
+        .catch(function(error) {
+            console.error('❌ 프록시 삭제 실패:', error);
+            alert('삭제 실패: ' + error.message);
+        });
 }
 
 // =========================================
@@ -1057,6 +1160,9 @@ screenTeamAssignment.addEventListener('click', function(e) {
     clearSelection();
 });
 
+btnAddProxyMember.addEventListener('click', openAddProxyMemberScreen);
+btnConfirmAddProxy.addEventListener('click', confirmAddProxyMember);
+btnCancelAddProxy.addEventListener('click', function() { showScreen(screenTournamentWaiting); });
 btnLeaveTournament.addEventListener('click', leaveTournamentAsGuest);
 btnCancelTournament.addEventListener('click', cancelTournamentAsHost);
 
@@ -2027,6 +2133,7 @@ function enterTournamentWaitingRoom(tournamentId) {
     waitingHostNotice.classList.add('hidden');
     waitingGuestNotice.classList.add('hidden');
     btnGoToTeamAssignment.classList.add('hidden');
+    btnAddProxyMember.classList.add('hidden');
     btnLeaveTournament.classList.add('hidden');
     waitingLinkSection.classList.add('hidden');
 
@@ -2923,6 +3030,7 @@ function renderTournamentWaitingHeader(tournamentId, tournamentData) {
         waitingGuestNotice.classList.add('hidden');
         btnGoToTeamAssignment.classList.remove('hidden');
         btnGoToTeamAssignment.textContent = '🎯 팀 배정';
+        btnAddProxyMember.classList.remove('hidden');
         btnLeaveTournament.classList.add('hidden');
         btnCancelTournament.classList.remove('hidden');
         // 호스트는 링크도 보임 (단톡방 공유)
@@ -2932,6 +3040,7 @@ function renderTournamentWaitingHeader(tournamentId, tournamentData) {
         waitingHostNotice.classList.add('hidden');
         waitingGuestNotice.classList.remove('hidden');
         btnGoToTeamAssignment.classList.add('hidden');
+        btnAddProxyMember.classList.add('hidden');
         btnLeaveTournament.classList.remove('hidden');
         btnCancelTournament.classList.add('hidden');
         // 게스트는 링크 영역 숨김 (어차피 단톡방 공유는 호스트의 일)
@@ -2981,11 +3090,12 @@ function renderTournamentWaitingMembers(members) {
 
         const isMe = member.id === myUid;
         const isThisHost = member.id === hostId;
+        const isProxy = member.proxyMember === true;
+        const isMyProxy = isProxy && member.proxyHostId === myUid;
 
         if (isMe) div.classList.add('is-me');
         if (isThisHost) div.classList.add('is-host');
         if (justJoinedIds.has(member.id) && !lastWaitingMemberIds.has(member.id) && lastWaitingMemberIds.size > 0) {
-            // 첫 로딩이 아닐 때만 애니메이션
             div.classList.add('just-joined');
         }
 
@@ -2994,7 +3104,7 @@ function renderTournamentWaitingMembers(members) {
         nameWrap.className = 'waiting-member-name';
 
         const icon = document.createElement('span');
-        icon.textContent = isThisHost ? '👑' : '👤';
+        icon.textContent = isThisHost ? '👑' : (isProxy ? '🤝' : '👤');
         nameWrap.appendChild(icon);
 
         const nameText = document.createElement('span');
@@ -3009,6 +3119,13 @@ function renderTournamentWaitingMembers(members) {
             nameWrap.appendChild(badge);
         }
 
+        if (isProxy) {
+            const proxyBadge = document.createElement('span');
+            proxyBadge.className = 'waiting-member-badge waiting-member-badge-proxy';
+            proxyBadge.textContent = '대리';
+            nameWrap.appendChild(proxyBadge);
+        }
+
         div.appendChild(nameWrap);
 
         // 핸디 표시
@@ -3020,6 +3137,17 @@ function renderTournamentWaitingMembers(members) {
             hcpSpan.textContent = '-';
         }
         div.appendChild(hcpSpan);
+
+        // 호스트가 본인 프록시 삭제 버튼
+        if (isMyProxy && hostId === myUid) {
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn-delete-proxy';
+            delBtn.textContent = '🗑️';
+            delBtn.addEventListener('click', function() {
+                deleteProxyMember(member.id, member.name);
+            });
+            div.appendChild(delBtn);
+        }
 
         waitingMembersList.appendChild(div);
     });

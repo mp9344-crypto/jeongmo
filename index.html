@@ -498,6 +498,9 @@
             <!-- 호스트만 보이는 팀 배정 버튼 (C3에서 활성화) -->
             <button id="btn-go-to-team-assignment" class="hidden">🎯 팀 배정 → (C3 단계)</button>
 
+            <!-- 호스트용 - 수동 멤버 추가 (D8) -->
+            <button id="btn-add-proxy-member" class="btn-secondary hidden">+ 수동 멤버 추가 (대신 입력)</button>
+
             <!-- 게스트만 보이는 나가기 버튼 -->
             <button id="btn-leave-tournament" class="btn-secondary hidden">정모 나가기</button>
 
@@ -749,6 +752,28 @@
 
         </div>
 
+        <!-- ===== 화면 D8: 수동 멤버 추가 모달 ===== -->
+        <div id="screen-add-proxy-member" class="screen hidden">
+
+            <h2>+ 수동 멤버 추가</h2>
+            <p class="hint">본인 폰으로 참여하기 어려운 친구를 호스트가 대신 입력합니다.</p>
+
+            <section>
+                <label for="input-proxy-name">이름</label>
+                <input type="text" id="input-proxy-name" maxlength="12" placeholder="예: 김삼촌">
+            </section>
+
+            <section>
+                <label for="input-proxy-handicap">Handicap Index</label>
+                <input type="number" id="input-proxy-handicap" min="0" max="54" step="0.1" placeholder="예: 18">
+                <p class="hint">Net 모드일 때만 순위에 반영됩니다.</p>
+            </section>
+
+            <button id="btn-confirm-add-proxy">추가</button>
+            <button id="btn-cancel-add-proxy" class="btn-secondary">취소</button>
+
+        </div>
+
     </main>
 
     <!-- ===== Firebase SDK (CDN) ===== -->
@@ -758,7 +783,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=d0"></script>
+    <script src="app.js?v=d8a"></script>
 
 </body>
 </html>
