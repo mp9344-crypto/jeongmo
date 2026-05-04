@@ -1,8 +1,8 @@
 ## 현재 상태
 
-- 마지막 완료: **C4-7** (in_progress 재진입 동선 — 호스트/게스트 자동 + 신규 사용자 차단 + URL 새로고침 복귀)
-- 다음: C5 (정모 종료 결과 화면)
-- 배포 상태: GitHub Pages (app.js?v=c47) + Firestore 규칙 변경 없음
+- 마지막 완료: **C5** (정모 종료 + 결과 화면 16 — 우승자 카드, 개인/팀 순위, 나의 스코어카드, 자동 종료 감지)
+- 다음: C6 (공유 초대 링크 + 정모 히스토리 or 기타 개선 — 미정)
+- 배포 상태: GitHub Pages (app.js?v=c48) + Firestore 규칙 변경 없음
 
 ---
 
@@ -15,6 +15,10 @@
 - C4-5 ✅ Net 모드 + 팀별 합계 (개인+팀 양쪽 표시, 비례 핸디) — 시각 확인 완료
 - C4-6 ✅ 1초 throttle + beforeunload 누수 방지 + 32명 부하 테스트 (20회 onSnapshot → 2회 render, 90% 감소 확인)
 - C4-7 ✅ in_progress 재진입 동선 (호스트/기존멤버 자동 화면3, 신규 차단, URL 새로고침 복귀, 종료 감지)
+
+## C5 진행 현황
+
+- C5 ✅ 정모 종료 + 결과 화면 (화면 16) — 우승자 카드, 최종 개인/팀 순위, 나의 스코어카드, 자동 종료 감지
 
 ---
 
@@ -132,6 +136,10 @@
 - **graceful degradation**: 팀 fetch 실패 시 `catch`에서 `renderLeaderboard()` 호출 → 개인 순위는 유지
 - **race condition 처리**: teams fetch + members onSnapshot 완료 시점이 달라도 `leaderboardAllMembers.length > 0` 체크로 이중 렌더 방지
 - **cleanup 함수에 모든 캐시 초기화**: `cleanupLeaderboardListener()`에 `leaderboardAllMembers = []` + `leaderboardTeams = []` — stale 데이터 방지
+- **C5 결과 화면 진입 경로 3가지**: (1) `subscribeTournamentStatusForRound` completed 감지 → `enterTournamentResultScreen(data)`, (2) URL/코드로 completed 정모 진입 → `handleTournamentEntry` completed 분기, (3) 대기실 중 종료 감지 → waiting room onSnapshot completed 분기
+- **C5 자동 종료 감지**: `renderLeaderboard()` 마지막에 `memberStats.every(s => s.completed)` 체크 + 호스트 여부 확인 + `autoEndConfirmShown` 플래그로 중복 방지. `showLeaderboardScreen()`에서 `autoEndConfirmShown = false` 리셋.
+- **C5 결과 화면 데이터**: `enterTournamentResultScreen`에서 `cleanupLeaderboardListener` + `cleanupTournamentRoundListeners` 호출 후 members+teams one-shot fetch. `resultMembers[]`, `resultTeams[]`, `resultTournamentDoc` 캐시 사용.
+- **handleEndTournament**: Firestore rules forward-only로 보호 — already-completed 정모에 write 시도하면 permission-denied. 정상 케이스에선 status: 'completed' 쓰면 onSnapshot 감지 → enterTournamentResultScreen.
 
 ---
 
