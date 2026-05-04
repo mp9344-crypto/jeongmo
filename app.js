@@ -668,10 +668,18 @@ function canUserCreateRound() {
     return true;
 }
 
-function calculateCourseHandicap(handicapIndex) {
-    if (handicapIndex === null || handicapIndex === undefined) {
-        return null;
+function calculateCourseHandicap(handicapIndex, teeBox, totalPar) {
+    if (handicapIndex === null || handicapIndex === undefined) return null;
+
+    // 티박스 정보가 있으면 USGA WHS 정확 공식
+    // Course Handicap = Handicap Index × (Slope / 113) + (Course Rating - Par)
+    if (teeBox && teeBox.slopeRating && teeBox.courseRating && totalPar) {
+        const ch = handicapIndex * (teeBox.slopeRating / 113)
+                 + (teeBox.courseRating - totalPar);
+        return Math.round(ch);
     }
+
+    // 하위 호환: 인자 1개만 넘긴 기존 호출처는 임시 공식 그대로
     return Math.round(handicapIndex);
 }
 

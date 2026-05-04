@@ -1,8 +1,8 @@
 ## 현재 상태
 
-- **D8-3 완료** (2026-05-04) — 프록시 멤버 전체 구현 완료 (D8-1 rules + D8-2 대기실 UI + D8-3 홀 입력 토글)
-- **배포 상태**: GitHub Pages (app.js?v=d8d) — push 필요
-- 다음: 1주일 후 실제 정모 라운딩 검증 → D 단계 본 작업 시작 (골프장 DB + 티박스)
+- **D1 완료** (2026-05-04) — courses 데이터 모델 + USGA WHS 공식 + 보안 규칙 (UI 0건)
+- **배포 상태**: GitHub Pages (app.js?v=d8d), Firestore rules 배포 완료
+- 다음: D2 (화면 18 골프장 등록 UI)
 
 ---
 
@@ -97,6 +97,7 @@
 - **status forward-only 강화** (C3-5): `waiting→in_progress→completed` 단방향만 허용
 - **teams 서브컬렉션**: 호스트만 write, `status != "completed"` 조건
 - **D8 members create 프록시 분기**: `userId.matches("proxy_.+")` + `proxyMember==true` + `proxyHostId==request.auth.uid` + `status != "completed"`. update/delete는 기존 호스트 권한 그대로 사용 (변경 없음).
+- **D1: courses + teeBoxes 신규 블록** — 옵션 B + addedBy 잠금 + `tier=="free"` + `holes∈{9,18,27}` 강제. update 시 addedBy 변경 불가 + usageCount 변경 불가 (D7에서 increment-only 패스 별도 추가 예정). teeBoxes는 골프장 등록자(addedBy)만 write.
 
 ---
 
@@ -163,6 +164,9 @@
 - **D8 프록시 패턴**: memberId = `proxy_<ts36><rand4>`, `proxyMember:true`, `proxyHostId:<hostUid>`. `getActiveInputData()` / `commitActiveInputChange(updates)` 추상화로 본인/프록시 분기 통합. `proxyScoreCache{}` 인메모리 + `proxySyncTimers{}` per-proxyId 독립 500ms debounce. `getMyProxyMembers()` — `leaderboardAllMembers` 필터 (`proxyMember===true && proxyHostId===myUid`). `subscribeAllTournamentMembers`를 `enterTournamentRound`에서도 호출 — 리더보드 방문 없이 leaderboardAllMembers 채우기. onSnapshot 콜백에서 hole input 활성 시 `renderProxyInputTargets()` 추가 호출. `cleanupTournamentRoundListeners`에서 `flushAllProxySyncTimers()` + `proxyScoreCache={}` + `proxyInputTargetId=null` 초기화.
 - **D8 홀 위치 처리**: 멤버별 독립 (본인과 프록시 각자 currentHole 유지). 토글 전환 시 화면이 해당 멤버의 currentHole로 이동. `proxyScoreCache`는 scores, putts, currentHole, completed 모두 저장. → 설계 대안 검토는 "D8 설계 결정" 섹션 참조.
 - **D0 게이팅 구조**: `canUserHostTournament()` / `canUserCreateRound()` — 현재는 항상 true, 추후 유료 기능 게이팅용 stub.
+- **D1 calculateCourseHandicap 시그니처**: `(handicapIndex, teeBox?, totalPar?)` — 인자 1개만 넘기면 `Math.round(handicapIndex)` fallback. 3인자 모두 있으면 USGA WHS 공식: `HI × (Slope/113) + (CourseRating - Par)`. D4부터 정모 만들기 시 티박스 같이 넘기게 점진적 교체 예정.
+- **D1 courses 데이터 모델**: `nameLower`/`cityLower`는 D3 자동완성용 캐시 — 클라이언트가 입력 시 `toLowerCase()`로 채워야 함. `usageCount`는 일반 update에서 잠금 (D7에서 increment-only 패스 별도 추가). `teeBoxes` 서브컬렉션: `pars[18]`, `yardages[18]`, `courseRating`, `slopeRating`, `totalPar`, `totalYardage` 필수.
+- **D1 신규 컬렉션 검증 패턴**: Firestore rules 변경 후 `firebase_validate_security_rules` + deploy 컴파일 통과 확인 → Firebase MCP로 데이터 모델 구조 검증 → 테스트 데이터 정리.
 
 ---
 

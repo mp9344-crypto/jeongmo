@@ -118,5 +118,36 @@ service cloud.firestore {
                       && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status != "completed";
       }
     }
+
+    // =========================================
+    // courses — 골프장 커뮤니티 DB (2단계 D 신규)
+    // 옵션 B 패턴: 인증된 사용자 누구나 읽기, 등록자(addedBy) 본인만 쓰기
+    // =========================================
+    match /courses/{courseId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+                    && request.resource.data.addedBy == request.auth.uid
+                    && request.resource.data.tier == "free"
+                    && request.resource.data.usageCount == 0
+                    && request.resource.data.holes in [9, 18, 27];
+
+      // 등록자가 본인 정보 수정 (이름 오타 등). addedBy 변경 금지, usageCount 변경 금지.
+      allow update: if request.auth != null
+                    && resource.data.addedBy == request.auth.uid
+                    && request.resource.data.addedBy == resource.data.addedBy
+                    && request.resource.data.usageCount == resource.data.usageCount;
+
+      allow delete: if request.auth != null
+                    && resource.data.addedBy == request.auth.uid;
+
+      // 티박스 서브컬렉션
+      match /teeBoxes/{teeBoxId} {
+        allow read: if request.auth != null;
+        // 골프장 등록자만 티박스 추가/수정/삭제 가능
+        allow write: if request.auth != null
+                     && get(/databases/$(database)/documents/courses/$(courseId)).data.addedBy == request.auth.uid;
+      }
+    }
   }
 }
