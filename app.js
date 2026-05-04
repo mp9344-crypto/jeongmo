@@ -323,6 +323,11 @@ let resultTournamentDoc = null;
 let autoEndConfirmShown = false;
 const SCORE_SYNC_DELAY = 500;      // 500ms 디바운스
 
+// D8: 프록시 입력 상태
+let proxyInputTargetId = null;     // null = 본인, string = 프록시 id
+let proxyScoreCache = {};          // { proxyId: { scores, putts, currentHole, completed } }
+let proxySyncTimers = {};          // { proxyId: timerId }
+
 // C4-6: 렌더링 throttle 유틸리티
 // 첫 호출 즉시 실행 + delayMs 동안 무시 + 무시 기간 끝나면 마지막 args로 1번 더
 function createThrottle(fn, delayMs) {
@@ -444,6 +449,126 @@ function generateProxyMemberId() {
     const ts = Date.now().toString(36);
     const rand = Math.random().toString(36).substring(2, 6);
     return 'proxy_' + ts + rand;
+}
+
+// D8: 현재 입력 대상 데이터 반환 (본인 OR 프록시)
+function getActiveInputData() {
+    if (proxyInputTargetId === null) {
+        return {
+            scores: currentRound.scores,
+            putts: currentRound.putts,
+            currentHole: currentRound.currentHole,
+            completed: currentRound.completed,
+            isProxy: false
+        };
+    }
+    const cache = proxyScoreCache[proxyInputTargetId];
+    if (!cache) {
+        proxyInputTargetId = null;
+        return getActiveInputData();
+    }
+    return {
+        scores: cache.scores,
+        putts: cache.putts,
+        currentHole: cache.currentHole,
+        completed: cache.completed,
+        isProxy: true,
+        proxyId: proxyInputTargetId
+    };
+}
+
+// D8: 현재 입력 대상에 변경사항 반영 + 개인이면 saveActiveRound
+function commitActiveInputChange(updates) {
+    if (proxyInputTargetId === null) {
+        if (updates.scores !== undefined) currentRound.scores = updates.scores;
+        if (updates.putts !== undefined) currentRound.putts = updates.putts;
+        if (updates.currentHole !== undefined) currentRound.currentHole = updates.currentHole;
+        if (updates.completed !== undefined) currentRound.completed = updates.completed;
+        saveActiveRound();
+    } else {
+        const cache = proxyScoreCache[proxyInputTargetId];
+        if (!cache) return;
+        if (updates.scores !== undefined) cache.scores = updates.scores;
+        if (updates.putts !== undefined) cache.putts = updates.putts;
+        if (updates.currentHole !== undefined) cache.currentHole = updates.currentHole;
+        if (updates.completed !== undefined) cache.completed = updates.completed;
+    }
+}
+
+// D8: 프록시 목록 추출 (leaderboardAllMembers에서)
+function getMyProxyMembers() {
+    if (!currentUser || leaderboardAllMembers.length === 0) return [];
+    const myUid = currentUser.uid;
+    return leaderboardAllMembers.filter(function(m) {
+        return m.proxyMember === true && m.proxyHostId === myUid;
+    });
+}
+
+// D8: 입력 대상 전환
+function switchInputTarget(targetId) {
+    proxyInputTargetId = targetId;
+    if (targetId !== null) {
+        const proxy = leaderboardAllMembers.find(function(m) { return m.id === targetId; });
+        if (proxy && !proxyScoreCache[targetId]) {
+            proxyScoreCache[targetId] = {
+                scores: (proxy.scores || new Array(18).fill(null)).slice(),
+                putts: (proxy.putts || new Array(18).fill(null)).slice(),
+                currentHole: proxy.currentHole || 1,
+                completed: proxy.completed || false
+            };
+        }
+    }
+    renderHoleInputScreen();
+}
+
+// D8: 입력 대상 토글 스트립 렌더링
+function renderProxyInputTargets() {
+    const container = document.getElementById('proxy-input-targets');
+    const list = document.getElementById('proxy-targets-list');
+    if (!container || !list) return;
+
+    if (!currentRound || !currentRound.tournamentId) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    const myProxies = getMyProxyMembers();
+    if (myProxies.length === 0) {
+        container.classList.add('hidden');
+        proxyInputTargetId = null;
+        return;
+    }
+
+    container.classList.remove('hidden');
+    list.innerHTML = '';
+
+    const meBtn = document.createElement('button');
+    meBtn.className = 'proxy-target-btn' + (proxyInputTargetId === null ? ' active' : '');
+    meBtn.textContent = '👤 나';
+    meBtn.addEventListener('click', function() { switchInputTarget(null); });
+    list.appendChild(meBtn);
+
+    myProxies.forEach(function(proxy) {
+        const btn = document.createElement('button');
+        btn.className = 'proxy-target-btn' + (proxyInputTargetId === proxy.id ? ' active' : '');
+        btn.textContent = '🤝 ' + proxy.name;
+        btn.addEventListener('click', function() { switchInputTarget(proxy.id); });
+        list.appendChild(btn);
+    });
+}
+
+// D8: 프록시 18홀 완료 처리
+function finishProxyRound(proxyId) {
+    const cache = proxyScoreCache[proxyId];
+    if (!cache) return;
+    const lastIndex = cache.currentHole - 1;
+    if (cache.scores[lastIndex] === null) {
+        cache.scores[lastIndex] = currentRound.pars[lastIndex];
+    }
+    var confirmed = confirm('프록시 멤버 라운드를 완료할까요?');
+    if (!confirmed) return;
+    cache.completed = true;
+    syncProxyScoreImmediate(proxyId);
 }
 
 function openAddProxyMemberScreen() {
@@ -1188,16 +1313,19 @@ function loadPreviousRound() {
 // 홀 입력 화면
 // =========================================
 function renderHoleInputScreen() {
-    courseNameDisplay.textContent = currentRound.courseName;
+    const data = getActiveInputData();
 
-    const holeIndex = currentRound.currentHole - 1;
-    holeProgress.textContent = currentRound.currentHole + '/18 홀';
+    courseNameDisplay.textContent = currentRound.courseName +
+        (data.isProxy ? ' (' + leaderboardAllMembers.find(function(m){ return m.id === data.proxyId; })?.name + ')' : '');
+
+    const holeIndex = data.currentHole - 1;
+    holeProgress.textContent = data.currentHole + '/18 홀';
 
     let totalScore = 0;
     let totalPar = 0;
     for (let i = 0; i < 18; i++) {
-        if (currentRound.scores[i] !== null) {
-            totalScore += currentRound.scores[i];
+        if (data.scores[i] !== null) {
+            totalScore += data.scores[i];
             totalPar += currentRound.pars[i];
         }
     }
@@ -1206,18 +1334,18 @@ function renderHoleInputScreen() {
     cumulativeScore.textContent = '현재 ' + overUnderText + ' (' + totalScore + '타)';
 
     const currentPar = currentRound.pars[holeIndex];
-    holeInfo.textContent = currentRound.currentHole + '번 홀 (Par ' + currentPar + ')';
+    holeInfo.textContent = data.currentHole + '번 홀 (Par ' + currentPar + ')';
 
-    let displayScore = currentRound.scores[holeIndex];
+    let displayScore = data.scores[holeIndex];
     if (displayScore === null) {
         displayScore = currentPar;
     }
     scoreDisplay.textContent = displayScore;
 
     btnScoreMinus.disabled = (displayScore <= 1);
-    btnPrevHole.disabled = (currentRound.currentHole === 1);
+    btnPrevHole.disabled = (data.currentHole === 1);
 
-    if (currentRound.currentHole === 18) {
+    if (data.currentHole === 18) {
         btnNextHole.textContent = '라운드 종료 ✓';
     } else {
         btnNextHole.textContent = '다음 홀 →';
@@ -1234,16 +1362,15 @@ function renderHoleInputScreen() {
     } else {
         btnGoToLeaderboard.classList.add('hidden');
     }
+
+    // D8: 프록시 토글 스트립
+    renderProxyInputTargets();
 }
 
 function renderPuttsDisplay() {
-    const holeIndex = currentRound.currentHole - 1;
-    const putts = currentRound.putts ? currentRound.putts[holeIndex] : null;
-
-    if (!currentRound.putts) {
-        currentRound.putts = [null, null, null, null, null, null, null, null, null,
-                              null, null, null, null, null, null, null, null, null];
-    }
+    const data = getActiveInputData();
+    const holeIndex = data.currentHole - 1;
+    const putts = data.putts ? data.putts[holeIndex] : null;
 
     if (putts === null || putts === undefined) {
         puttsDisplay.textContent = '-';
@@ -1253,7 +1380,7 @@ function renderPuttsDisplay() {
 
     btnPuttsMinus.disabled = (putts === null || putts === 0);
 
-    const score = currentRound.scores[holeIndex];
+    const score = data.scores[holeIndex];
     if (score !== null && putts !== null && putts >= score) {
         btnPuttsPlus.disabled = true;
     } else {
@@ -1262,9 +1389,10 @@ function renderPuttsDisplay() {
 }
 
 function changeScore(delta) {
-    const holeIndex = currentRound.currentHole - 1;
+    const data = getActiveInputData();
+    const holeIndex = data.currentHole - 1;
 
-    let currentScore = currentRound.scores[holeIndex];
+    let currentScore = data.scores[holeIndex];
     if (currentScore === null) {
         currentScore = currentRound.pars[holeIndex];
     }
@@ -1272,66 +1400,81 @@ function changeScore(delta) {
     const newScore = currentScore + delta;
     if (newScore < 1) return;
 
-    currentRound.scores[holeIndex] = newScore;
+    data.scores[holeIndex] = newScore;
 
-    const putts = currentRound.putts[holeIndex];
+    const putts = data.putts[holeIndex];
     if (putts !== null && putts > newScore) {
-        currentRound.putts[holeIndex] = newScore;
+        data.putts[holeIndex] = newScore;
     }
 
-    saveActiveRound();
-    renderHoleInputScreen();
-
-    if (currentRound.tournamentId) {
-        scheduleSyncMyScoreToTournament();
-    } else if (currentRound.isShared && currentRound.shareCode) {
-        scheduleSyncMyScoreToFirestore();
+    if (data.isProxy) {
+        renderHoleInputScreen();
+        scheduleSyncProxyScore(data.proxyId);
+    } else {
+        saveActiveRound();
+        renderHoleInputScreen();
+        if (currentRound.tournamentId) {
+            scheduleSyncMyScoreToTournament();
+        } else if (currentRound.isShared && currentRound.shareCode) {
+            scheduleSyncMyScoreToFirestore();
+        }
     }
 }
 
 function changePutts(delta) {
-    const holeIndex = currentRound.currentHole - 1;
-    let currentPutts = currentRound.putts[holeIndex];
+    const data = getActiveInputData();
+    const holeIndex = data.currentHole - 1;
+    let currentPutts = data.putts[holeIndex];
 
     if (currentPutts === null || currentPutts === undefined) {
         currentPutts = 0;
     }
 
     const newPutts = currentPutts + delta;
-
     if (newPutts < 0) return;
 
-    const score = currentRound.scores[holeIndex];
-    if (score !== null && newPutts > score) {
-        return;
-    }
+    const score = data.scores[holeIndex];
+    if (score !== null && newPutts > score) return;
 
-    currentRound.putts[holeIndex] = newPutts;
-    saveActiveRound();
-    renderPuttsDisplay();
+    data.putts[holeIndex] = newPutts;
 
-    if (currentRound.tournamentId) {
-        scheduleSyncMyScoreToTournament();
-    } else if (currentRound.isShared && currentRound.shareCode) {
-        scheduleSyncMyScoreToFirestore();
+    if (data.isProxy) {
+        renderPuttsDisplay();
+        scheduleSyncProxyScore(data.proxyId);
+    } else {
+        saveActiveRound();
+        renderPuttsDisplay();
+        if (currentRound.tournamentId) {
+            scheduleSyncMyScoreToTournament();
+        } else if (currentRound.isShared && currentRound.shareCode) {
+            scheduleSyncMyScoreToFirestore();
+        }
     }
 }
 
 function goToHole(holeNumber) {
-    const currentIndex = currentRound.currentHole - 1;
-    if (currentRound.scores[currentIndex] === null) {
-        currentRound.scores[currentIndex] = currentRound.pars[currentIndex];
+    const data = getActiveInputData();
+    const currentIndex = data.currentHole - 1;
+
+    if (data.scores[currentIndex] === null) {
+        data.scores[currentIndex] = currentRound.pars[currentIndex];
     }
 
     if (holeNumber < 1 || holeNumber > 18) return;
-    currentRound.currentHole = holeNumber;
-    saveActiveRound();
-    renderHoleInputScreen();
 
-    if (currentRound.tournamentId) {
-        syncMyScoreToTournament();
-    } else if (currentRound.isShared && currentRound.shareCode) {
-        syncMyScoreToFirestore();
+    if (data.isProxy) {
+        proxyScoreCache[data.proxyId].currentHole = holeNumber;
+        renderHoleInputScreen();
+        syncProxyScoreImmediate(data.proxyId);
+    } else {
+        currentRound.currentHole = holeNumber;
+        saveActiveRound();
+        renderHoleInputScreen();
+        if (currentRound.tournamentId) {
+            syncMyScoreToTournament();
+        } else if (currentRound.isShared && currentRound.shareCode) {
+            syncMyScoreToFirestore();
+        }
     }
 }
 
@@ -2254,6 +2397,8 @@ function enterTournamentRound(tournamentId, tournamentDoc) {
             renderHoleInputScreen();
             // C4-3: 본인 팀 멤버 onSnapshot 시작
             subscribeTournamentTeamMembers(tournamentId, myTournamentTeamId);
+            // D8-3: 프록시 토글용 전체 멤버 구독 (leaderboardAllMembers 채우기)
+            subscribeAllTournamentMembers(tournamentId);
 
             // C4-7: 새로고침 시 자동 복귀 위해 URL에 ?t=정모코드 유지
             try {
@@ -2319,6 +2464,9 @@ function cleanupTournamentRoundListeners() {
         console.log('🧹 라운드 tournament status 구독 해제');
     }
     flushAndClearTournamentScoreSync();
+    flushAllProxySyncTimers();
+    proxyScoreCache = {};
+    proxyInputTargetId = null;
     myTournamentTeamId = null;
     allMembersData = {};
     cleanupLeaderboardListener();
@@ -2427,6 +2575,10 @@ function subscribeAllTournamentMembers(tournamentId) {
 
             leaderboardStatus.classList.add('hidden');
             renderLeaderboardThrottled();
+            // D8-3: 홀 입력 화면에서 프록시 토글 갱신
+            if (!screenHoleInput.classList.contains('hidden')) {
+                renderProxyInputTargets();
+            }
         }, function(error) {
             console.error('❌ 리더보드 구독 에러:', error);
             leaderboardStatus.textContent = '❌ 데이터 로딩 실패: ' + error.message;
@@ -4749,6 +4901,52 @@ function syncMyScoreToTournament() {
         });
 }
 
+// D8: 프록시 스코어 debounce sync
+function scheduleSyncProxyScore(proxyId) {
+    if (proxySyncTimers[proxyId]) {
+        clearTimeout(proxySyncTimers[proxyId]);
+    }
+    proxySyncTimers[proxyId] = setTimeout(function() {
+        syncProxyScoreImmediate(proxyId);
+    }, SCORE_SYNC_DELAY);
+}
+
+function syncProxyScoreImmediate(proxyId) {
+    if (proxySyncTimers[proxyId]) {
+        clearTimeout(proxySyncTimers[proxyId]);
+        delete proxySyncTimers[proxyId];
+    }
+    if (!currentRound || !currentRound.tournamentId) return;
+    if (currentUser === null) return;
+    const cache = proxyScoreCache[proxyId];
+    if (!cache) return;
+
+    const updates = {
+        scores: cache.scores,
+        putts: cache.putts,
+        currentHole: cache.currentHole,
+        completed: cache.completed,
+        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    console.log('💾 프록시 스코어 sync:', proxyId, 'hole', cache.currentHole);
+
+    db.collection('tournaments').doc(currentRound.tournamentId)
+        .collection('members').doc(proxyId)
+        .update(updates)
+        .catch(function(error) {
+            console.error('❌ 프록시 sync 실패:', proxyId, error);
+            if (error.code === 'permission-denied') {
+                alert('프록시 멤버 스코어 저장 권한이 없습니다.');
+            }
+        });
+}
+
+function flushAllProxySyncTimers() {
+    Object.keys(proxySyncTimers).forEach(function(proxyId) {
+        syncProxyScoreImmediate(proxyId);
+    });
+}
+
 // C4-2: 정모 라운드 떠날 때 pending sync 타이머 정리
 function flushAndClearTournamentScoreSync() {
     if (tournamentScoreSyncTimer !== null) {
@@ -5076,14 +5274,19 @@ btnPuttsPlus.addEventListener('click', function() {
 });
 
 btnPrevHole.addEventListener('click', function() {
-    goToHole(currentRound.currentHole - 1);
+    goToHole(getActiveInputData().currentHole - 1);
 });
 
 btnNextHole.addEventListener('click', function() {
-    if (currentRound.currentHole === 18) {
-        finishRound();
+    const data = getActiveInputData();
+    if (data.currentHole === 18) {
+        if (data.isProxy) {
+            finishProxyRound(data.proxyId);
+        } else {
+            finishRound();
+        }
     } else {
-        goToHole(currentRound.currentHole + 1);
+        goToHole(data.currentHole + 1);
     }
 });
 
