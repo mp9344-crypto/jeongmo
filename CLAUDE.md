@@ -1,8 +1,8 @@
 ## 현재 상태
 
-- **D0 완료** (2026-05-04) — 호스트 메인 복귀 제거 + 호스트성 액션 게이팅 구조 도입
-- **배포 상태**: GitHub Pages (app.js?v=d0) + Firestore 규칙 변경 없음
-- 다음: D1 이후 단계 (골프장 DB + 티박스 선택, PRD 6장)
+- **D8-3 완료** (2026-05-04) — 프록시 멤버 전체 구현 완료 (D8-1 rules + D8-2 대기실 UI + D8-3 홀 입력 토글)
+- **배포 상태**: GitHub Pages (app.js?v=d8d) — push 필요
+- 다음: 1주일 후 실제 정모 라운딩 검증 → D 단계 본 작업 시작 (골프장 DB + 티박스)
 
 ---
 
@@ -147,6 +147,8 @@
 - **C5 자동 종료 감지**: `renderLeaderboard()` 마지막에 `memberStats.every(s => s.completed)` 체크 + 호스트 여부 확인 + `autoEndConfirmShown` 플래그로 중복 방지. `showLeaderboardScreen()`에서 `autoEndConfirmShown = false` 리셋.
 - **C5 결과 화면 데이터**: `enterTournamentResultScreen`에서 `cleanupLeaderboardListener` + `cleanupTournamentRoundListeners` 호출 후 members+teams one-shot fetch. `resultMembers[]`, `resultTeams[]`, `resultTournamentDoc` 캐시 사용.
 - **handleEndTournament**: Firestore rules forward-only로 보호 — already-completed 정모에 write 시도하면 permission-denied. 정상 케이스에선 status: 'completed' 쓰면 onSnapshot 감지 → enterTournamentResultScreen.
+- **D8 프록시 패턴**: memberId = `proxy_<ts36><rand4>`, `proxyMember:true`, `proxyHostId:<hostUid>`. `getActiveInputData()` / `commitActiveInputChange(updates)` 추상화로 본인/프록시 분기 통합. `proxyScoreCache{}` 인메모리 + `proxySyncTimers{}` per-proxyId 독립 500ms debounce. `getMyProxyMembers()` — `leaderboardAllMembers` 필터 (`proxyMember===true && proxyHostId===myUid`). `subscribeAllTournamentMembers`를 `enterTournamentRound`에서도 호출 — 리더보드 방문 없이 leaderboardAllMembers 채우기. onSnapshot 콜백에서 hole input 활성 시 `renderProxyInputTargets()` 추가 호출. `cleanupTournamentRoundListeners`에서 `flushAllProxySyncTimers()` + `proxyScoreCache={}` + `proxyInputTargetId=null` 초기화.
+- **D0 게이팅 구조**: `canUserHostTournament()` / `canUserCreateRound()` — 현재는 항상 true, 추후 유료 기능 게이팅용 stub.
 
 ---
 
