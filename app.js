@@ -1605,13 +1605,18 @@ function fetchTournament(tournamentId) {
                 throw new Error('IN_PROGRESS');
             }
 
-            // 3. 멤버 수 확인 (cap 검증)
+            // 3. 멤버 수 확인 (cap 검증) — 기존 호스트/멤버는 제외
+            const userId = currentUser ? currentUser.uid : null;
             return db.collection('tournaments').doc(tournamentId)
                 .collection('members').get()
                 .then(function(membersSnapshot) {
                     const memberCount = membersSnapshot.size;
+                    const isExisting = userId && (
+                        tournamentData.hostId === userId ||
+                        membersSnapshot.docs.some(function(d) { return d.id === userId; })
+                    );
 
-                    if (memberCount >= tournamentData.maxMembers) {
+                    if (!isExisting && memberCount >= tournamentData.maxMembers) {
                         throw new Error('FULL');
                     }
 
