@@ -1,7 +1,7 @@
 ## 현재 상태
 
-- 마지막 완료: **C5** (정모 종료 + 결과 화면 16 — 우승자 카드, 개인/팀 순위, 나의 스코어카드, 자동 종료 감지)
-- 다음: C6 (공유 초대 링크 + 정모 히스토리 or 기타 개선 — 미정)
+- **2단계 C 완료** (2026-05-04) — C1~C5 전 단계 구현 + 검증 완료
+- 다음: 1주일 후 실제 정모 라운딩 검증 → 그 후 D 단계 시작 (새 채팅 + 새 세션)
 - 배포 상태: GitHub Pages (app.js?v=c48) + Firestore 규칙 변경 없음
 
 ---
@@ -19,6 +19,54 @@
 ## C5 진행 현황
 
 - C5 ✅ 정모 종료 + 결과 화면 (화면 16) — 우승자 카드, 최종 개인/팀 순위, 나의 스코어카드, 자동 종료 감지
+
+---
+
+## C 단계 회고 (2026-05-04)
+
+### 전체 구조
+- **5단계 C로 분할**: C1 (정모 생성·진입), C2 (대기실·참여), C3 (팀 배정 5단계), C4 (라이브 7단계), C5 (종료 1단계)
+- git 커밋 38개, 약 4,500줄 app.js (C 단계 시작 당시 기준 대비 ~3배 증가)
+
+### 보안 규칙 진화
+- 옵션 B (호스트 + 본인 보호) → status forward-only 강화 (C3-5)
+- `waiting → in_progress → completed` 단방향 Firestore 규칙으로 상태 역행 원천 차단
+- 결과: `handleEndTournament`에서 이미-종료 정모 재쓰기 시 permission-denied로 자동 보호
+
+### 검증 패턴 확립
+- **순수 함수**: `node -e "..."` 인라인 Node.js 단위 테스트 (정렬·계산 로직 즉시 검증)
+- **라이브 UI**: Playwright MCP (시각 확인 + 라이브 동기화 latency)
+- **데이터 주입**: Firebase MCP (멤버 대량 주입, 상태 강제 전환)
+
+### 핵심 검증 통과
+- **40명 cap**: 50개 DOM 행 (40 개인 + 10팀) 0.6ms 렌더링 확인
+- **1초 throttle**: 20회 onSnapshot → renderLeaderboard 2회 호출 (90% 감소)
+- **라이브 동기화**: 게스트 스코어 입력 → 호스트 리더보드 반영 ~1초 이내
+- **status 양방향 차단**: completed → in_progress 역행 시도 permission-denied 확인
+
+---
+
+## D 단계 시작 시 첫 메시지 권장 컨텍스트
+
+**새 세션 열 때 이 내용을 포함해서 시작:**
+
+```
+정모 골프 앱 D 단계 시작.
+- C 단계 완료 (2026-05-04), 라운딩 검증 결과: [발견된 이슈 목록]
+- 첨부: CLAUDE.md, index.html, app.js, style.css, PRD
+- D 단계 목표: 골프장 DB + 티박스 선택 (PRD 6장)
+```
+
+**D 단계 주요 작업 (PRD 6장 기준):**
+- 골프장 DB (코스명 자동완성, 파 데이터 자동 입력)
+- 티박스 선택 (레드/화이트/블루, 코스 핸디캡 테이블)
+- 코스 레이팅 / 슬로프 레이팅 기반 정확한 코스 핸디캡 계산
+
+**라운딩 검증 때 체크할 항목:**
+- 실기기에서 스코어 입력 → 리더보드 반영 latency
+- 18홀 완료 시 자동 종료 confirm 타이밍
+- 결과 화면 스크롤 UX (스코어카드 길이)
+- Net 모드 핸디 계산 체감 정확도
 
 ---
 
@@ -82,6 +130,10 @@
 - **C4-4/C4-5 리더보드**: `subscribeAllTournamentMembers(tournamentId)` — 팀 필터 없이 전체 구독. `cleanupLeaderboardListener()`는 `cleanupTournamentRoundListeners()` 내부에서도 호출됨 (이중 보장). `computeMemberStats(member, pars)` — Gross+Net 동시 계산, 비례 핸디 `(playedHoles/18) * courseHandicap`. `fetchLeaderboardTeams(tournamentId)` — teams one-shot fetch, `leaderboardTeams[]` 캐시. `renderLeaderboard()`는 gameMode 분기로 Gross/Net 자동 전환 + 팀 섹션 동시 렌더. 팀 row는 `TEAM_COLORS[colorIndex]`로 컬러 적용.
 - **C4-6 throttle 패턴**: `createThrottle(fn, delayMs)` — 첫 호출 즉시 실행 + delayMs 내 후속 호출은 pending 1회로 합산. `renderLeaderboardThrottled`, `renderMembersStripThrottled`가 onSnapshot 콜백에서 사용. `cleanupAllListenersOnUnload()`를 `window.addEventListener('beforeunload', ...)`에 등록. 부하 테스트: 20회 Firestore 업데이트 → renderLeaderboard 2회 호출 (90% 감소). monkey-patch 주의: `renderLeaderboardThrottled`는 생성 시 `renderLeaderboard` 원본 참조를 캡처하므로 이후 `window.renderLeaderboard` 교체가 throttle 내부 fn에 미치지 않음.
 - **C4-7 재진입 패턴**: `fetchTournament`가 in_progress 시 데이터 반환(throw 안 함). `handleTournamentEntry`에서 in_progress → `handleInProgressTournamentEntry` 분기. 호스트 즉시 진입 / 기존 멤버 memberDoc.exists 체크 후 진입 / 신규 차단 alert. `subscribeTournamentStatusForRound` — 대기실 거치지 않은 재진입 시 completed 감지용 onSnapshot. `enterTournamentRound` 진입 시 `?t=코드` URL 갱신 (새로고침 복귀). `cleanupTournamentRoundListeners`에서 `roundTournamentStatusUnsub` 정리 + URL 정리. 대기실 onSnapshot의 `.orderBy('joinedAt')` 주의: joinedAt 없는 Firebase MCP 주입 멤버는 대기실에서 보이지 않음 (Firestore orderBy는 해당 필드 없는 문서 제외).
+- **C5 결과 화면 진입 경로 3가지**: (1) `subscribeTournamentStatusForRound` completed 감지 → `enterTournamentResultScreen(data)`, (2) URL/코드로 completed 정모 진입 → `handleTournamentEntry` completed 분기, (3) 대기실 중 종료 감지 → waiting room onSnapshot completed 분기
+- **C5 자동 종료 감지**: `renderLeaderboard()` 마지막에 `memberStats.every(s => s.completed)` 체크 + 호스트 여부 확인 + `autoEndConfirmShown` 플래그로 중복 방지. `showLeaderboardScreen()`에서 `autoEndConfirmShown = false` 리셋.
+- **C5 결과 화면 데이터**: `enterTournamentResultScreen`에서 `cleanupLeaderboardListener` + `cleanupTournamentRoundListeners` 호출 후 members+teams one-shot fetch. `resultMembers[]`, `resultTeams[]`, `resultTournamentDoc` 캐시 사용.
+- **handleEndTournament**: Firestore rules forward-only로 보호 — already-completed 정모에 write 시도하면 permission-denied. 정상 케이스에선 status: 'completed' 쓰면 onSnapshot 감지 → enterTournamentResultScreen.
 
 ---
 
@@ -106,20 +158,6 @@
 
 ---
 
-## 다음 작업 — C5 정모 종료 + 결과 화면
-
-**C5 목표:**
-1. 모든 멤버가 18홀 완료 시 자동 status: completed 전환 (클라이언트 감지 or Cloud Function)
-2. 결과 화면 (화면 16): 최종 순위 + 우승자 하이라이트
-3. 결과 단톡방 공유 (이미지 or 텍스트)
-4. 호스트가 수동 종료 버튼 (강제 완료)
-
-**C4-7에서 남긴 임시 처리:**
-- completed 감지 시 alert "결과 화면은 C5 단계에서 추가됩니다." → C5에서 결과 화면으로 교체
-- `subscribeTournamentStatusForRound`의 completed 분기에 결과 화면 진입 로직 추가 필요
-
----
-
 ## Playwright MCP 자동화 안정성 메모
 
 - 세션 만료 시 Claude Code 재시작하면 MCP도 같이 재시작됨
@@ -130,20 +168,7 @@
 
 ---
 
-## 오늘 발견한 좋은 패턴
-
-- **Node.js 단위 테스트로 순수 함수 검증**: `node -e "..."` 인라인 스크립트로 정렬 로직·Net 계산 즉시 검증 (C4-4/C4-5)
-- **graceful degradation**: 팀 fetch 실패 시 `catch`에서 `renderLeaderboard()` 호출 → 개인 순위는 유지
-- **race condition 처리**: teams fetch + members onSnapshot 완료 시점이 달라도 `leaderboardAllMembers.length > 0` 체크로 이중 렌더 방지
-- **cleanup 함수에 모든 캐시 초기화**: `cleanupLeaderboardListener()`에 `leaderboardAllMembers = []` + `leaderboardTeams = []` — stale 데이터 방지
-- **C5 결과 화면 진입 경로 3가지**: (1) `subscribeTournamentStatusForRound` completed 감지 → `enterTournamentResultScreen(data)`, (2) URL/코드로 completed 정모 진입 → `handleTournamentEntry` completed 분기, (3) 대기실 중 종료 감지 → waiting room onSnapshot completed 분기
-- **C5 자동 종료 감지**: `renderLeaderboard()` 마지막에 `memberStats.every(s => s.completed)` 체크 + 호스트 여부 확인 + `autoEndConfirmShown` 플래그로 중복 방지. `showLeaderboardScreen()`에서 `autoEndConfirmShown = false` 리셋.
-- **C5 결과 화면 데이터**: `enterTournamentResultScreen`에서 `cleanupLeaderboardListener` + `cleanupTournamentRoundListeners` 호출 후 members+teams one-shot fetch. `resultMembers[]`, `resultTeams[]`, `resultTournamentDoc` 캐시 사용.
-- **handleEndTournament**: Firestore rules forward-only로 보호 — already-completed 정모에 write 시도하면 permission-denied. 정상 케이스에선 status: 'completed' 쓰면 onSnapshot 감지 → enterTournamentResultScreen.
-
----
-
-## 미래 작업 메모 (C6 끝나면 챙길 것)
+## 미래 작업 메모 (D 단계 이후)
 
 ### 호스팅 이전 — GitHub Pages → Firebase Hosting
 
@@ -152,7 +177,7 @@
 - Public 저장소 + firebase-config.js도 git 추적 (호스팅 구조상 어쩔 수 없음)
 - API 키는 도메인 제한으로 보호 (Google Cloud Console)
 
-C6 끝난 후 할 일:
+할 일:
 1. Firebase Hosting 셋업 (firebase init hosting)
 2. firebase-config.js를 다시 git에서 빼고 GitHub Actions로 빌드 시 주입
 3. 도메인 제한 변경:
@@ -192,6 +217,6 @@ Google Cloud Console (jeongmo-app 프로젝트) → Browser key:
 
 지금 안 하는 이유:
 - 친구 단톡방 앱이라 사용자 모두 한국어
-- C3~C6 동안 새 기능마다 번역 추가하면 작업량 1.5배
+- C~D 단계 동안 새 기능마다 번역 추가하면 작업량 1.5배
 - 한국어 표현 안정화 후 번역하는 게 정석 (피드백 받고 다듬은 후)
 - PRD 2.4 "본질에 집중" 원칙
