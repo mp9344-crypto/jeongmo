@@ -96,6 +96,7 @@
 - **옵션 B** (호스트 + 본인 보호) 유지 — 인증된 사용자라면 읽기 가능, 쓰기는 권한 제한
 - **status forward-only 강화** (C3-5): `waiting→in_progress→completed` 단방향만 허용
 - **teams 서브컬렉션**: 호스트만 write, `status != "completed"` 조건
+- **D8 members create 프록시 분기**: `userId.matches("proxy_.+")` + `proxyMember==true` + `proxyHostId==request.auth.uid` + `status != "completed"`. update/delete는 기존 호스트 권한 그대로 사용 (변경 없음).
 
 ---
 
@@ -103,7 +104,7 @@
 
 - 호스트성 액션 = 미래 유료/구독 후보
   - 정모 만들기 (`canUserHostTournament`)
-  - (D8 이후) 프록시 멤버 추가
+  - 프록시 멤버 추가 (D8 구현, `canUserHostTournament` 가드 적용)
 - 영구 무료 = 개인 라운드, 정모 참여 (게스트), B6 1:1 공유
 - 게이팅 함수 위치: `app.js` `calculateCourseHandicap` 직전
 - D0에선 항상 true 반환 — 구조만 도입. 강제는 D7 이후.
@@ -129,6 +130,18 @@
 
 ---
 
+## D8 설계 결정 (검토 필요)
+
+- **홀 위치 처리 방식**: (B) 각자 독립으로 구현
+  - 장점: 멤버별 진행률이 정확. 김삼촌 5번 홀, 본인 7번 홀 같은 비동기 진행 가능
+  - 단점: 같은 그룹 라운딩 시 "본인은 5번 홀인데 김삼촌 토글하니 1번 홀로 돌아감" 혼란 가능
+- **실사용 검증 후 (A) 호스트 기준 공유로 변경 검토**:
+  - scores/putts/completed만 캐시에 저장
+  - currentHole은 항상 `currentRound.currentHole` 사용
+  - 변경 시 마이그레이션 불필요 (Firestore 데이터 형태 동일)
+
+---
+
 ## 코드 패턴 메모
 
 - 팀 멤버 정보의 **단일 출처는 `members.teamId`** (`teams.memberIds`는 보조 캐시)
@@ -148,6 +161,7 @@
 - **C5 결과 화면 데이터**: `enterTournamentResultScreen`에서 `cleanupLeaderboardListener` + `cleanupTournamentRoundListeners` 호출 후 members+teams one-shot fetch. `resultMembers[]`, `resultTeams[]`, `resultTournamentDoc` 캐시 사용.
 - **handleEndTournament**: Firestore rules forward-only로 보호 — already-completed 정모에 write 시도하면 permission-denied. 정상 케이스에선 status: 'completed' 쓰면 onSnapshot 감지 → enterTournamentResultScreen.
 - **D8 프록시 패턴**: memberId = `proxy_<ts36><rand4>`, `proxyMember:true`, `proxyHostId:<hostUid>`. `getActiveInputData()` / `commitActiveInputChange(updates)` 추상화로 본인/프록시 분기 통합. `proxyScoreCache{}` 인메모리 + `proxySyncTimers{}` per-proxyId 독립 500ms debounce. `getMyProxyMembers()` — `leaderboardAllMembers` 필터 (`proxyMember===true && proxyHostId===myUid`). `subscribeAllTournamentMembers`를 `enterTournamentRound`에서도 호출 — 리더보드 방문 없이 leaderboardAllMembers 채우기. onSnapshot 콜백에서 hole input 활성 시 `renderProxyInputTargets()` 추가 호출. `cleanupTournamentRoundListeners`에서 `flushAllProxySyncTimers()` + `proxyScoreCache={}` + `proxyInputTargetId=null` 초기화.
+- **D8 홀 위치 처리**: 멤버별 독립 (본인과 프록시 각자 currentHole 유지). 토글 전환 시 화면이 해당 멤버의 currentHole로 이동. `proxyScoreCache`는 scores, putts, currentHole, completed 모두 저장. → 설계 대안 검토는 "D8 설계 결정" 섹션 참조.
 - **D0 게이팅 구조**: `canUserHostTournament()` / `canUserCreateRound()` — 현재는 항상 true, 추후 유료 기능 게이팅용 stub.
 
 ---
