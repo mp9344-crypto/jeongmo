@@ -3805,7 +3805,9 @@ function renderSharedModeUI() {
         if (membersStrip) membersStrip.classList.remove('hidden');
         renderMembersStrip();
     } else if (currentRound.isShared && currentRound.shareCode) {
-        // B6: 1:1 공유 라운드
+        // B6: 1:1 공유 라운드 — 이전 정모 세션의 tournament badge 숨기기
+        var tBadge = document.getElementById('tournament-mode-badge');
+        if (tBadge) tBadge.classList.add('hidden');
         if (sharedModeBadge) sharedModeBadge.classList.remove('hidden');
         if (membersStrip) membersStrip.classList.remove('hidden');
         renderMembersStrip();
