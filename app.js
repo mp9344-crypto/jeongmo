@@ -295,6 +295,33 @@ let leaderboardAllMembers = [];
 let leaderboardTeams = [];
 const SCORE_SYNC_DELAY = 500;      // 500ms 디바운스
 
+// C4-6: 렌더링 throttle 유틸리티
+// 첫 호출 즉시 실행 + delayMs 동안 무시 + 무시 기간 끝나면 마지막 args로 1번 더
+function createThrottle(fn, delayMs) {
+    var lastCallTime = 0;
+    var pendingTimeout = null;
+    var lastArgs = null;
+
+    return function() {
+        lastArgs = arguments;
+        var now = Date.now();
+        var elapsed = now - lastCallTime;
+
+        if (elapsed >= delayMs) {
+            lastCallTime = now;
+            fn.apply(null, lastArgs);
+        } else if (pendingTimeout === null) {
+            pendingTimeout = setTimeout(function() {
+                lastCallTime = Date.now();
+                pendingTimeout = null;
+                fn.apply(null, lastArgs);
+            }, delayMs - elapsed);
+        }
+    };
+}
+
+const RENDER_THROTTLE_MS = 1000; // PRD 5.9: 1초당 1회
+
 const STORAGE_KEYS = {
     ACTIVE_ROUND: 'golf_active_round',
     COMPLETED_ROUNDS: 'golf_rounds',
@@ -2106,7 +2133,7 @@ function subscribeTournamentTeamMembers(tournamentId, teamId) {
             console.log('🔄 팀 멤버 데이터 갱신:', Object.keys(allMembersData).length + '명');
 
             if (!screenHoleInput.classList.contains('hidden')) {
-                renderMembersStrip();
+                renderMembersStripThrottled();
             }
         }, function(error) {
             console.error('❌ 팀 멤버 구독 에러:', error);
@@ -2191,7 +2218,7 @@ function subscribeAllTournamentMembers(tournamentId) {
             console.log('🔄 리더보드 데이터 갱신:', leaderboardAllMembers.length + '명');
 
             leaderboardStatus.classList.add('hidden');
-            renderLeaderboard();
+            renderLeaderboardThrottled();
         }, function(error) {
             console.error('❌ 리더보드 구독 에러:', error);
             leaderboardStatus.textContent = '❌ 데이터 로딩 실패: ' + error.message;
@@ -2460,6 +2487,9 @@ function renderLeaderboard() {
         leaderboardTeamList.appendChild(row);
     });
 }
+
+// C4-6: 1초 throttle 적용된 리더보드 렌더링 (라이브 갱신용)
+var renderLeaderboardThrottled = createThrottle(renderLeaderboard, RENDER_THROTTLE_MS);
 
 // C4-1: 화면 3 상단 정모 배지 렌더링
 function renderTournamentModeBadge(tournamentDoc) {
@@ -4031,7 +4061,7 @@ function setupSharedRoundListeners(shareCode) {
 
         // 홀 입력 화면이 열려있으면 멤버 스트립 다시 그리기
         if (!screenHoleInput.classList.contains('hidden')) {
-            renderMembersStrip();
+            renderMembersStripThrottled();
         }
     }, function(error) {
         console.error('❌ 멤버 리스너 오류:', error);
@@ -4204,6 +4234,9 @@ function renderMembersStrip() {
         membersStrip.appendChild(chip);
     }
 }
+
+// C4-6: 1초 throttle 적용된 멤버 스트립 렌더링 (라이브 갱신용)
+var renderMembersStripThrottled = createThrottle(renderMembersStrip, RENDER_THROTTLE_MS);
 
 // 멤버 칩 1개 만들기 (이름 · 홀 · 스코어 · 퍼팅)
 function createMemberChip(memberData, isMe) {
@@ -4509,3 +4542,12 @@ btnCancelJoin.addEventListener('click', function() {
 // =========================================
 refreshMainScreen();
 handleInitialRouting();   // ★ B5: URL에 공유 코드 있으면 참여 흐름 시작
+
+// C4-6: 페이지 떠날 때 모든 onSnapshot 정리
+function cleanupAllListenersOnUnload() {
+    cleanupTournamentWaitingListeners();
+    cleanupTournamentRoundListeners();
+    cleanupSharedListeners();
+}
+
+window.addEventListener('beforeunload', cleanupAllListenersOnUnload);
