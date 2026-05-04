@@ -1857,3 +1857,28 @@ select:focus {
 .btn-leaderboard-link:hover {
     background: #1f4d39;
 }
+
+/* =========================================
+   리더보드 - 섹션 제목 + 팀 순위 (C4-5)
+   ========================================= */
+
+.leaderboard-section-title {
+    margin-top: 20px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+    padding-left: 4px;
+}
+
+.leaderboard-section-title:first-of-type {
+    margin-top: 0;
+}
+
+.leaderboard-team-list {
+    margin-bottom: 16px;
+}
+
+.leaderboard-team-row {
+    grid-template-columns: 40px 1fr 70px 110px;
+}

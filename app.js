@@ -220,6 +220,7 @@ const leaderboardMeta = document.getElementById('leaderboard-meta');
 const leaderboardModeBadge = document.getElementById('leaderboard-mode-badge');
 const leaderboardStatus = document.getElementById('leaderboard-status');
 const leaderboardList = document.getElementById('leaderboard-list');
+const leaderboardTeamList = document.getElementById('leaderboard-team-list');
 const btnBackToRoundFromLeaderboard = document.getElementById('btn-back-to-round-from-leaderboard');
 
 // 퍼팅 입력
@@ -290,6 +291,8 @@ let myTournamentTeamId = null;
 // C4-4: 리더보드용 — 정모 전체 멤버 onSnapshot
 let leaderboardMembersUnsub = null;
 let leaderboardAllMembers = [];
+// C4-5: 리더보드용 — 팀 정보 (one-shot fetch)
+let leaderboardTeams = [];
 const SCORE_SYNC_DELAY = 500;      // 500ms 디바운스
 
 const STORAGE_KEYS = {
@@ -2135,10 +2138,36 @@ function showLeaderboardScreen() {
     leaderboardModeBadge.textContent = currentRound.gameMode === 'net' ? 'Net' : 'Gross';
 
     leaderboardList.innerHTML = '';
+    leaderboardTeamList.innerHTML = '';
+    leaderboardTeams = [];
     leaderboardStatus.classList.remove('hidden');
     showScreen(screenLeaderboard);
 
+    fetchLeaderboardTeams(tournamentId);
     subscribeAllTournamentMembers(tournamentId);
+}
+
+// C4-5: 팀 정보 one-shot fetch (리더보드 팀 순위용)
+function fetchLeaderboardTeams(tournamentId) {
+    db.collection('tournaments').doc(tournamentId)
+        .collection('teams').get()
+        .then(function(snapshot) {
+            leaderboardTeams = [];
+            snapshot.forEach(function(doc) {
+                var data = doc.data();
+                data.id = doc.id;
+                leaderboardTeams.push(data);
+            });
+            console.log('🏆 리더보드 팀 정보 fetch:', leaderboardTeams.length + '개');
+            if (leaderboardAllMembers.length > 0) {
+                renderLeaderboard();
+            }
+        })
+        .catch(function(error) {
+            console.error('❌ 팀 정보 fetch 실패:', error);
+            leaderboardTeams = [];
+            renderLeaderboard();
+        });
 }
 
 // C4-4: 정모 전체 멤버 구독 (리더보드 전용)
@@ -2177,118 +2206,258 @@ function cleanupLeaderboardListener() {
         console.log('🧹 리더보드 구독 해제');
     }
     leaderboardAllMembers = [];
+    leaderboardTeams = [];
 }
 
-// C4-4: Gross 정렬 + 순위 계산 + 렌더링
+// C4-5: 멤버 1명의 통계 계산 (Gross + Net 양쪽)
+function computeMemberStats(member, pars) {
+    var scores = member.scores || new Array(18).fill(null);
+    var total = 0;
+    var totalPar = 0;
+    var playedHoles = 0;
+    for (var i = 0; i < 18; i++) {
+        if (scores[i] !== null && scores[i] !== undefined) {
+            total += scores[i];
+            totalPar += pars[i];
+            playedHoles++;
+        }
+    }
+    var grossOverPar = total - totalPar;
+    var courseHandicap = (member.courseHandicap !== null && member.courseHandicap !== undefined)
+        ? member.courseHandicap : 0;
+    var proRatedHandicap = playedHoles > 0 ? (playedHoles / 18) * courseHandicap : 0;
+    var net = total - proRatedHandicap;
+    var netOverPar = grossOverPar - proRatedHandicap;
+    var completed = member.completed === true || playedHoles === 18;
+
+    return {
+        id: member.id,
+        name: member.name || '?',
+        teamId: member.teamId,
+        playedHoles: playedHoles,
+        total: total,
+        totalPar: totalPar,
+        grossOverPar: grossOverPar,
+        net: Math.round(net * 10) / 10,
+        netOverPar: Math.round(netOverPar * 10) / 10,
+        courseHandicap: courseHandicap,
+        proRatedHandicap: proRatedHandicap,
+        completed: completed
+    };
+}
+
+// C4-5: overUnder 값을 표시 문자열로
+function formatOverUnder(value) {
+    if (value === 0) return 'E';
+    if (value > 0) return '+' + value;
+    return String(value);
+}
+
+// C4-4/C4-5: 리더보드 렌더링 (Gross/Net 자동 분기 + 팀 순위)
 function renderLeaderboard() {
     if (currentRound === null || !currentRound.pars) {
         leaderboardList.innerHTML = '<p class="hint">정모 정보 누락</p>';
+        leaderboardTeamList.innerHTML = '';
         return;
     }
 
     var pars = currentRound.pars;
+    var isNetMode = currentRound.gameMode === 'net';
     var myUid = currentUser ? currentUser.uid : null;
 
-    var stats = leaderboardAllMembers.map(function(m) {
-        var scores = m.scores || new Array(18).fill(null);
-        var total = 0;
-        var totalPar = 0;
-        var playedHoles = 0;
-        for (var i = 0; i < 18; i++) {
-            if (scores[i] !== null && scores[i] !== undefined) {
-                total += scores[i];
-                totalPar += pars[i];
-                playedHoles++;
-            }
-        }
-        var overUnder = total - totalPar;
-        var completed = m.completed === true || playedHoles === 18;
-        return {
-            id: m.id,
-            name: m.name || '?',
-            teamId: m.teamId,
-            playedHoles: playedHoles,
-            total: total,
-            overUnder: overUnder,
-            completed: completed
-        };
+    // === 1. 개인 통계 계산 ===
+    var memberStats = leaderboardAllMembers.map(function(m) {
+        return computeMemberStats(m, pars);
     });
 
-    // Gross 정렬: overUnder 적은 순 → playedHoles 많은 순 → 이름순 / 0홀은 맨 뒤
-    stats.sort(function(a, b) {
+    // === 2. 개인 정렬 ===
+    memberStats.sort(function(a, b) {
         if (a.playedHoles === 0 && b.playedHoles > 0) return 1;
         if (b.playedHoles === 0 && a.playedHoles > 0) return -1;
         if (a.playedHoles === 0 && b.playedHoles === 0) return a.name.localeCompare(b.name);
-        if (a.overUnder !== b.overUnder) return a.overUnder - b.overUnder;
+        var aKey = isNetMode ? a.netOverPar : a.grossOverPar;
+        var bKey = isNetMode ? b.netOverPar : b.grossOverPar;
+        if (aKey !== bKey) return aKey - bKey;
         if (a.playedHoles !== b.playedHoles) return b.playedHoles - a.playedHoles;
         return a.name.localeCompare(b.name);
     });
 
-    // 순위 부여 (동률은 같은 순위)
-    var prevOverUnder = null;
-    var prevPlayedHoles = null;
+    // === 3. 개인 순위 부여 ===
+    var prevKey = null;
+    var prevPlayed = null;
     var currentRankVal = 0;
     var displayedCount = 0;
-    stats.forEach(function(s) {
+    memberStats.forEach(function(s) {
         displayedCount++;
+        var key = isNetMode ? s.netOverPar : s.grossOverPar;
         if (s.playedHoles === 0) {
             s.rank = '-';
-        } else if (
-            prevOverUnder === null ||
-            s.overUnder !== prevOverUnder ||
-            s.playedHoles !== prevPlayedHoles
-        ) {
+        } else if (prevKey === null || key !== prevKey || s.playedHoles !== prevPlayed) {
             currentRankVal = displayedCount;
             s.rank = currentRankVal;
-            prevOverUnder = s.overUnder;
-            prevPlayedHoles = s.playedHoles;
+            prevKey = key;
+            prevPlayed = s.playedHoles;
         } else {
             s.rank = currentRankVal;
         }
     });
 
+    // === 4. 개인 DOM 렌더링 ===
     leaderboardList.innerHTML = '';
-
-    if (stats.length === 0) {
+    if (memberStats.length === 0) {
         leaderboardList.innerHTML = '<p class="hint">멤버 정보 없음</p>';
+    } else {
+        memberStats.forEach(function(s) {
+            var row = document.createElement('div');
+            row.className = 'leaderboard-row';
+            if (s.id === myUid) row.classList.add('leaderboard-row-me');
+            if (s.completed) row.classList.add('leaderboard-row-completed');
+
+            var rankEl = document.createElement('span');
+            rankEl.className = 'lb-rank';
+            rankEl.textContent = (s.rank === '-') ? '-' : s.rank;
+            row.appendChild(rankEl);
+
+            var nameEl = document.createElement('span');
+            nameEl.className = 'lb-name';
+            nameEl.textContent = s.name + (s.id === myUid ? ' (나)' : '');
+            row.appendChild(nameEl);
+
+            var holeEl = document.createElement('span');
+            holeEl.className = 'lb-hole';
+            holeEl.textContent = s.completed ? '✓ 18홀' : (s.playedHoles + '/18');
+            row.appendChild(holeEl);
+
+            var scoreEl = document.createElement('span');
+            scoreEl.className = 'lb-score';
+            if (s.playedHoles === 0) {
+                scoreEl.textContent = '-';
+            } else if (isNetMode) {
+                scoreEl.textContent = s.net.toFixed(1) + ' (' + formatOverUnder(s.netOverPar) + ')';
+            } else {
+                scoreEl.textContent = s.total + '타 (' + formatOverUnder(s.grossOverPar) + ')';
+            }
+            row.appendChild(scoreEl);
+
+            leaderboardList.appendChild(row);
+        });
+    }
+
+    // === 5. 팀별 합계 계산 ===
+    if (leaderboardTeams.length === 0) {
+        leaderboardTeamList.innerHTML = '<p class="hint">팀 정보 로딩 중...</p>';
         return;
     }
 
-    stats.forEach(function(s) {
+    var teamStatsMap = {};
+    leaderboardTeams.forEach(function(t) {
+        teamStatsMap[t.id] = {
+            teamId: t.id,
+            teamName: t.name,
+            colorIndex: t.colorIndex,
+            memberCount: 0,
+            totalGross: 0,
+            totalPlayedHoles: 0,
+            totalPar: 0,
+            totalProRatedHandicap: 0,
+            membersStarted: 0
+        };
+    });
+
+    memberStats.forEach(function(s) {
+        if (!s.teamId || !teamStatsMap[s.teamId]) return;
+        var t = teamStatsMap[s.teamId];
+        t.memberCount++;
+        t.totalGross += s.total;
+        t.totalPlayedHoles += s.playedHoles;
+        t.totalPar += s.totalPar;
+        t.totalProRatedHandicap += s.proRatedHandicap;
+        if (s.playedHoles > 0) t.membersStarted++;
+    });
+
+    var teamStatsList = Object.keys(teamStatsMap).map(function(tid) {
+        var t = teamStatsMap[tid];
+        t.grossOverPar = t.totalGross - t.totalPar;
+        t.totalNet = Math.round((t.totalGross - t.totalProRatedHandicap) * 10) / 10;
+        t.netOverPar = Math.round((t.grossOverPar - t.totalProRatedHandicap) * 10) / 10;
+        t.sortKey = isNetMode ? t.netOverPar : t.grossOverPar;
+        return t;
+    });
+
+    // === 6. 팀 정렬 ===
+    teamStatsList.sort(function(a, b) {
+        if (a.totalPlayedHoles === 0 && b.totalPlayedHoles > 0) return 1;
+        if (b.totalPlayedHoles === 0 && a.totalPlayedHoles > 0) return -1;
+        if (a.totalPlayedHoles === 0 && b.totalPlayedHoles === 0) return (a.colorIndex || 0) - (b.colorIndex || 0);
+        if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey;
+        if (a.totalPlayedHoles !== b.totalPlayedHoles) return b.totalPlayedHoles - a.totalPlayedHoles;
+        return (a.colorIndex || 0) - (b.colorIndex || 0);
+    });
+
+    // === 7. 팀 순위 부여 ===
+    var prevTeamKey = null;
+    var prevTeamPlayed = null;
+    var currentTeamRank = 0;
+    var teamDisplayed = 0;
+    teamStatsList.forEach(function(t) {
+        teamDisplayed++;
+        if (t.totalPlayedHoles === 0) {
+            t.rank = '-';
+        } else if (prevTeamKey === null || t.sortKey !== prevTeamKey || t.totalPlayedHoles !== prevTeamPlayed) {
+            currentTeamRank = teamDisplayed;
+            t.rank = currentTeamRank;
+            prevTeamKey = t.sortKey;
+            prevTeamPlayed = t.totalPlayedHoles;
+        } else {
+            t.rank = currentTeamRank;
+        }
+    });
+
+    // === 8. 팀 DOM 렌더링 ===
+    leaderboardTeamList.innerHTML = '';
+    if (teamStatsList.length === 0) {
+        leaderboardTeamList.innerHTML = '<p class="hint">팀 정보 없음</p>';
+        return;
+    }
+
+    teamStatsList.forEach(function(t) {
+        var color = (TEAM_COLORS && TEAM_COLORS[t.colorIndex]) || { main: '#64748b', bg: '#f1f5f9' };
+
         var row = document.createElement('div');
-        row.className = 'leaderboard-row';
-        if (s.id === myUid) row.classList.add('leaderboard-row-me');
-        if (s.completed) row.classList.add('leaderboard-row-completed');
+        row.className = 'leaderboard-row leaderboard-team-row';
+        row.style.backgroundColor = color.bg;
+        row.style.borderLeft = '4px solid ' + color.main;
 
         var rankEl = document.createElement('span');
         rankEl.className = 'lb-rank';
-        rankEl.textContent = (s.rank === '-') ? '-' : s.rank;
+        rankEl.textContent = (t.rank === '-') ? '-' : t.rank;
         row.appendChild(rankEl);
 
         var nameEl = document.createElement('span');
         nameEl.className = 'lb-name';
-        nameEl.textContent = s.name + (s.id === myUid ? ' (나)' : '');
+        nameEl.style.color = color.main;
+        nameEl.style.fontWeight = '700';
+        nameEl.textContent = t.teamName + ' (' + t.memberCount + '명)';
         row.appendChild(nameEl);
 
         var holeEl = document.createElement('span');
         holeEl.className = 'lb-hole';
-        holeEl.textContent = s.completed ? '✓ 18홀' : (s.playedHoles + '/18');
+        var totalPossible = t.memberCount * 18;
+        holeEl.textContent = t.totalPlayedHoles + '/' + totalPossible;
         row.appendChild(holeEl);
 
         var scoreEl = document.createElement('span');
         scoreEl.className = 'lb-score';
-        if (s.playedHoles === 0) {
+        if (t.totalPlayedHoles === 0) {
             scoreEl.textContent = '-';
+        } else if (isNetMode) {
+            scoreEl.textContent = t.totalNet.toFixed(1) + ' (' + formatOverUnder(t.netOverPar) + ')';
         } else {
-            var ouText;
-            if (s.overUnder === 0) ouText = 'E';
-            else if (s.overUnder > 0) ouText = '+' + s.overUnder;
-            else ouText = String(s.overUnder);
-            scoreEl.textContent = s.total + '타 (' + ouText + ')';
+            scoreEl.textContent = t.totalGross + '타 (' + formatOverUnder(t.grossOverPar) + ')';
         }
         row.appendChild(scoreEl);
 
-        leaderboardList.appendChild(row);
+        leaderboardTeamList.appendChild(row);
     });
 }
 
