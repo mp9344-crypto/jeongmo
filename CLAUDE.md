@@ -1,3 +1,64 @@
+## 현재 상태
+
+- 마지막 완료: **C3 전체 (C3-1 ~ C3-5)**
+- 다음 마일스톤: **C4** (라이브 리더보드 + 라운드 진행)
+- 배포 상태: GitHub Pages + Firestore 규칙 모두 동기화
+
+---
+
+## 데이터 모델 (확정)
+
+### tournaments/{id}
+- `status`: `"waiting"` | `"in_progress"` | `"completed"` — forward-only (규칙 강제)
+- `hostId`, `name`, `courseName`, `date`, `gameMode`, `pars[]`, `maxMembers`, `teamCount`, `teamSize`, `tier`
+- `startedAt` (in_progress 진입 시 기록), `completedAt`
+
+### tournaments/{id}/teams/{teamId}
+- `name`: 팀 이름 (호스트가 인라인 편집 가능)
+- `colorIndex`: 1~10 (클라이언트 TEAM_COLORS 상수로 HEX 매핑)
+- `memberIds[]`: 보조 캐시 (단일 출처 아님)
+- `createdAt`
+
+### tournaments/{id}/members/{userId}
+- `teamId`: `null` 또는 `"team-N"` — **단일 출처** (teams.memberIds는 보조 캐시)
+- `name`, `handicapIndex`, `courseHandicap`
+
+---
+
+## 보안 규칙 결정 로그
+
+- **옵션 B** (호스트 + 본인 보호) 유지 — 인증된 사용자라면 읽기 가능, 쓰기는 권한 제한
+- **status forward-only 강화** (C3-5): `waiting→in_progress→completed` 단방향만 허용
+- **teams 서브컬렉션**: 호스트만 write, `status != "completed"` 조건
+
+---
+
+## 진행 원칙
+
+- 마일스톤 잘게 쪼개기 (C3은 5단계, C4는 6~7단계 예상)
+- 각 단계마다 Playwright + Firebase MCP 자동 검증
+- 보안 규칙 변경은 별도 세션 권장 (코드 동작 검증 후 `firebase deploy --only firestore:rules`)
+- 새 화면 만들 때 `.hidden` 우선순위 주의: `.hidden { display: none !important; }` 패턴 필수 (나중에 오는 `display: flex` 규칙에 덮임)
+
+---
+
+## C3에서 발견한 한계 (C4에서 처리)
+
+- `teams` 컬렉션은 onSnapshot 없음 → 팀 이름 변경이 다른 호스트 화면에 자동 반영 안 됨
+- `in_progress` 상태인 정모에 호스트가 재진입할 때 동선 미정의 (현재는 IN_PROGRESS alert로 막힘)
+- C4에서 라이브 리더보드 화면 만들 때 두 가지 다 정리
+
+---
+
+## 코드 패턴 메모
+
+- 팀 멤버 정보의 **단일 출처는 `members.teamId`** (`teams.memberIds`는 보조 캐시)
+- 자동 배정 = batch 전체, 수동 배정 = batch 1쌍 (members 1건 + 양쪽 teams 2건)
+- onSnapshot은 멤버 데이터만 구독, teams는 수동 fetch + `rerenderTeamAssignmentScreen()`
+- GitHub Pages CDN 캐시 2분 지연 → CSS/JS 변경 시 `?v=XXX` query param 필수
+
+---
+
 ## 미래 작업 메모 (C6 끝나면 챙길 것)
 
 ### 호스팅 이전 — GitHub Pages → Firebase Hosting
