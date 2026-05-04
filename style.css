@@ -1698,3 +1698,59 @@ select:focus {
     min-height: 28px;
     line-height: 20px;
 }
+
+/* =========================================
+   팀 배정 화면 - 팀 이름 편집 + 라운드 시작 (C3-5)
+   ========================================= */
+
+.team-card-header-editable {
+    cursor: pointer;
+}
+.team-card-header-editable:hover {
+    opacity: 0.75;
+}
+.team-card-edit-icon {
+    font-size: 12px;
+    opacity: 0.6;
+    margin-left: 2px;
+}
+.team-name-edit-input {
+    font-size: inherit;
+    font-weight: inherit;
+    font-family: inherit;
+    color: inherit;
+    border: none;
+    border-bottom: 2px solid currentColor;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    padding: 0;
+    min-width: 60px;
+}
+.round-start-section {
+    background: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px 0;
+    text-align: center;
+}
+.round-start-status {
+    font-size: 14px;
+    color: #555;
+    margin: 0 0 12px 0;
+    min-height: 20px;
+}
+#btn-start-round-from-teams {
+    min-height: 60px;
+    font-size: 18px;
+    font-weight: 700;
+    background: #2e7d32;
+    width: 100%;
+}
+#btn-start-round-from-teams:disabled {
+    background: #bdbdbd;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}

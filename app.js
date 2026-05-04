@@ -174,6 +174,8 @@ const teamCardsGrid = document.getElementById('team-cards-grid');
 const btnBackToWaitingFromTeams = document.getElementById('btn-back-to-waiting-from-teams');
 const btnAutoAssignRandom = document.getElementById('btn-auto-assign-random');
 const btnAutoAssignBalanced = document.getElementById('btn-auto-assign-balanced');
+const roundStartStatus = document.getElementById('round-start-status');
+const btnStartRoundFromTeams = document.getElementById('btn-start-round-from-teams');
 
 // 공유 링크 화면 (2단계 B)
 const shareCodeDisplay = document.getElementById('share-code-display');
@@ -970,6 +972,7 @@ btnAutoAssignBalanced.addEventListener('click', function() {
 });
 
 btnCancelSelection.addEventListener('click', clearSelection);
+btnStartRoundFromTeams.addEventListener('click', handleStartRound);
 
 screenTeamAssignment.addEventListener('click', function(e) {
     if (selectedMemberIdForMove === null) return;
@@ -2245,6 +2248,7 @@ function renderTeamCardsWithMembers(teams, members) {
     }
 
     updateSelectionBar();
+    updateRoundStartButton();
 }
 
 function createTeamCard(teamId, teamName, color, teamMembers, isHost, hasSelection, isUnassignedCard) {
@@ -2266,7 +2270,23 @@ function createTeamCard(teamId, teamName, color, teamMembers, isHost, hasSelecti
     const header = document.createElement('div');
     header.className = 'team-card-header';
     header.style.color = color.main;
-    header.textContent = teamName;
+
+    if (isHost && !isUnassignedCard) {
+        header.classList.add('team-card-header-editable');
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = teamName;
+        const editIcon = document.createElement('span');
+        editIcon.className = 'team-card-edit-icon';
+        editIcon.textContent = ' ✏️';
+        header.appendChild(nameSpan);
+        header.appendChild(editIcon);
+        header.addEventListener('click', function(e) {
+            e.stopPropagation();
+            startEditingTeamName(teamId, teamName, header, color);
+        });
+    } else {
+        header.textContent = teamName;
+    }
     card.appendChild(header);
 
     const meta = document.createElement('div');
@@ -2594,6 +2614,125 @@ function updateSelectionBar() {
     } else {
         clearSelection();
     }
+}
+
+function startEditingTeamName(teamId, currentName, headerEl, color) {
+    if (headerEl.querySelector('.team-name-edit-input')) return;
+
+    headerEl.innerHTML = '';
+    headerEl.classList.remove('team-card-header-editable');
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'team-name-edit-input';
+    input.value = currentName;
+    input.style.color = color.main;
+    headerEl.appendChild(input);
+    input.focus();
+    input.select();
+
+    let committed = false;
+
+    function saveEdit() {
+        if (committed) return;
+        const newName = input.value.trim();
+        if (!newName) {
+            alert('팀 이름을 입력해주세요.');
+            input.focus();
+            return;
+        }
+        committed = true;
+        db.collection('tournaments').doc(currentTournamentId)
+            .collection('teams').doc(teamId)
+            .update({ name: newName })
+            .then(function() {
+                console.log('✅ 팀 이름 변경:', teamId, '→', newName);
+                rerenderTeamAssignmentScreen();
+            })
+            .catch(function(err) {
+                console.error('❌ 팀 이름 변경 실패:', err);
+                alert('팀 이름 변경 실패: ' + err.message);
+                rerenderTeamAssignmentScreen();
+            });
+    }
+
+    function cancelEdit() {
+        if (committed) return;
+        committed = true;
+        rerenderTeamAssignmentScreen();
+    }
+
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            cancelEdit();
+        }
+    });
+
+    input.addEventListener('blur', function() {
+        setTimeout(cancelEdit, 100);
+    });
+}
+
+function updateRoundStartButton() {
+    if (!roundStartStatus || !btnStartRoundFromTeams) return;
+    const isHost = currentUser !== null && currentTournamentHostId === currentUser.uid;
+    if (!isHost || currentTournamentTeamCount === null) {
+        btnStartRoundFromTeams.disabled = true;
+        return;
+    }
+
+    const unassignedCount = currentWaitingMembers.filter(function(m) {
+        return !m.teamId;
+    }).length;
+
+    const teamMemberCounts = {};
+    for (let i = 1; i <= currentTournamentTeamCount; i++) {
+        teamMemberCounts['team-' + i] = 0;
+    }
+    currentWaitingMembers.forEach(function(m) {
+        if (m.teamId && teamMemberCounts[m.teamId] !== undefined) {
+            teamMemberCounts[m.teamId]++;
+        }
+    });
+    const emptyTeamCount = Object.keys(teamMemberCounts).filter(function(k) {
+        return teamMemberCounts[k] === 0;
+    }).length;
+
+    if (unassignedCount > 0) {
+        roundStartStatus.textContent = '⚠️ 미배정 ' + unassignedCount + '명이 있습니다.';
+        btnStartRoundFromTeams.disabled = true;
+    } else if (emptyTeamCount > 0) {
+        roundStartStatus.textContent = '⚠️ 빈 팀이 ' + emptyTeamCount + '개 있습니다.';
+        btnStartRoundFromTeams.disabled = true;
+    } else {
+        roundStartStatus.textContent = '✅ 모든 멤버가 팀에 배정되었습니다!';
+        btnStartRoundFromTeams.disabled = false;
+    }
+}
+
+function handleStartRound() {
+    if (!confirm('라운드를 시작하시겠습니까?\n시작 후에는 팀 배정을 변경할 수 없습니다.')) return;
+
+    btnStartRoundFromTeams.disabled = true;
+
+    db.collection('tournaments').doc(currentTournamentId)
+        .update({
+            status: 'in_progress',
+            startedAt: firebase.firestore.FieldValue.serverTimestamp()
+        })
+        .then(function() {
+            console.log('✅ 라운드 시작:', currentTournamentId);
+            alert('🚀 라운드가 시작되었습니다!');
+            showScreen(screenMain);
+        })
+        .catch(function(err) {
+            console.error('❌ 라운드 시작 실패:', err);
+            alert('라운드 시작 실패: ' + err.message);
+            btnStartRoundFromTeams.disabled = false;
+        });
 }
 
 function showTeamAssignmentScreen() {
