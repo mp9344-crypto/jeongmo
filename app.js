@@ -756,7 +756,6 @@ function fetchMyCourses() {
     if (currentUser === null) return Promise.resolve([]);
     return db.collection('courses')
         .where('addedBy', '==', currentUser.uid)
-        .orderBy('addedAt', 'desc')
         .limit(20)
         .get()
         .then(function(snapshot) {
@@ -765,6 +764,12 @@ function fetchMyCourses() {
                 const data = doc.data();
                 data.id = doc.id;
                 list.push(data);
+            });
+            // addedAt 내림차순 정렬 (클라이언트)
+            list.sort(function(a, b) {
+                const ta = a.addedAt ? a.addedAt.toMillis() : 0;
+                const tb = b.addedAt ? b.addedAt.toMillis() : 0;
+                return tb - ta;
             });
             return list;
         });
