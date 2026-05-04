@@ -83,10 +83,20 @@ service cloud.firestore {
       match /members/{userId} {
         allow read: if request.auth != null;
 
-        // 생성(참여): 본인 ID로만, waiting 상태일 때만
+        // 생성(참여): 일반 멤버(본인 ID + waiting) 또는 프록시 멤버(호스트 + proxy_ prefix)
         allow create: if request.auth != null
-                      && userId == request.auth.uid
-                      && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status == "waiting";
+                      && (
+                        // 일반 멤버: 본인 ID + waiting 상태
+                        (userId == request.auth.uid
+                         && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status == "waiting")
+                        ||
+                        // 프록시 멤버: 호스트만, proxy_ prefix, proxyMember=true, completed 아닌 상태
+                        (userId.matches("proxy_.+")
+                         && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.hostId == request.auth.uid
+                         && request.resource.data.proxyMember == true
+                         && request.resource.data.proxyHostId == request.auth.uid
+                         && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status != "completed")
+                      );
 
         // 수정: 본인이거나 호스트, 종료되지 않은 정모만
         // (호스트는 팀 배정 등을 위해 멤버 수정 가능)
