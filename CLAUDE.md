@@ -1,7 +1,8 @@
 ## 현재 상태
 
-- 마지막 완료: **C4-5** (Net 모드 + 팀별 합계)
-- 다음 단계: **C4-6** (1초 throttle + 누수 방지)
+- 마지막 완료: **C4-5** (Net 모드 + 팀별 합계, 코드·단위 테스트 검증 통과)
+- 미완료: C4-5 시각 확인 (Playwright 미연결로 못함 → 내일 새 세션에서 재시도)
+- 다음: C4-5 시각 확인 → C4-6 (1초 throttle + 누수 방지)
 - 배포 상태: GitHub Pages + Firestore 규칙 모두 동기화 완료
 
 ---
@@ -11,9 +12,9 @@
 - C4-1 ✅ 라운드 자동 전환 + 정모 모드 배지 + 입력 가드
 - C4-2 ✅ 스코어 Firestore sync (500ms debounce, `scheduleSyncMyScoreToTournament`)
 - C4-3 ✅ 본인 팀 멤버 미니 스트립 (`where('teamId')` 서버 필터, onSnapshot cleanup)
-- C4-4 ✅ 라이브 리더보드 (Gross 모드, 전체 멤버 onSnapshot, cleanup 연동)
-- C4-5 ✅ Net 모드 정렬 + 팀별 합계 (비례 핸디, teams one-shot fetch)
-- C4-6 1초 throttle + 누수 방지
+- C4-4 ✅ 라이브 리더보드 Gross (개인 순위, onSnapshot, cleanup 연동)
+- C4-5 ✅ Net 모드 + 팀별 합계 (개인+팀 양쪽 표시, 비례 핸디) — 시각 확인 보류
+- C4-6 ⏳ 다음 (1초 throttle + 32명 부하 + 누수 정리)
 - C4-7 in_progress 호스트/게스트 재진입 동선
 
 ---
@@ -100,16 +101,40 @@
 
 ---
 
-## C4-4 미리보기
+## 내일 첫 작업 — C4-5 시각 확인 시나리오
 
-**목표:** 라이브 리더보드 화면 (화면 15)
+새 Claude Code 세션에서 Playwright MCP 정상 연결 확인부터 시작.
 
-- 새 화면 ID: `screen-leaderboard`
-- 진입: 화면 3(홀 입력)에서 "리더보드" 버튼 → 화면 15 / 화면 15에서 "돌아가기" → 화면 3
-- 데이터 소스: `tournaments/{id}/members/` 전체 (팀 필터 없음 — 전 멤버 대상)
-- 정렬: Gross 모드 — `총타수 적은 순` (null 홀은 0으로 처리 아님, 미입력 제외)
-- onSnapshot 범위: 정모 전체 멤버 (최대 40명 / PRD 5.9 비용 고려 → 500ms throttle 적용 예정)
-- C4-5에서 Net 모드 + 팀별 합계 추가
+**시나리오 순서:**
+1. `browser_snapshot` 으로 Playwright MCP 연결 확인
+2. Net 모드 정모 생성 (4명, 핸디 5/18/25/30, 2팀 2명씩)
+3. 라운드 시작 → 화면 3 자동 진입 확인
+4. 호스트가 "🏆 리더보드" 클릭 → 화면 15 진입
+5. `browser_take_screenshot` 캡처:
+   - 개인 순위 섹션 (자기 row 노란 강조 + "(나)" 표시 확인)
+   - 팀 순위 섹션 (팀 컬러 배경 + 좌측 컬러 바 확인)
+   - "Net" 배지 표시 확인
+6. Firebase MCP로 멤버 scores 직접 수정 → 1초 내 화면 자동 갱신 확인
+7. 캡처 이미지 사용자에게 보고 후 C4-6 진행
+
+---
+
+## Playwright MCP 자동화 안정성 메모
+
+- 세션 만료 시 Claude Code 재시작하면 MCP도 같이 재시작됨
+- `browser_snapshot` 이 "browser has been closed" 에러 → Claude Code 재시작 필요
+- 두 컨텍스트 동시 제어 어려우면 순차 처리 (호스트 셋업 완료 → 게스트 진입)
+- **순수 함수(정렬·계산)는 Node.js 단위 테스트 우선** — Playwright보다 빠르고 정확, 브라우저 불필요
+- 실 브라우저 필요한 부분만 Playwright (시각 확인 + 라이브 동기화 latency)
+
+---
+
+## 오늘 발견한 좋은 패턴
+
+- **Node.js 단위 테스트로 순수 함수 검증**: `node -e "..."` 인라인 스크립트로 정렬 로직·Net 계산 즉시 검증 (C4-4/C4-5)
+- **graceful degradation**: 팀 fetch 실패 시 `catch`에서 `renderLeaderboard()` 호출 → 개인 순위는 유지
+- **race condition 처리**: teams fetch + members onSnapshot 완료 시점이 달라도 `leaderboardAllMembers.length > 0` 체크로 이중 렌더 방지
+- **cleanup 함수에 모든 캐시 초기화**: `cleanupLeaderboardListener()`에 `leaderboardAllMembers = []` + `leaderboardTeams = []` — stale 데이터 방지
 
 ---
 
