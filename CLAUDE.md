@@ -1,8 +1,8 @@
 ## 현재 상태
 
-- **D1 완료** (2026-05-04) — courses 데이터 모델 + USGA WHS 공식 + 보안 규칙 (UI 0건)
-- **배포 상태**: GitHub Pages (app.js?v=d8d), Firestore rules 배포 완료
-- 다음: D2 (화면 18 골프장 등록 UI)
+- **D2 완료** (2026-05-04) — 화면 18 골프장 등록 UI + 내 골프장 목록 + cascade 삭제
+- **배포 상태**: GitHub Pages (app.js?v=d2b), Firestore rules 배포 완료
+- 다음: D3 (화면 17 골프장 검색/자동완성 + 정모 만들기 폼 통합)
 
 ---
 
@@ -120,6 +120,9 @@
 - 새 화면 만들 때 `.hidden` 우선순위 주의: `.hidden { display: none !important; }` 패턴 필수 (나중에 오는 `display: flex` 규칙에 덮임)
 - 호스트 정모 진행 중 메인 복귀 금지 (D0). 일시 이탈은 `?t=코드` URL 새로고침으로 복귀 (C4-7).
 - 호스트성 액션 추가 시 `canUserHostTournament()` 가드 필수.
+- `showScreen(screenMain)` 진입 시 `renderMyCoursesList()` 자동 호출 (D2부터).
+- 골프장 등록 진입은 호스트성 액션 → `canUserHostTournament()` 가드.
+- Firestore 서브컬렉션 write 보안 규칙에 `get(parent)` 검사 있을 경우 → 부모 문서 먼저 쓰고 서브컬렉션은 그다음 단계 (D2 교훈).
 
 ---
 
@@ -167,6 +170,11 @@
 - **D1 calculateCourseHandicap 시그니처**: `(handicapIndex, teeBox?, totalPar?)` — 인자 1개만 넘기면 `Math.round(handicapIndex)` fallback. 3인자 모두 있으면 USGA WHS 공식: `HI × (Slope/113) + (CourseRating - Par)`. D4부터 정모 만들기 시 티박스 같이 넘기게 점진적 교체 예정.
 - **D1 courses 데이터 모델**: `nameLower`/`cityLower`는 D3 자동완성용 캐시 — 클라이언트가 입력 시 `toLowerCase()`로 채워야 함. `usageCount`는 일반 update에서 잠금 (D7에서 increment-only 패스 별도 추가). `teeBoxes` 서브컬렉션: `pars[18]`, `yardages[18]`, `courseRating`, `slopeRating`, `totalPar`, `totalYardage` 필수.
 - **D1 신규 컬렉션 검증 패턴**: Firestore rules 변경 후 `firebase_validate_security_rules` + deploy 컴파일 통과 확인 → Firebase MCP로 데이터 모델 구조 검증 → 테스트 데이터 정리.
+- **D2 골프장 등록**: `createCourseWithTeeBoxes` — 코스 문서 먼저 `set()`, 그다음 teeBoxes `batch.set()` (2-step 필수: 동시 batch 시 teeBoxes 보안 규칙의 `get(parent)` 실패). `deleteCourseWithTeeBoxes` — teeBoxes batch 삭제 후 본 문서 삭제 (cascade).
+- **D2 티박스 ID**: 색상 키 (`white`/`blue`/`black`/`gold`/`red`/`other`). 같은 골프장 내 색상 중복 금지 (클라이언트 검증). 라벨 비면 색상 영문명 자동 채움.
+- **D2 fetchMyCourses**: `where('addedBy')` 단일 필터 + 클라이언트 정렬 (`addedAt` desc). `orderBy` 사용 시 복합 인덱스 필요 → 제거.
+- **D2 메인 화면**: `showScreen(screenMain)` 진입 시 `renderMyCoursesList()` 자동 호출. 골프장 0개면 섹션 hidden, 1개 이상이면 표시.
+- **D2 화면 ID 충돌 주의**: `screen-new-round`에 이미 `input-course-name`/`inputCourseName` 사용 중 → 화면 18은 `input-cr-name`/`inputCrName` 등 `cr-` 접두사 사용.
 
 ---
 
