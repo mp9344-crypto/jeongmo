@@ -31,6 +31,14 @@
             <button id="btn-new-round">새 라운드 시작</button>
             <button id="btn-continue-round" class="btn-continue hidden">▶ 진행 중 라운드 이어하기</button>
             <button id="btn-join-by-code" class="btn-secondary">🎯 정모/공유 코드로 참여</button>
+            <button id="btn-register-course" class="btn-secondary">⛳ 골프장 등록</button>
+
+            <section id="my-courses-section" class="hidden">
+                <h2>⛳ 내가 등록한 골프장</h2>
+                <div id="my-courses-list">
+                    <p class="empty-message">아직 등록한 골프장이 없습니다.</p>
+                </div>
+            </section>
 
             <section>
                 <h2>📊 전체 통계</h2>
@@ -780,6 +788,52 @@
 
         </div>
 
+        <!-- ===== 화면 18: 골프장 등록 (2단계 D) ===== -->
+        <div id="screen-course-register" class="screen hidden">
+
+            <h2>⛳ 골프장 등록</h2>
+            <p class="hint">등록한 골프장은 다른 정모/라운드에서 재사용할 수 있습니다.</p>
+
+            <section>
+                <h3>기본 정보</h3>
+
+                <label for="input-cr-name">골프장 이름 *</label>
+                <input type="text" id="input-cr-name" maxlength="50" placeholder="예: Swaneset Resort">
+
+                <label for="input-cr-city">도시 *</label>
+                <input type="text" id="input-cr-city" maxlength="30" placeholder="예: Pit Meadows">
+
+                <label for="input-cr-country">국가 *</label>
+                <input type="text" id="input-cr-country" maxlength="30" placeholder="예: Canada" value="Canada">
+
+                <label for="select-cr-type">유형 *</label>
+                <select id="select-cr-type">
+                    <option value="public">퍼블릭 (Public)</option>
+                    <option value="resort">리조트 (Resort)</option>
+                    <option value="private">프라이빗 (Private)</option>
+                </select>
+
+                <p class="hint">현재 18홀만 지원합니다 (9홀/27홀은 추후).</p>
+            </section>
+
+            <section>
+                <h3>티박스 정보</h3>
+                <p class="hint">최소 1개 이상 입력. 스코어카드 보고 정확히 입력하세요.</p>
+
+                <div id="tee-box-list">
+                    <!-- 티박스 카드들이 동적으로 추가됨 -->
+                </div>
+
+                <button id="btn-add-tee-box" class="btn-secondary">+ 티박스 추가</button>
+            </section>
+
+            <section>
+                <button id="btn-confirm-course-register">골프장 등록</button>
+                <button id="btn-cancel-course-register" class="btn-secondary">취소</button>
+            </section>
+
+        </div>
+
     </main>
 
     <!-- ===== Firebase SDK (CDN) ===== -->
@@ -789,7 +843,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=d8d"></script>
+    <script src="app.js?v=d2"></script>
 
 </body>
 </html>

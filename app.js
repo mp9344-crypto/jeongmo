@@ -49,6 +49,7 @@ const screenTournamentResult = document.getElementById('screen-tournament-result
 const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
 const screenAddProxyMember = document.getElementById('screen-add-proxy-member');
+const screenCourseRegister = document.getElementById('screen-course-register');
 
 const allScreens = [
     screenMain,
@@ -66,7 +67,8 @@ const allScreens = [
     screenLeaderboard,
     screenTournamentResult,
     screenProfile,
-    screenAddProxyMember
+    screenAddProxyMember,
+    screenCourseRegister
 ];
 
 // 메인 화면 - 프로필 카드
@@ -174,6 +176,21 @@ const inputProxyName = document.getElementById('input-proxy-name');
 const inputProxyHandicap = document.getElementById('input-proxy-handicap');
 const btnConfirmAddProxy = document.getElementById('btn-confirm-add-proxy');
 const btnCancelAddProxy = document.getElementById('btn-cancel-add-proxy');
+
+// D2: 골프장 등록 화면
+const inputCrName = document.getElementById('input-cr-name');
+const inputCrCity = document.getElementById('input-cr-city');
+const inputCrCountry = document.getElementById('input-cr-country');
+const selectCrType = document.getElementById('select-cr-type');
+const teeBoxList = document.getElementById('tee-box-list');
+const btnAddTeeBox = document.getElementById('btn-add-tee-box');
+const btnConfirmCourseRegister = document.getElementById('btn-confirm-course-register');
+const btnCancelCourseRegister = document.getElementById('btn-cancel-course-register');
+
+// D2: 메인 화면 — 내 골프장 목록
+const btnRegisterCourse = document.getElementById('btn-register-course');
+const myCoursesSection = document.getElementById('my-courses-section');
+const myCoursesList = document.getElementById('my-courses-list');
 
 // 팀 배정 화면 (2단계 C - C3)
 const teamAssignmentMeta = document.getElementById('team-assignment-meta');
@@ -657,6 +674,428 @@ function deleteProxyMember(proxyId, proxyName) {
 }
 
 // =========================================
+// D2: 골프장 등록/조회 헬퍼
+// =========================================
+
+const TEE_BOX_COLORS = [
+    { key: 'black',  label: '블랙 (Black)' },
+    { key: 'blue',   label: '블루 (Blue)' },
+    { key: 'white',  label: '화이트 (White)' },
+    { key: 'gold',   label: '골드 (Gold)' },
+    { key: 'red',    label: '레드 (Red)' },
+    { key: 'other',  label: '기타 (Other)' }
+];
+
+// 티박스 카드 ID 부여용 카운터 (제거되어도 증가만)
+let teeBoxFormCount = 0;
+
+function createCourseWithTeeBoxes(courseData, teeBoxes) {
+    if (currentUser === null) return Promise.reject(new Error('NOT_AUTHENTICATED'));
+
+    const courseRef = db.collection('courses').doc();
+    const courseId = courseRef.id;
+
+    const courseDoc = {
+        name: courseData.name,
+        nameLower: courseData.name.toLowerCase(),
+        city: courseData.city,
+        cityLower: courseData.city.toLowerCase(),
+        country: courseData.country,
+        courseType: courseData.courseType,
+        holes: 18,
+        addedBy: currentUser.uid,
+        addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        usageCount: 0,
+        tier: 'free'
+    };
+
+    const batch = db.batch();
+    batch.set(courseRef, courseDoc);
+
+    teeBoxes.forEach(function(tb) {
+        const teeRef = courseRef.collection('teeBoxes').doc(tb.color);
+        const totalPar = tb.pars.reduce(function(s, p) { return s + p; }, 0);
+        const totalYardage = tb.yardages.reduce(function(s, y) { return s + y; }, 0);
+        batch.set(teeRef, {
+            color: tb.color,
+            label: tb.label,
+            pars: tb.pars,
+            yardages: tb.yardages,
+            yardageUnit: tb.yardageUnit,
+            courseRating: tb.courseRating,
+            slopeRating: tb.slopeRating,
+            totalPar: totalPar,
+            totalYardage: totalYardage,
+            addedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    });
+
+    return batch.commit().then(function() {
+        console.log('✅ 골프장 등록 완료:', courseId, courseData.name);
+        return courseId;
+    });
+}
+
+function deleteCourseWithTeeBoxes(courseId) {
+    if (currentUser === null) return Promise.reject(new Error('NOT_AUTHENTICATED'));
+
+    const courseRef = db.collection('courses').doc(courseId);
+    return courseRef.collection('teeBoxes').get()
+        .then(function(snapshot) {
+            const batch = db.batch();
+            snapshot.forEach(function(doc) { batch.delete(doc.ref); });
+            return batch.commit();
+        })
+        .then(function() { return courseRef.delete(); })
+        .then(function() { console.log('🗑️ 골프장 삭제:', courseId); });
+}
+
+function fetchMyCourses() {
+    if (currentUser === null) return Promise.resolve([]);
+    return db.collection('courses')
+        .where('addedBy', '==', currentUser.uid)
+        .orderBy('addedAt', 'desc')
+        .limit(20)
+        .get()
+        .then(function(snapshot) {
+            const list = [];
+            snapshot.forEach(function(doc) {
+                const data = doc.data();
+                data.id = doc.id;
+                list.push(data);
+            });
+            return list;
+        });
+}
+
+// 화면 18 — 진입
+function openCourseRegisterScreen() {
+    if (!canUserHostTournament()) {
+        alert('호스트 기능은 현재 사용 불가합니다.');
+        return;
+    }
+    inputCrName.value = '';
+    inputCrCity.value = '';
+    inputCrCountry.value = 'Canada';
+    selectCrType.value = 'public';
+    teeBoxList.innerHTML = '';
+    teeBoxFormCount = 0;
+    addTeeBoxCard();
+    showScreen(screenCourseRegister);
+}
+
+// 티박스 카드 1개 동적 생성
+function addTeeBoxCard(prefilledColor) {
+    if (teeBoxList.children.length >= 6) {
+        alert('티박스는 최대 6개까지 추가할 수 있습니다.');
+        return;
+    }
+    teeBoxFormCount++;
+    const card = document.createElement('div');
+    card.className = 'tee-box-card';
+    card.id = 'tee-box-card-' + teeBoxFormCount;
+
+    function row(labelText, child) {
+        const wrap = document.createElement('div');
+        const lbl = document.createElement('label');
+        lbl.textContent = labelText;
+        wrap.appendChild(lbl);
+        wrap.appendChild(child);
+        card.appendChild(wrap);
+        return child;
+    }
+
+    // 색상
+    const colorSel = document.createElement('select');
+    colorSel.className = 'tee-box-color';
+    TEE_BOX_COLORS.forEach(function(c) {
+        const opt = document.createElement('option');
+        opt.value = c.key;
+        opt.textContent = c.label;
+        colorSel.appendChild(opt);
+    });
+    if (prefilledColor) colorSel.value = prefilledColor;
+    row('색상', colorSel);
+
+    // 라벨
+    const labelInp = document.createElement('input');
+    labelInp.type = 'text';
+    labelInp.className = 'tee-box-label';
+    labelInp.maxLength = 20;
+    labelInp.placeholder = '예: White, Senior Tee';
+    row('라벨 (표시용)', labelInp);
+
+    // Course Rating
+    const ratingInp = document.createElement('input');
+    ratingInp.type = 'number';
+    ratingInp.className = 'tee-box-rating';
+    ratingInp.step = '0.1';
+    ratingInp.min = '60';
+    ratingInp.max = '80';
+    ratingInp.placeholder = '71.2';
+    row('Course Rating (예: 71.2)', ratingInp);
+
+    // Slope Rating
+    const slopeInp = document.createElement('input');
+    slopeInp.type = 'number';
+    slopeInp.className = 'tee-box-slope';
+    slopeInp.min = '55';
+    slopeInp.max = '155';
+    slopeInp.placeholder = '113';
+    row('Slope Rating (정수, 55~155)', slopeInp);
+
+    // 거리 단위
+    const unitSel = document.createElement('select');
+    unitSel.className = 'tee-box-unit';
+    [['yards', '야드 (Yards)'], ['meters', '미터 (Meters)']].forEach(function(pair) {
+        const opt = document.createElement('option');
+        opt.value = pair[0];
+        opt.textContent = pair[1];
+        unitSel.appendChild(opt);
+    });
+    row('거리 단위', unitSel);
+
+    // 18홀 파
+    const parsWrap = document.createElement('div');
+    const parsTitle = document.createElement('h4');
+    parsTitle.textContent = '18홀 파';
+    parsWrap.appendChild(parsTitle);
+
+    ['전반', '후반'].forEach(function(half, halfIdx) {
+        const grid = document.createElement('div');
+        grid.className = 'par-inputs';
+        const small = document.createElement('small');
+        small.textContent = half;
+        grid.appendChild(small);
+        for (let i = halfIdx * 9; i < halfIdx * 9 + 9; i++) {
+            const inp = document.createElement('input');
+            inp.type = 'number';
+            inp.className = 'tee-box-par';
+            inp.dataset.holeIndex = i;
+            inp.min = '3';
+            inp.max = '5';
+            inp.value = '4';
+            grid.appendChild(inp);
+        }
+        parsWrap.appendChild(grid);
+    });
+    card.appendChild(parsWrap);
+
+    // 18홀 거리
+    const yardsWrap = document.createElement('div');
+    const yardsTitle = document.createElement('h4');
+    yardsTitle.textContent = '18홀 거리';
+    yardsWrap.appendChild(yardsTitle);
+
+    ['전반', '후반'].forEach(function(half, halfIdx) {
+        const grid = document.createElement('div');
+        grid.className = 'yardage-inputs';
+        const small = document.createElement('small');
+        small.textContent = half;
+        grid.appendChild(small);
+        for (let i = halfIdx * 9; i < halfIdx * 9 + 9; i++) {
+            const inp = document.createElement('input');
+            inp.type = 'number';
+            inp.className = 'tee-box-yardage';
+            inp.dataset.holeIndex = i;
+            inp.min = '50';
+            inp.max = '700';
+            inp.placeholder = String(i + 1);
+            grid.appendChild(inp);
+        }
+        yardsWrap.appendChild(grid);
+    });
+    card.appendChild(yardsWrap);
+
+    // 삭제 버튼
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-secondary tee-box-remove';
+    removeBtn.textContent = '이 티박스 삭제';
+    removeBtn.addEventListener('click', function() {
+        if (teeBoxList.children.length <= 1) {
+            alert('티박스는 최소 1개 필요합니다.');
+            return;
+        }
+        card.remove();
+    });
+    card.appendChild(removeBtn);
+
+    teeBoxList.appendChild(card);
+}
+
+// 폼 데이터 수집 + 검증
+function readCourseRegisterForm() {
+    const name = inputCrName.value.trim();
+    const city = inputCrCity.value.trim();
+    const country = inputCrCountry.value.trim();
+    const courseType = selectCrType.value;
+
+    if (!name)    { alert('골프장 이름을 입력해주세요.'); return null; }
+    if (!city)    { alert('도시를 입력해주세요.'); return null; }
+    if (!country) { alert('국가를 입력해주세요.'); return null; }
+
+    const cards = teeBoxList.querySelectorAll('.tee-box-card');
+    if (cards.length === 0) { alert('티박스를 최소 1개 추가해주세요.'); return null; }
+
+    const usedColors = new Set();
+    const teeBoxes = [];
+
+    for (let ci = 0; ci < cards.length; ci++) {
+        const card = cards[ci];
+        const cardLabel = '티박스 ' + (ci + 1);
+
+        const color = card.querySelector('.tee-box-color').value;
+        if (usedColors.has(color)) {
+            alert(cardLabel + ': 같은 색상의 티박스가 이미 있습니다. 색상을 변경해주세요.');
+            return null;
+        }
+        usedColors.add(color);
+
+        const labelRaw = card.querySelector('.tee-box-label').value.trim();
+        const colorMeta = TEE_BOX_COLORS.find(function(c) { return c.key === color; });
+        const fallback = colorMeta.label.match(/\(([^)]+)\)/);
+        const label = labelRaw || (fallback ? fallback[1] : color);
+
+        const courseRating = parseFloat(card.querySelector('.tee-box-rating').value);
+        if (isNaN(courseRating) || courseRating < 60 || courseRating > 80) {
+            alert(cardLabel + ': Course Rating을 60.0~80.0 사이로 입력해주세요.');
+            return null;
+        }
+
+        const slopeRating = parseInt(card.querySelector('.tee-box-slope').value, 10);
+        if (isNaN(slopeRating) || slopeRating < 55 || slopeRating > 155) {
+            alert(cardLabel + ': Slope Rating을 55~155 사이의 정수로 입력해주세요.');
+            return null;
+        }
+
+        const yardageUnit = card.querySelector('.tee-box-unit').value;
+
+        const parInputs = card.querySelectorAll('.tee-box-par');
+        const pars = [];
+        for (let i = 0; i < 18; i++) {
+            const v = parseInt(parInputs[i].value, 10);
+            if (isNaN(v) || v < 3 || v > 5) {
+                alert(cardLabel + ': ' + (i + 1) + '번 홀의 파를 3~5 사이로 입력해주세요.');
+                parInputs[i].focus();
+                return null;
+            }
+            pars.push(v);
+        }
+
+        const yardageInputs = card.querySelectorAll('.tee-box-yardage');
+        const yardages = [];
+        for (let i = 0; i < 18; i++) {
+            const v = parseInt(yardageInputs[i].value, 10);
+            if (isNaN(v) || v < 50 || v > 700) {
+                alert(cardLabel + ': ' + (i + 1) + '번 홀의 거리를 50~700 사이로 입력해주세요.');
+                yardageInputs[i].focus();
+                return null;
+            }
+            yardages.push(v);
+        }
+
+        teeBoxes.push({ color, label, pars, yardages, yardageUnit, courseRating, slopeRating });
+    }
+
+    return { course: { name, city, country, courseType }, teeBoxes };
+}
+
+function confirmCourseRegister() {
+    const formData = readCourseRegisterForm();
+    if (formData === null) return;
+
+    btnConfirmCourseRegister.disabled = true;
+    btnConfirmCourseRegister.textContent = '등록 중...';
+
+    createCourseWithTeeBoxes(formData.course, formData.teeBoxes)
+        .then(function() {
+            alert('✅ "' + formData.course.name + '" 골프장이 등록되었습니다.');
+            showScreen(screenMain);
+        })
+        .catch(function(error) {
+            console.error('❌ 골프장 등록 실패:', error);
+            if (error.code === 'permission-denied') {
+                alert('등록 권한이 없습니다. 보안 규칙을 확인하세요.');
+            } else {
+                alert('골프장 등록 실패: ' + error.message);
+            }
+        })
+        .then(function() {
+            btnConfirmCourseRegister.disabled = false;
+            btnConfirmCourseRegister.textContent = '골프장 등록';
+        });
+}
+
+// 메인 화면 — 내 골프장 목록 렌더링
+function renderMyCoursesList() {
+    if (currentUser === null) {
+        myCoursesSection.classList.add('hidden');
+        return;
+    }
+    fetchMyCourses()
+        .then(function(courses) {
+            if (courses.length === 0) {
+                myCoursesSection.classList.add('hidden');
+                return;
+            }
+            myCoursesSection.classList.remove('hidden');
+            myCoursesList.innerHTML = '';
+            courses.forEach(function(course) {
+                const div = document.createElement('div');
+                div.className = 'my-course-item';
+
+                const info = document.createElement('div');
+                info.className = 'my-course-info';
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'my-course-name';
+                nameEl.textContent = course.name;
+                info.appendChild(nameEl);
+
+                const metaEl = document.createElement('div');
+                metaEl.className = 'my-course-meta';
+                metaEl.textContent = course.city + ', ' + course.country + ' · 18홀';
+                info.appendChild(metaEl);
+
+                div.appendChild(info);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'btn-icon';
+                delBtn.textContent = '🗑️';
+                delBtn.addEventListener('click', function() {
+                    handleDeleteMyCourse(course.id, course.name);
+                });
+                div.appendChild(delBtn);
+
+                myCoursesList.appendChild(div);
+            });
+        })
+        .catch(function(error) {
+            console.error('❌ 내 골프장 fetch 실패:', error);
+            myCoursesSection.classList.add('hidden');
+        });
+}
+
+function handleDeleteMyCourse(courseId, courseName) {
+    if (!confirm('"' + courseName + '" 골프장을 삭제하시겠습니까?\n\n등록한 티박스 정보도 모두 함께 삭제됩니다.')) return;
+
+    deleteCourseWithTeeBoxes(courseId)
+        .then(function() {
+            alert('삭제되었습니다.');
+            renderMyCoursesList();
+        })
+        .catch(function(error) {
+            console.error('❌ 삭제 실패:', error);
+            if (error.code === 'permission-denied') {
+                alert('삭제 권한이 없습니다.');
+            } else {
+                alert('삭제 실패: ' + error.message);
+            }
+        });
+}
+
+// =========================================
 // 호스트성 액션 게이팅 (D0)
 // 현재는 항상 true. D7 이후 유료/구독 분기 도입 시 이 함수 수정.
 // =========================================
@@ -692,6 +1131,9 @@ function showScreen(screenToShow) {
     }
     screenToShow.classList.remove('hidden');
     window.scrollTo(0, 0);
+    if (screenToShow === screenMain) {
+        renderMyCoursesList();
+    }
 }
 
 // =========================================
@@ -5339,6 +5781,21 @@ btnBackToMainFromResult.addEventListener('click', function() {
 });
 
 btnDeleteRound.addEventListener('click', deleteViewingRound);
+
+// =========================================
+// D2: 골프장 등록 이벤트
+// =========================================
+btnRegisterCourse.addEventListener('click', openCourseRegisterScreen);
+
+btnAddTeeBox.addEventListener('click', function() { addTeeBoxCard(); });
+
+btnConfirmCourseRegister.addEventListener('click', confirmCourseRegister);
+
+btnCancelCourseRegister.addEventListener('click', function() {
+    if (confirm('등록을 취소하시겠습니까? 입력한 내용이 사라집니다.')) {
+        showScreen(screenMain);
+    }
+});
 
 // =========================================
 // 2단계 B: 공유 링크 화면 이벤트

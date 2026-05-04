@@ -2031,3 +2031,83 @@ select:focus {
 .score-under  { color: #16a34a; font-weight: 700; }
 .score-bogey  { color: #ea580c; }
 .score-double { color: #dc2626; font-weight: 700; }
+
+/* ===== D2: 골프장 등록 ===== */
+.tee-box-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.tee-box-card label {
+    display: block;
+    margin-top: 8px;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.tee-box-card h4 {
+    margin-top: 12px;
+    margin-bottom: 6px;
+    font-size: 0.95em;
+}
+
+.tee-box-card small {
+    display: block;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.yardage-inputs {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.yardage-inputs input {
+    width: 100%;
+    padding: 4px;
+    text-align: center;
+    font-size: 0.85em;
+}
+
+.tee-box-remove {
+    margin-top: 8px;
+    width: 100%;
+    font-size: 0.9em;
+}
+
+/* D2: 내가 등록한 골프장 목록 */
+.my-course-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.my-course-info {
+    flex: 1;
+}
+
+.my-course-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.my-course-meta {
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+@media (max-width: 480px) {
+    .tee-box-card { padding: 10px; }
+    .yardage-inputs input { font-size: 0.75em; padding: 3px; }
+}
