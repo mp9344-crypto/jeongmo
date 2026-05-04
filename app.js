@@ -277,6 +277,9 @@ let roundUnsubscribe = null;       // 라운드 문서 리스너 해제 함수
 let membersUnsubscribe = null;     // 멤버 컬렉션 리스너 해제 함수
 let scoreSyncTimer = null;         // 디바운스 타이머 (B6 공유 라운드)
 let tournamentScoreSyncTimer = null; // 디바운스 타이머 (C4-2 정모 라운드)
+// C4-3: 정모 라운드 본인 팀 멤버 onSnapshot unsub + 팀 ID 캐시
+let tournamentRoundMembersUnsub = null;
+let myTournamentTeamId = null;
 const SCORE_SYNC_DELAY = 500;      // 500ms 디바운스
 
 const STORAGE_KEYS = {
@@ -1156,6 +1159,7 @@ function goToHole(holeNumber) {
 function finishRound() {
     if (currentRound !== null && currentRound.tournamentId) {
         alert('🚧 정모 라운드 완료는 C5에서 활성화됩니다.');
+        // C4-3: cleanup은 C5에서 완성, 여기서는 중단만
         return;
     }
     const currentIndex = currentRound.currentHole - 1;
@@ -2021,6 +2025,8 @@ function enterTournamentRound(tournamentId, tournamentDoc) {
             const memberData = memberDoc.data();
             const isHost = (currentUser.uid === tournamentDoc.hostId);
 
+            myTournamentTeamId = memberData.teamId || null;
+
             currentRound = {
                 id: tournamentId,
                 tournamentId: tournamentId,
@@ -2035,12 +2041,15 @@ function enterTournamentRound(tournamentId, tournamentDoc) {
                 courseHandicap: memberData.courseHandicap || 0,
                 isShared: true,
                 isHost: isHost,
-                shareCode: null
+                shareCode: null,
+                teamId: myTournamentTeamId
             };
 
             showScreen(screenHoleInput);
             renderTournamentModeBadge(tournamentDoc);
             renderHoleInputScreen();
+            // C4-3: 본인 팀 멤버 onSnapshot 시작
+            subscribeTournamentTeamMembers(tournamentId, myTournamentTeamId);
 
             console.log('✅ 정모 라운드 진입 완료. 현재 홀:', currentRound.currentHole);
         })
@@ -2050,6 +2059,50 @@ function enterTournamentRound(tournamentId, tournamentDoc) {
             cleanupTournamentWaitingListeners();
             showScreen(screenMain);
         });
+}
+
+// C4-3: 정모 본인 팀 멤버 라이브 구독 (미니 스트립용)
+function subscribeTournamentTeamMembers(tournamentId, teamId) {
+    if (tournamentRoundMembersUnsub !== null) {
+        tournamentRoundMembersUnsub();
+        tournamentRoundMembersUnsub = null;
+    }
+
+    if (teamId === null || teamId === undefined) {
+        console.warn('⚠️ 본인 팀 ID 없음 — 미니 스트립 표시 안 함');
+        return;
+    }
+
+    console.log('👥 정모 팀 멤버 구독 시작:', teamId);
+
+    tournamentRoundMembersUnsub = db.collection('tournaments').doc(tournamentId)
+        .collection('members').where('teamId', '==', teamId)
+        .onSnapshot(function(snapshot) {
+            var newMembersData = {};
+            snapshot.forEach(function(doc) {
+                newMembersData[doc.id] = doc.data();
+            });
+            allMembersData = newMembersData;
+            console.log('🔄 팀 멤버 데이터 갱신:', Object.keys(allMembersData).length + '명');
+
+            if (!screenHoleInput.classList.contains('hidden')) {
+                renderMembersStrip();
+            }
+        }, function(error) {
+            console.error('❌ 팀 멤버 구독 에러:', error);
+        });
+}
+
+// C4-3: 정모 라운드 떠날 때 정리
+function cleanupTournamentRoundListeners() {
+    if (tournamentRoundMembersUnsub !== null) {
+        tournamentRoundMembersUnsub();
+        tournamentRoundMembersUnsub = null;
+        console.log('🧹 정모 팀 멤버 구독 해제');
+    }
+    flushAndClearTournamentScoreSync();
+    myTournamentTeamId = null;
+    allMembersData = {};
 }
 
 // C4-1: 화면 3 상단 정모 배지 렌더링
@@ -2869,7 +2922,7 @@ let selectedMemberIdForMove = null;
 
 // 대기실 떠나기 (리스너 정리 + 메인 복귀)
 function leaveTournamentWaitingRoom() {
-    flushAndClearTournamentScoreSync();
+    cleanupTournamentRoundListeners();   // C4-3: onSnapshot + score sync 통합 정리
     cleanupTournamentWaitingListeners();
     currentTournamentId = null;
     currentTournamentHostId = null;
@@ -3741,16 +3794,25 @@ function syncMyScoreToFirestore() {
 
 // 공유 모드 UI 렌더링 (배지 + 멤버 스트립)
 function renderSharedModeUI() {
-    if (!currentRound || !currentRound.isShared) {
+    if (!currentRound) {
         if (membersStrip) membersStrip.classList.add('hidden');
         if (sharedModeBadge) sharedModeBadge.classList.add('hidden');
         return;
     }
 
-    if (sharedModeBadge) sharedModeBadge.classList.remove('hidden');
-    if (membersStrip) membersStrip.classList.remove('hidden');
-
-    renderMembersStrip();
+    if (currentRound.tournamentId) {
+        // C4-3: 정모 라운드 — 배지는 renderTournamentModeBadge가 처리, 스트립만 표시
+        if (membersStrip) membersStrip.classList.remove('hidden');
+        renderMembersStrip();
+    } else if (currentRound.isShared && currentRound.shareCode) {
+        // B6: 1:1 공유 라운드
+        if (sharedModeBadge) sharedModeBadge.classList.remove('hidden');
+        if (membersStrip) membersStrip.classList.remove('hidden');
+        renderMembersStrip();
+    } else {
+        if (membersStrip) membersStrip.classList.add('hidden');
+        if (sharedModeBadge) sharedModeBadge.classList.add('hidden');
+    }
 }
 
 // 멤버 미니 스트립 렌더링 (이름 · 홀 · 스코어 · 퍼팅)
@@ -4020,8 +4082,11 @@ btnNextHole.addEventListener('click', function() {
 });
 
 btnBackToMainFromResult.addEventListener('click', function() {
-    // ★ B6: 공유 라운드였으면 리스너 정리
-    if (currentRound && currentRound.isShared) {
+    if (currentRound && currentRound.tournamentId) {
+        // C4-3: 정모 라운드 — onSnapshot + score sync 정리
+        cleanupTournamentRoundListeners();
+    } else if (currentRound && currentRound.isShared) {
+        // B6: 공유 라운드
         cleanupSharedListeners();
         currentSharedRoundId = null;
         currentRoundMode = null;
