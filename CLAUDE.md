@@ -1,10 +1,9 @@
 ## 현재 상태
 
-- 마지막 완료: **C4-2** (정모 라운드 스코어 Firestore sync)
-- 다음 단계: **C4-3** (멤버 미니 스트립 — 라운드 화면에서 팀원 현황 표시)
-- 배포 상태: GitHub Pages 동기화 완료
-- ⚠️ Playwright MCP 세션 만료 — C4-3 시작 전 재시작 필요 (`! npx @playwright/mcp@latest`)
-- C4-2 검증 상태: 코드 레벨 + Firestore 구조 통과 / 브라우저 E2E는 C4-3에서 통합 검증
+- 마지막 완료: **C4-3** (본인 팀 멤버 미니 스트립 + C4-2 통합 검증)
+- 다음 단계: **C4-4** (라이브 리더보드 화면)
+- 배포 상태: GitHub Pages 동기화 완료 (커밋 95baf1a)
+- C4-2+C4-3 통합 검증: 브라우저 E2E 통과 (A~E 항목 전부, F는 badge 버그 발견+수정)
 
 ---
 
@@ -63,6 +62,8 @@
 - **C4 sync 패턴**: 정모 라운드 = `scheduleSyncMyScoreToTournament()` (500ms debounce) / 홀 이동 = `syncMyScoreToTournament()` (즉시) / B6 공유 = 기존 `scoreSync*ToFirestore` 함수 / personal = localStorage만
 - **C4 분기 키**: `currentRound.tournamentId` 유무로 정모/비정모 분기 (isShared만으로 부족)
 - `currentTournamentDoc`: tournament 본 문서 캐시 (pars, gameMode 등), `leaveTournamentWaitingRoom`에서 null 초기화
+- **C4-3 미니 스트립**: `subscribeTournamentTeamMembers(tournamentId, teamId)` — `where('teamId','==',myTeamId)` 서버 필터, `allMembersData` 재사용, `cleanupTournamentRoundListeners()`가 unsub + flushAndClear + allMembersData 초기화 통합 처리
+- **renderSharedModeUI() 분기**: tournamentId 있으면 스트립만, shareCode 있으면 B6 배지+스트립, 없으면 모두 숨김. B6 진입 시 tournament-mode-badge 강제 hidden 처리 필요 (이전 정모 세션 badge 누수 방지)
 
 ---
 
