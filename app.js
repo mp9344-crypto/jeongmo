@@ -709,31 +709,33 @@ function createCourseWithTeeBoxes(courseData, teeBoxes) {
         tier: 'free'
     };
 
-    const batch = db.batch();
-    batch.set(courseRef, courseDoc);
-
-    teeBoxes.forEach(function(tb) {
-        const teeRef = courseRef.collection('teeBoxes').doc(tb.color);
-        const totalPar = tb.pars.reduce(function(s, p) { return s + p; }, 0);
-        const totalYardage = tb.yardages.reduce(function(s, y) { return s + y; }, 0);
-        batch.set(teeRef, {
-            color: tb.color,
-            label: tb.label,
-            pars: tb.pars,
-            yardages: tb.yardages,
-            yardageUnit: tb.yardageUnit,
-            courseRating: tb.courseRating,
-            slopeRating: tb.slopeRating,
-            totalPar: totalPar,
-            totalYardage: totalYardage,
-            addedAt: firebase.firestore.FieldValue.serverTimestamp()
+    // 코스 문서를 먼저 생성해야 teeBoxes 보안 규칙의 get(parent) 검사가 통과됨
+    return courseRef.set(courseDoc)
+        .then(function() {
+            const batch = db.batch();
+            teeBoxes.forEach(function(tb) {
+                const teeRef = courseRef.collection('teeBoxes').doc(tb.color);
+                const totalPar = tb.pars.reduce(function(s, p) { return s + p; }, 0);
+                const totalYardage = tb.yardages.reduce(function(s, y) { return s + y; }, 0);
+                batch.set(teeRef, {
+                    color: tb.color,
+                    label: tb.label,
+                    pars: tb.pars,
+                    yardages: tb.yardages,
+                    yardageUnit: tb.yardageUnit,
+                    courseRating: tb.courseRating,
+                    slopeRating: tb.slopeRating,
+                    totalPar: totalPar,
+                    totalYardage: totalYardage,
+                    addedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            return batch.commit();
+        })
+        .then(function() {
+            console.log('✅ 골프장 등록 완료:', courseId, courseData.name);
+            return courseId;
         });
-    });
-
-    return batch.commit().then(function() {
-        console.log('✅ 골프장 등록 완료:', courseId, courseData.name);
-        return courseId;
-    });
 }
 
 function deleteCourseWithTeeBoxes(courseId) {
