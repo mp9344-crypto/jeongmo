@@ -169,6 +169,8 @@ const teamAssignmentMemberCount = document.getElementById('team-assignment-membe
 const teamAssignmentStatus = document.getElementById('team-assignment-status');
 const teamCardsGrid = document.getElementById('team-cards-grid');
 const btnBackToWaitingFromTeams = document.getElementById('btn-back-to-waiting-from-teams');
+const btnAutoAssignRandom = document.getElementById('btn-auto-assign-random');
+const btnAutoAssignBalanced = document.getElementById('btn-auto-assign-balanced');
 
 // 공유 링크 화면 (2단계 B)
 const shareCodeDisplay = document.getElementById('share-code-display');
@@ -955,6 +957,13 @@ btnBackToWaitingFromTeams.addEventListener('click', function() {
         return;
     }
     showScreen(screenTournamentWaiting);
+});
+
+btnAutoAssignRandom.addEventListener('click', function() {
+    handleAutoAssign('random');
+});
+btnAutoAssignBalanced.addEventListener('click', function() {
+    handleAutoAssign('balanced');
 });
 
 btnLeaveTournament.addEventListener('click', leaveTournamentAsGuest);
@@ -1998,6 +2007,9 @@ function renderTournamentWaitingHeader(tournamentId, tournamentData) {
 function renderTournamentWaitingMembers(members) {
     if (currentUser === null) return;
 
+    // C3-3: 팀 배정 화면용 캐시
+    currentWaitingMembers = members;
+
     // 인원 카운트
     // tournament 데이터에서 maxMembers 가져오려면 해당 onSnapshot 데이터가 필요한데
     // 여기서는 우선 멤버 수만 표시. (cap 표시는 헤더 렌더링에서)
@@ -2085,6 +2097,26 @@ function renderTournamentWaitingMembers(members) {
 
     lastWaitingMemberIds = currentMemberIds;
     updateTeamAssignmentButton();
+
+    // C3-3: 팀 배정 화면이 보이고 있으면 멤버 변동 즉시 반영
+    if (!screenTeamAssignment.classList.contains('hidden')) {
+        db.collection('tournaments').doc(currentTournamentId)
+            .collection('teams').get()
+            .then(function(snapshot) {
+                const teams = [];
+                snapshot.forEach(function(doc) {
+                    const data = doc.data();
+                    data.id = doc.id;
+                    teams.push(data);
+                });
+                renderTeamCardsWithMembers(teams, currentWaitingMembers);
+                teamAssignmentMemberCount.textContent =
+                    '참여자: ' + currentWaitingMembers.length + '명 / 팀: ' + currentTournamentTeamCount + '개';
+            })
+            .catch(function(err) {
+                console.warn('팀 배정 화면 자동 갱신 중 teams 조회 실패:', err);
+            });
+    }
 }
 
 function updateTeamAssignmentButton() {
@@ -2129,15 +2161,29 @@ function ensureTeamsExist(tournamentId, teamCount) {
         });
 }
 
-function renderTeamCards(teams) {
+function renderTeamCardsWithMembers(teams, members) {
     teamCardsGrid.innerHTML = '';
 
     teams.sort(function(a, b) {
         return (a.colorIndex || 0) - (b.colorIndex || 0);
     });
 
+    // 팀별 멤버 그룹화 (members.teamId 기반 — 단일 출처)
+    const membersByTeam = {};
+    teams.forEach(function(t) { membersByTeam[t.id] = []; });
+    const unassigned = [];
+
+    members.forEach(function(m) {
+        if (m.teamId && membersByTeam[m.teamId]) {
+            membersByTeam[m.teamId].push(m);
+        } else {
+            unassigned.push(m);
+        }
+    });
+
     teams.forEach(function(team) {
         const color = TEAM_COLORS[team.colorIndex] || TEAM_COLORS[9];
+        const teamMembers = membersByTeam[team.id] || [];
 
         const card = document.createElement('div');
         card.className = 'team-card';
@@ -2151,19 +2197,194 @@ function renderTeamCards(teams) {
         header.textContent = team.name;
         card.appendChild(header);
 
-        const memberCount = (team.memberIds || []).length;
         const meta = document.createElement('div');
         meta.className = 'team-card-meta';
-        meta.textContent = memberCount + '명';
+        let avgText = '';
+        if (teamMembers.length > 0) {
+            const validHcps = teamMembers
+                .map(function(m) { return m.handicapIndex; })
+                .filter(function(h) { return h !== null && h !== undefined; });
+            if (validHcps.length > 0) {
+                const sum = validHcps.reduce(function(a, b) { return a + b; }, 0);
+                avgText = ' · 평균 핸디 ' + (sum / validHcps.length).toFixed(1);
+            }
+        }
+        meta.textContent = teamMembers.length + '명' + avgText;
         card.appendChild(meta);
 
         const memberArea = document.createElement('div');
         memberArea.className = 'team-card-members';
-        memberArea.innerHTML = '<p class="team-card-empty">아직 배정된 멤버 없음</p>';
+        if (teamMembers.length === 0) {
+            memberArea.innerHTML = '<p class="team-card-empty">아직 배정된 멤버 없음</p>';
+        } else {
+            teamMembers.forEach(function(m) {
+                const chip = document.createElement('div');
+                chip.className = 'team-member-chip';
+                chip.textContent = m.name +
+                    (m.handicapIndex !== null && m.handicapIndex !== undefined
+                        ? ' (' + m.handicapIndex + ')' : '');
+                memberArea.appendChild(chip);
+            });
+        }
         card.appendChild(memberArea);
 
         teamCardsGrid.appendChild(card);
     });
+
+    // 미배정 멤버 영역
+    const existingUnassigned = document.querySelector('.unassigned-members-area');
+    if (existingUnassigned) existingUnassigned.remove();
+
+    if (unassigned.length > 0) {
+        const unassignedDiv = document.createElement('div');
+        unassignedDiv.className = 'unassigned-members-area';
+        unassignedDiv.innerHTML = '<div class="unassigned-header">⏳ 미배정 (' + unassigned.length + '명)</div>';
+        const chipWrap = document.createElement('div');
+        chipWrap.className = 'unassigned-chips';
+        unassigned.forEach(function(m) {
+            const chip = document.createElement('div');
+            chip.className = 'team-member-chip unassigned-chip';
+            chip.textContent = m.name +
+                (m.handicapIndex !== null && m.handicapIndex !== undefined
+                    ? ' (' + m.handicapIndex + ')' : '');
+            chipWrap.appendChild(chip);
+        });
+        unassignedDiv.appendChild(chipWrap);
+        teamCardsGrid.parentNode.insertBefore(unassignedDiv, teamCardsGrid.nextSibling);
+    }
+}
+
+function shuffleArray(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+}
+
+function computeRandomAssignment(members, teamIds) {
+    const shuffled = shuffleArray(members.map(function(m) { return m.id; }));
+    const teamIdByMemberId = {};
+    const membersByTeamId = {};
+    teamIds.forEach(function(t) { membersByTeamId[t] = []; });
+    shuffled.forEach(function(uid, idx) {
+        const teamId = teamIds[idx % teamIds.length];
+        teamIdByMemberId[uid] = teamId;
+        membersByTeamId[teamId].push(uid);
+    });
+    return { teamIdByMemberId: teamIdByMemberId, membersByTeamId: membersByTeamId };
+}
+
+function computeBalancedAssignment(members, teamIds) {
+    const sorted = members.slice().sort(function(a, b) {
+        const ha = (a.handicapIndex !== null && a.handicapIndex !== undefined) ? a.handicapIndex : 18;
+        const hb = (b.handicapIndex !== null && b.handicapIndex !== undefined) ? b.handicapIndex : 18;
+        if (ha !== hb) return ha - hb;
+        return Math.random() - 0.5;
+    });
+
+    const teamIdByMemberId = {};
+    const membersByTeamId = {};
+    teamIds.forEach(function(t) { membersByTeamId[t] = []; });
+
+    const N = teamIds.length;
+    sorted.forEach(function(member, idx) {
+        const round = Math.floor(idx / N);
+        const posInRound = idx % N;
+        const teamIdx = (round % 2 === 0) ? posInRound : (N - 1 - posInRound);
+        const teamId = teamIds[teamIdx];
+        teamIdByMemberId[member.id] = teamId;
+        membersByTeamId[teamId].push(member.id);
+    });
+    return { teamIdByMemberId: teamIdByMemberId, membersByTeamId: membersByTeamId };
+}
+
+function applyAssignmentToFirestore(tournamentId, assignment) {
+    const batch = db.batch();
+
+    Object.keys(assignment.teamIdByMemberId).forEach(function(uid) {
+        const memberRef = db.collection('tournaments').doc(tournamentId)
+            .collection('members').doc(uid);
+        batch.update(memberRef, {
+            teamId: assignment.teamIdByMemberId[uid],
+            lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    });
+
+    Object.keys(assignment.membersByTeamId).forEach(function(teamId) {
+        const teamRef = db.collection('tournaments').doc(tournamentId)
+            .collection('teams').doc(teamId);
+        batch.update(teamRef, {
+            memberIds: assignment.membersByTeamId[teamId]
+        });
+    });
+
+    return batch.commit();
+}
+
+function handleAutoAssign(mode) {
+    if (currentUser === null || currentTournamentHostId !== currentUser.uid) {
+        alert('호스트만 자동 배정할 수 있습니다.');
+        return;
+    }
+    if (currentTournamentId === null || currentTournamentTeamCount === null) {
+        alert('정모 정보 누락. 화면을 새로고침해주세요.');
+        return;
+    }
+    if (currentWaitingMembers.length < 2) {
+        alert('참여자가 2명 이상이어야 배정 가능합니다.');
+        return;
+    }
+
+    const hasAnyAssignment = currentWaitingMembers.some(function(m) {
+        return m.teamId !== null && m.teamId !== undefined;
+    });
+    if (hasAnyAssignment) {
+        if (!confirm('기존 배정이 모두 재배정됩니다. 계속하시겠습니까?')) return;
+    }
+
+    const teamIds = [];
+    for (let i = 1; i <= currentTournamentTeamCount; i++) {
+        teamIds.push('team-' + i);
+    }
+
+    const assignment = (mode === 'balanced')
+        ? computeBalancedAssignment(currentWaitingMembers, teamIds)
+        : computeRandomAssignment(currentWaitingMembers, teamIds);
+
+    console.log('🎲 자동 배정 (' + mode + '):', assignment.membersByTeamId);
+
+    btnAutoAssignRandom.disabled = true;
+    btnAutoAssignBalanced.disabled = true;
+    teamAssignmentStatus.classList.remove('hidden');
+    teamAssignmentStatus.textContent = '⏳ 배정 적용 중...';
+
+    applyAssignmentToFirestore(currentTournamentId, assignment)
+        .then(function() {
+            console.log('✅ 자동 배정 적용 완료');
+            teamAssignmentStatus.classList.add('hidden');
+            return db.collection('tournaments').doc(currentTournamentId)
+                .collection('teams').get();
+        })
+        .then(function(snapshot) {
+            const teams = [];
+            snapshot.forEach(function(doc) {
+                const data = doc.data();
+                data.id = doc.id;
+                teams.push(data);
+            });
+            renderTeamCardsWithMembers(teams, currentWaitingMembers);
+        })
+        .catch(function(error) {
+            console.error('❌ 자동 배정 실패:', error);
+            teamAssignmentStatus.textContent = '❌ 배정 실패: ' + error.message;
+            alert('배정 실패: ' + error.message + '\n\n보안 규칙 또는 네트워크를 확인해주세요.');
+        })
+        .then(function() {
+            btnAutoAssignRandom.disabled = false;
+            btnAutoAssignBalanced.disabled = false;
+        });
 }
 
 function showTeamAssignmentScreen() {
@@ -2195,7 +2416,7 @@ function showTeamAssignmentScreen() {
             });
 
             teamAssignmentStatus.classList.add('hidden');
-            renderTeamCards(teams);
+            renderTeamCardsWithMembers(teams, currentWaitingMembers);
         })
         .catch(function(error) {
             console.error('❌ 팀 로딩/생성 실패:', error);
@@ -2209,6 +2430,10 @@ let currentTournamentHostId = null;
 let currentTournamentMaxMembers = null;
 let currentTournamentTeamCount = null;
 
+// 대기실에서 받은 최신 멤버 데이터 (팀 배정 화면에서 사용)
+// 형식: [{ id, name, handicapIndex, courseHandicap, teamId, ... }, ...]
+let currentWaitingMembers = [];
+
 // 대기실 떠나기 (리스너 정리 + 메인 복귀)
 function leaveTournamentWaitingRoom() {
     cleanupTournamentWaitingListeners();
@@ -2216,6 +2441,7 @@ function leaveTournamentWaitingRoom() {
     currentTournamentHostId = null;
     currentTournamentMaxMembers = null;
     currentTournamentTeamCount = null;
+    currentWaitingMembers = [];
     lastWaitingMemberIds = new Set();
     showScreen(screenMain);
 }
