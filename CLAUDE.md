@@ -1,9 +1,20 @@
 ## 현재 상태
 
-- 마지막 완료: **C4-3** (본인 팀 멤버 미니 스트립 + C4-2 통합 검증)
-- 다음 단계: **C4-4** (라이브 리더보드 화면)
-- 배포 상태: GitHub Pages 동기화 완료 (커밋 95baf1a)
-- C4-2+C4-3 통합 검증: 브라우저 E2E 통과 (A~E 항목 전부, F는 badge 버그 발견+수정)
+- 마지막 완료: **C4-3** (본인 팀 멤버 미니 스트립)
+- 다음 단계: **C4-4** (라이브 리더보드 — Gross 모드)
+- 배포 상태: GitHub Pages + Firestore 규칙 모두 동기화 완료
+
+---
+
+## C4 진행 현황
+
+- C4-1 ✅ 라운드 자동 전환 + 정모 모드 배지 + 입력 가드
+- C4-2 ✅ 스코어 Firestore sync (500ms debounce, `scheduleSyncMyScoreToTournament`)
+- C4-3 ✅ 본인 팀 멤버 미니 스트립 (`where('teamId')` 서버 필터, onSnapshot cleanup)
+- C4-4 ⏳ 라이브 리더보드 (Gross 모드, 전체 멤버 onSnapshot)
+- C4-5 Net 모드 + 팀별 합계
+- C4-6 1초 throttle + 누수 방지
+- C4-7 in_progress 호스트/게스트 재진입 동선
 
 ---
 
@@ -48,7 +59,7 @@
 ## C3에서 발견한 한계 (C4에서 처리)
 
 - `teams` 컬렉션은 onSnapshot 없음 → 팀 이름 변경이 다른 호스트 화면에 자동 반영 안 됨
-- `in_progress` 상태인 정모에 호스트가 재진입할 때 동선 미정의 (현재는 IN_PROGRESS alert로 막힘)
+- `in_progress` 상태인 정모에 호스트가 재진입할 때 동선 미정의 (현재는 IN_PROGRESS alert로 막힘) → C4-7에서 처리
 - C4에서 라이브 리더보드 화면 만들 때 두 가지 다 정리
 
 ---
@@ -64,6 +75,40 @@
 - `currentTournamentDoc`: tournament 본 문서 캐시 (pars, gameMode 등), `leaveTournamentWaitingRoom`에서 null 초기화
 - **C4-3 미니 스트립**: `subscribeTournamentTeamMembers(tournamentId, teamId)` — `where('teamId','==',myTeamId)` 서버 필터, `allMembersData` 재사용, `cleanupTournamentRoundListeners()`가 unsub + flushAndClear + allMembersData 초기화 통합 처리
 - **renderSharedModeUI() 분기**: tournamentId 있으면 스트립만, shareCode 있으면 B6 배지+스트립, 없으면 모두 숨김. B6 진입 시 tournament-mode-badge 강제 hidden 처리 필요 (이전 정모 세션 badge 누수 방지)
+
+---
+
+## 데이터 흐름 요약 (C4-3 기준)
+
+**본인 입력 흐름:**
+`changeScore` → `saveActiveRound` → tournamentId 분기 → `scheduleSyncMyScoreToTournament` (500ms debounce) → `tournaments/{id}/members/{uid}.scores` 업데이트
+
+**팀원 현황 보기:**
+`enterTournamentRound` → `subscribeTournamentTeamMembers(where teamId)` → onSnapshot → `allMembersData` → `renderMembersStrip`
+
+**정리:**
+`leaveTournamentWaitingRoom` → `cleanupTournamentRoundListeners` (unsub + flushAndClear + allMembersData 초기화)
+
+---
+
+## 회귀 방지 체크포인트 (C4-3에서 발견)
+
+- **새 배지/UI 추가 시**: 다른 모드 진입 시 숨김 처리도 같이 — `renderSharedModeUI()` B6 분기에서 `tournament-mode-badge` hidden 추가한 사례
+- **새 onSnapshot 추가 시**: cleanup 함수도 반드시 같이 작성 (메모리 누수 방지), `leaveTournament*` 경로 모두 체크
+- **새 분기 (`currentRound.tournamentId`) 추가 시**: personal / B6 케이스 회귀 안 깨지는지 코드 리뷰 필수
+
+---
+
+## C4-4 미리보기
+
+**목표:** 라이브 리더보드 화면 (화면 15)
+
+- 새 화면 ID: `screen-leaderboard`
+- 진입: 화면 3(홀 입력)에서 "리더보드" 버튼 → 화면 15 / 화면 15에서 "돌아가기" → 화면 3
+- 데이터 소스: `tournaments/{id}/members/` 전체 (팀 필터 없음 — 전 멤버 대상)
+- 정렬: Gross 모드 — `총타수 적은 순` (null 홀은 0으로 처리 아님, 미입력 제외)
+- onSnapshot 범위: 정모 전체 멤버 (최대 40명 / PRD 5.9 비용 고려 → 500ms throttle 적용 예정)
+- C4-5에서 Net 모드 + 팀별 합계 추가
 
 ---
 
