@@ -1,8 +1,10 @@
 ## 현재 상태
 
-- 마지막 완료: **C3 전체 (C3-1 ~ C3-5)**
-- 다음 마일스톤: **C4** (라이브 리더보드 + 라운드 진행)
-- 배포 상태: GitHub Pages + Firestore 규칙 모두 동기화
+- 마지막 완료: **C4-2** (정모 라운드 스코어 Firestore sync)
+- 다음 단계: **C4-3** (멤버 미니 스트립 — 라운드 화면에서 팀원 현황 표시)
+- 배포 상태: GitHub Pages 동기화 완료
+- ⚠️ Playwright MCP 세션 만료 — C4-3 시작 전 재시작 필요 (`! npx @playwright/mcp@latest`)
+- C4-2 검증 상태: 코드 레벨 + Firestore 구조 통과 / 브라우저 E2E는 C4-3에서 통합 검증
 
 ---
 
@@ -22,6 +24,8 @@
 ### tournaments/{id}/members/{userId}
 - `teamId`: `null` 또는 `"team-N"` — **단일 출처** (teams.memberIds는 보조 캐시)
 - `name`, `handicapIndex`, `courseHandicap`
+- `scores[]`, `putts[]`, `currentHole`, `completed` — C4-2에서 추가 (라운드 진행 중 sync)
+- `lastUpdatedAt` — sync 시마다 serverTimestamp 갱신
 
 ---
 
@@ -56,6 +60,9 @@
 - 자동 배정 = batch 전체, 수동 배정 = batch 1쌍 (members 1건 + 양쪽 teams 2건)
 - onSnapshot은 멤버 데이터만 구독, teams는 수동 fetch + `rerenderTeamAssignmentScreen()`
 - GitHub Pages CDN 캐시 2분 지연 → CSS/JS 변경 시 `?v=XXX` query param 필수
+- **C4 sync 패턴**: 정모 라운드 = `scheduleSyncMyScoreToTournament()` (500ms debounce) / 홀 이동 = `syncMyScoreToTournament()` (즉시) / B6 공유 = 기존 `scoreSync*ToFirestore` 함수 / personal = localStorage만
+- **C4 분기 키**: `currentRound.tournamentId` 유무로 정모/비정모 분기 (isShared만으로 부족)
+- `currentTournamentDoc`: tournament 본 문서 캐시 (pars, gameMode 등), `leaveTournamentWaitingRoom`에서 null 초기화
 
 ---
 
