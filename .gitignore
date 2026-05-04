@@ -1,0 +1,22 @@
+# Firebase 비밀 설정 (각자 자기 firebase-config.js 만들어서 사용)
+firebase-config.js
+
+# Firebase deploy 임시 파일
+.firebase/
+.firebaserc
+
+# 의존성
+node_modules/
+
+# 환경변수
+.env
+.env.local
+
+# 시스템
+.DS_Store
+Thumbs.db
+npm-debug.log
+
+# IDE
+.vscode/
+.idea/
