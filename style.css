@@ -1763,3 +1763,97 @@ select:focus {
     color: white;
     border-color: #15803d;
 }
+
+/* =========================================
+   라이브 리더보드 (C4-4)
+   ========================================= */
+
+.leaderboard-mode-badge {
+    display: inline-block;
+    background: #2d6a4f;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.leaderboard-list {
+    margin: 16px 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    background: white;
+}
+
+.leaderboard-row {
+    display: grid;
+    grid-template-columns: 40px 1fr 70px 110px;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+}
+
+.leaderboard-row:last-child {
+    border-bottom: none;
+}
+
+.leaderboard-row-me {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    font-weight: 600;
+}
+
+.leaderboard-row-completed .lb-hole {
+    color: #15803d;
+    font-weight: 600;
+}
+
+.lb-rank {
+    text-align: center;
+    font-weight: bold;
+    color: #2d6a4f;
+    font-size: 16px;
+}
+
+.lb-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lb-hole {
+    text-align: center;
+    color: #475569;
+    font-size: 12px;
+    background: #f1f5f9;
+    padding: 4px 6px;
+    border-radius: 6px;
+}
+
+.lb-score {
+    text-align: right;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.btn-leaderboard-link {
+    display: block;
+    width: 100%;
+    background: #2d6a4f;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 8px 0;
+}
+
+.btn-leaderboard-link:hover {
+    background: #1f4d39;
+}

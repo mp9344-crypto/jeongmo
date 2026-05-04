@@ -561,6 +561,28 @@
                 <button id="btn-next-hole">다음 홀 →</button>
             </div>
 
+            <button id="btn-go-to-leaderboard" class="btn-leaderboard-link hidden">🏆 리더보드</button>
+
+        </div>
+
+        <!-- ===== 화면 15: 라이브 리더보드 (C4-4) ===== -->
+        <div id="screen-leaderboard" class="screen hidden">
+
+            <h2>🏆 라이브 리더보드</h2>
+            <p class="hint" id="leaderboard-meta">-</p>
+
+            <div class="leaderboard-mode-badge" id="leaderboard-mode-badge">Gross</div>
+
+            <div id="leaderboard-status" class="team-status-msg hidden">
+                ⏳ 멤버 데이터 로딩 중...
+            </div>
+
+            <div id="leaderboard-list" class="leaderboard-list">
+                <!-- 동적 생성 -->
+            </div>
+
+            <button id="btn-back-to-round-from-leaderboard" class="btn-secondary">← 라운드로</button>
+
         </div>
 
         <!-- ===== 화면 4: 라운드 결과 화면 ===== -->

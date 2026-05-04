@@ -44,6 +44,7 @@ const screenTournamentJoin = document.getElementById('screen-tournament-join');
 const screenTournamentWaiting = document.getElementById('screen-tournament-waiting');
 const screenTeamAssignment = document.getElementById('screen-team-assignment');
 const screenHoleInput = document.getElementById('screen-hole-input');
+const screenLeaderboard = document.getElementById('screen-leaderboard');
 const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
 
@@ -214,6 +215,12 @@ const btnScoreMinus = document.getElementById('btn-score-minus');
 const btnScorePlus = document.getElementById('btn-score-plus');
 const btnPrevHole = document.getElementById('btn-prev-hole');
 const btnNextHole = document.getElementById('btn-next-hole');
+const btnGoToLeaderboard = document.getElementById('btn-go-to-leaderboard');
+const leaderboardMeta = document.getElementById('leaderboard-meta');
+const leaderboardModeBadge = document.getElementById('leaderboard-mode-badge');
+const leaderboardStatus = document.getElementById('leaderboard-status');
+const leaderboardList = document.getElementById('leaderboard-list');
+const btnBackToRoundFromLeaderboard = document.getElementById('btn-back-to-round-from-leaderboard');
 
 // 퍼팅 입력
 const puttsDisplay = document.getElementById('putts-display');
@@ -280,6 +287,9 @@ let tournamentScoreSyncTimer = null; // 디바운스 타이머 (C4-2 정모 라�
 // C4-3: 정모 라운드 본인 팀 멤버 onSnapshot unsub + 팀 ID 캐시
 let tournamentRoundMembersUnsub = null;
 let myTournamentTeamId = null;
+// C4-4: 리더보드용 — 정모 전체 멤버 onSnapshot
+let leaderboardMembersUnsub = null;
+let leaderboardAllMembers = [];
 const SCORE_SYNC_DELAY = 500;      // 500ms 디바운스
 
 const STORAGE_KEYS = {
@@ -1055,6 +1065,13 @@ function renderHoleInputScreen() {
 
     // ★ B6: 공유 라운드면 멤버 스트립과 배지 표시
     renderSharedModeUI();
+
+    // C4-4: 정모 라운드일 때만 리더보드 버튼 표시
+    if (currentRound.tournamentId) {
+        btnGoToLeaderboard.classList.remove('hidden');
+    } else {
+        btnGoToLeaderboard.classList.add('hidden');
+    }
 }
 
 function renderPuttsDisplay() {
@@ -2103,6 +2120,176 @@ function cleanupTournamentRoundListeners() {
     flushAndClearTournamentScoreSync();
     myTournamentTeamId = null;
     allMembersData = {};
+    cleanupLeaderboardListener();
+}
+
+// C4-4: 리더보드 화면 진입 — 정모 전체 멤버 구독 시작
+function showLeaderboardScreen() {
+    if (currentRound === null || !currentRound.tournamentId) {
+        alert('정모 라운드 정보가 없습니다.');
+        return;
+    }
+
+    const tournamentId = currentRound.tournamentId;
+    leaderboardMeta.textContent = currentRound.courseName + ' · ' + currentRound.date;
+    leaderboardModeBadge.textContent = currentRound.gameMode === 'net' ? 'Net' : 'Gross';
+
+    leaderboardList.innerHTML = '';
+    leaderboardStatus.classList.remove('hidden');
+    showScreen(screenLeaderboard);
+
+    subscribeAllTournamentMembers(tournamentId);
+}
+
+// C4-4: 정모 전체 멤버 구독 (리더보드 전용)
+function subscribeAllTournamentMembers(tournamentId) {
+    if (leaderboardMembersUnsub !== null) {
+        leaderboardMembersUnsub();
+        leaderboardMembersUnsub = null;
+    }
+
+    console.log('🏆 리더보드 — 정모 전체 멤버 구독 시작:', tournamentId);
+
+    leaderboardMembersUnsub = db.collection('tournaments').doc(tournamentId)
+        .collection('members')
+        .onSnapshot(function(snapshot) {
+            leaderboardAllMembers = [];
+            snapshot.forEach(function(doc) {
+                var data = doc.data();
+                data.id = doc.id;
+                leaderboardAllMembers.push(data);
+            });
+            console.log('🔄 리더보드 데이터 갱신:', leaderboardAllMembers.length + '명');
+
+            leaderboardStatus.classList.add('hidden');
+            renderLeaderboard();
+        }, function(error) {
+            console.error('❌ 리더보드 구독 에러:', error);
+            leaderboardStatus.textContent = '❌ 데이터 로딩 실패: ' + error.message;
+        });
+}
+
+// C4-4: 리더보드 떠날 때 정리
+function cleanupLeaderboardListener() {
+    if (leaderboardMembersUnsub !== null) {
+        leaderboardMembersUnsub();
+        leaderboardMembersUnsub = null;
+        console.log('🧹 리더보드 구독 해제');
+    }
+    leaderboardAllMembers = [];
+}
+
+// C4-4: Gross 정렬 + 순위 계산 + 렌더링
+function renderLeaderboard() {
+    if (currentRound === null || !currentRound.pars) {
+        leaderboardList.innerHTML = '<p class="hint">정모 정보 누락</p>';
+        return;
+    }
+
+    var pars = currentRound.pars;
+    var myUid = currentUser ? currentUser.uid : null;
+
+    var stats = leaderboardAllMembers.map(function(m) {
+        var scores = m.scores || new Array(18).fill(null);
+        var total = 0;
+        var totalPar = 0;
+        var playedHoles = 0;
+        for (var i = 0; i < 18; i++) {
+            if (scores[i] !== null && scores[i] !== undefined) {
+                total += scores[i];
+                totalPar += pars[i];
+                playedHoles++;
+            }
+        }
+        var overUnder = total - totalPar;
+        var completed = m.completed === true || playedHoles === 18;
+        return {
+            id: m.id,
+            name: m.name || '?',
+            teamId: m.teamId,
+            playedHoles: playedHoles,
+            total: total,
+            overUnder: overUnder,
+            completed: completed
+        };
+    });
+
+    // Gross 정렬: overUnder 적은 순 → playedHoles 많은 순 → 이름순 / 0홀은 맨 뒤
+    stats.sort(function(a, b) {
+        if (a.playedHoles === 0 && b.playedHoles > 0) return 1;
+        if (b.playedHoles === 0 && a.playedHoles > 0) return -1;
+        if (a.playedHoles === 0 && b.playedHoles === 0) return a.name.localeCompare(b.name);
+        if (a.overUnder !== b.overUnder) return a.overUnder - b.overUnder;
+        if (a.playedHoles !== b.playedHoles) return b.playedHoles - a.playedHoles;
+        return a.name.localeCompare(b.name);
+    });
+
+    // 순위 부여 (동률은 같은 순위)
+    var prevOverUnder = null;
+    var prevPlayedHoles = null;
+    var currentRankVal = 0;
+    var displayedCount = 0;
+    stats.forEach(function(s) {
+        displayedCount++;
+        if (s.playedHoles === 0) {
+            s.rank = '-';
+        } else if (
+            prevOverUnder === null ||
+            s.overUnder !== prevOverUnder ||
+            s.playedHoles !== prevPlayedHoles
+        ) {
+            currentRankVal = displayedCount;
+            s.rank = currentRankVal;
+            prevOverUnder = s.overUnder;
+            prevPlayedHoles = s.playedHoles;
+        } else {
+            s.rank = currentRankVal;
+        }
+    });
+
+    leaderboardList.innerHTML = '';
+
+    if (stats.length === 0) {
+        leaderboardList.innerHTML = '<p class="hint">멤버 정보 없음</p>';
+        return;
+    }
+
+    stats.forEach(function(s) {
+        var row = document.createElement('div');
+        row.className = 'leaderboard-row';
+        if (s.id === myUid) row.classList.add('leaderboard-row-me');
+        if (s.completed) row.classList.add('leaderboard-row-completed');
+
+        var rankEl = document.createElement('span');
+        rankEl.className = 'lb-rank';
+        rankEl.textContent = (s.rank === '-') ? '-' : s.rank;
+        row.appendChild(rankEl);
+
+        var nameEl = document.createElement('span');
+        nameEl.className = 'lb-name';
+        nameEl.textContent = s.name + (s.id === myUid ? ' (나)' : '');
+        row.appendChild(nameEl);
+
+        var holeEl = document.createElement('span');
+        holeEl.className = 'lb-hole';
+        holeEl.textContent = s.completed ? '✓ 18홀' : (s.playedHoles + '/18');
+        row.appendChild(holeEl);
+
+        var scoreEl = document.createElement('span');
+        scoreEl.className = 'lb-score';
+        if (s.playedHoles === 0) {
+            scoreEl.textContent = '-';
+        } else {
+            var ouText;
+            if (s.overUnder === 0) ouText = 'E';
+            else if (s.overUnder > 0) ouText = '+' + s.overUnder;
+            else ouText = String(s.overUnder);
+            scoreEl.textContent = s.total + '타 (' + ouText + ')';
+        }
+        row.appendChild(scoreEl);
+
+        leaderboardList.appendChild(row);
+    });
 }
 
 // C4-1: 화면 3 상단 정모 배지 렌더링
@@ -4080,6 +4267,17 @@ btnNextHole.addEventListener('click', function() {
         finishRound();
     } else {
         goToHole(currentRound.currentHole + 1);
+    }
+});
+
+btnGoToLeaderboard.addEventListener('click', showLeaderboardScreen);
+
+btnBackToRoundFromLeaderboard.addEventListener('click', function() {
+    cleanupLeaderboardListener();
+    if (currentRound !== null && currentRound.tournamentId) {
+        showScreen(screenHoleInput);
+    } else {
+        showScreen(screenMain);
     }
 });
 
