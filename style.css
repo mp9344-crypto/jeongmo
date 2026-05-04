@@ -1623,3 +1623,78 @@ select:focus {
     background: white;
     border-color: #fdba74;
 }
+
+/* =========================================
+   팀 배정 화면 - 수동 클릭 배정 (C3-4)
+   ========================================= */
+
+.team-selection-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin: 12px 0;
+}
+.selection-text {
+    font-size: 14px;
+    color: #92400e;
+}
+.selection-text strong {
+    color: #78350f;
+}
+.btn-cancel-selection {
+    min-height: 36px;
+    padding: 6px 14px;
+    background: white;
+    color: #78350f;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.btn-cancel-selection:hover {
+    background: #fef9c3;
+}
+
+.team-card-unassigned {
+    border-style: dashed !important;
+}
+
+.team-card.drop-target {
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.team-card.drop-target:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.team-member-chip.clickable {
+    cursor: pointer;
+    transition: transform 0.1s ease, border-color 0.15s ease;
+    user-select: none;
+}
+.team-member-chip.clickable:hover {
+    border-color: #2d6a4f;
+}
+
+.team-member-chip.chip-selected {
+    border: 2px solid #f59e0b !important;
+    background: #fef3c7 !important;
+    color: #78350f !important;
+    font-weight: 600;
+    animation: chip-bounce 0.6s ease-in-out infinite;
+}
+
+@keyframes chip-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+.team-member-chip {
+    min-height: 28px;
+    line-height: 20px;
+}

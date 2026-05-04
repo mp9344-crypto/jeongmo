@@ -166,6 +166,9 @@ const btnCancelTournament = document.getElementById('btn-cancel-tournament');
 // 팀 배정 화면 (2단계 C - C3)
 const teamAssignmentMeta = document.getElementById('team-assignment-meta');
 const teamAssignmentMemberCount = document.getElementById('team-assignment-member-count');
+const teamAssignmentSelection = document.getElementById('team-assignment-selection');
+const selectedMemberName = document.getElementById('selected-member-name');
+const btnCancelSelection = document.getElementById('btn-cancel-selection');
 const teamAssignmentStatus = document.getElementById('team-assignment-status');
 const teamCardsGrid = document.getElementById('team-cards-grid');
 const btnBackToWaitingFromTeams = document.getElementById('btn-back-to-waiting-from-teams');
@@ -964,6 +967,16 @@ btnAutoAssignRandom.addEventListener('click', function() {
 });
 btnAutoAssignBalanced.addEventListener('click', function() {
     handleAutoAssign('balanced');
+});
+
+btnCancelSelection.addEventListener('click', clearSelection);
+
+screenTeamAssignment.addEventListener('click', function(e) {
+    if (selectedMemberIdForMove === null) return;
+    if (e.target.closest('.team-card')) return;
+    if (e.target.closest('.team-selection-bar')) return;
+    if (e.target.closest('button')) return;
+    clearSelection();
 });
 
 btnLeaveTournament.addEventListener('click', leaveTournamentAsGuest);
@@ -2169,6 +2182,10 @@ function ensureTeamsExist(tournamentId, teamCount) {
 function renderTeamCardsWithMembers(teams, members) {
     teamCardsGrid.innerHTML = '';
 
+    // 기존 외부 미배정 영역 제거 (C3-3 잔재 정리)
+    const oldUnassigned = document.querySelector('.unassigned-members-area');
+    if (oldUnassigned) oldUnassigned.remove();
+
     teams.sort(function(a, b) {
         return (a.colorIndex || 0) - (b.colorIndex || 0);
     });
@@ -2186,24 +2203,77 @@ function renderTeamCardsWithMembers(teams, members) {
         }
     });
 
+    const isHost = currentUser !== null && currentTournamentHostId === currentUser.uid;
+    const hasSelection = selectedMemberIdForMove !== null;
+
+    // 1. 팀 카드들
     teams.forEach(function(team) {
         const color = TEAM_COLORS[team.colorIndex] || TEAM_COLORS[9];
         const teamMembers = membersByTeam[team.id] || [];
+        const card = createTeamCard(team.id, team.name, color, teamMembers, isHost, hasSelection, false);
+        teamCardsGrid.appendChild(card);
+    });
 
-        const card = document.createElement('div');
-        card.className = 'team-card';
-        card.style.borderColor = color.main;
-        card.style.backgroundColor = color.bg;
-        card.dataset.teamId = team.id;
+    // 2. 미배정 카드 (호스트만 그리드 안에 포함)
+    if (isHost) {
+        const unassignedCard = createTeamCard(
+            '__unassigned__',
+            '⏬ 미배정',
+            { name: '회색', main: '#64748b', bg: '#f1f5f9' },
+            unassigned,
+            true,
+            hasSelection,
+            true
+        );
+        teamCardsGrid.appendChild(unassignedCard);
+    } else if (unassigned.length > 0) {
+        const div = document.createElement('div');
+        div.className = 'unassigned-members-area';
+        div.innerHTML = '<div class="unassigned-header">⏳ 미배정 (' + unassigned.length + '명)</div>';
+        const wrap = document.createElement('div');
+        wrap.className = 'unassigned-chips';
+        unassigned.forEach(function(m) {
+            const chip = document.createElement('div');
+            chip.className = 'team-member-chip unassigned-chip';
+            chip.textContent = m.name +
+                (m.handicapIndex !== null && m.handicapIndex !== undefined
+                    ? ' (' + m.handicapIndex + ')' : '');
+            wrap.appendChild(chip);
+        });
+        div.appendChild(wrap);
+        teamCardsGrid.parentNode.insertBefore(div, teamCardsGrid.nextSibling);
+    }
 
-        const header = document.createElement('div');
-        header.className = 'team-card-header';
-        header.style.color = color.main;
-        header.textContent = team.name;
-        card.appendChild(header);
+    updateSelectionBar();
+}
 
-        const meta = document.createElement('div');
-        meta.className = 'team-card-meta';
+function createTeamCard(teamId, teamName, color, teamMembers, isHost, hasSelection, isUnassignedCard) {
+    const card = document.createElement('div');
+    card.className = 'team-card';
+    if (isUnassignedCard) card.classList.add('team-card-unassigned');
+    if (hasSelection) card.classList.add('drop-target');
+    card.style.borderColor = color.main;
+    card.style.backgroundColor = color.bg;
+    card.dataset.teamId = teamId;
+
+    if (isHost) {
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('.team-member-chip')) return;
+            handleCardClickForMove(teamId);
+        });
+    }
+
+    const header = document.createElement('div');
+    header.className = 'team-card-header';
+    header.style.color = color.main;
+    header.textContent = teamName;
+    card.appendChild(header);
+
+    const meta = document.createElement('div');
+    meta.className = 'team-card-meta';
+    if (isUnassignedCard) {
+        meta.textContent = teamMembers.length + '명';
+    } else {
         let avgText = '';
         if (teamMembers.length > 0) {
             const validHcps = teamMembers
@@ -2215,48 +2285,35 @@ function renderTeamCardsWithMembers(teams, members) {
             }
         }
         meta.textContent = teamMembers.length + '명' + avgText;
-        card.appendChild(meta);
+    }
+    card.appendChild(meta);
 
-        const memberArea = document.createElement('div');
-        memberArea.className = 'team-card-members';
-        if (teamMembers.length === 0) {
-            memberArea.innerHTML = '<p class="team-card-empty">아직 배정된 멤버 없음</p>';
-        } else {
-            teamMembers.forEach(function(m) {
-                const chip = document.createElement('div');
-                chip.className = 'team-member-chip';
-                chip.textContent = m.name +
-                    (m.handicapIndex !== null && m.handicapIndex !== undefined
-                        ? ' (' + m.handicapIndex + ')' : '');
-                memberArea.appendChild(chip);
-            });
-        }
-        card.appendChild(memberArea);
-
-        teamCardsGrid.appendChild(card);
-    });
-
-    // 미배정 멤버 영역
-    const existingUnassigned = document.querySelector('.unassigned-members-area');
-    if (existingUnassigned) existingUnassigned.remove();
-
-    if (unassigned.length > 0) {
-        const unassignedDiv = document.createElement('div');
-        unassignedDiv.className = 'unassigned-members-area';
-        unassignedDiv.innerHTML = '<div class="unassigned-header">⏳ 미배정 (' + unassigned.length + '명)</div>';
-        const chipWrap = document.createElement('div');
-        chipWrap.className = 'unassigned-chips';
-        unassigned.forEach(function(m) {
+    const memberArea = document.createElement('div');
+    memberArea.className = 'team-card-members';
+    if (teamMembers.length === 0) {
+        memberArea.innerHTML = '<p class="team-card-empty">' +
+            (isUnassignedCard ? '미배정 멤버 없음' : '아직 배정된 멤버 없음') + '</p>';
+    } else {
+        teamMembers.forEach(function(m) {
             const chip = document.createElement('div');
-            chip.className = 'team-member-chip unassigned-chip';
+            chip.className = 'team-member-chip clickable';
+            if (selectedMemberIdForMove === m.id) chip.classList.add('chip-selected');
+            chip.dataset.memberId = m.id;
             chip.textContent = m.name +
                 (m.handicapIndex !== null && m.handicapIndex !== undefined
                     ? ' (' + m.handicapIndex + ')' : '');
-            chipWrap.appendChild(chip);
+            if (isHost) {
+                chip.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    handleChipClickForSelect(m.id, m.name);
+                });
+            }
+            memberArea.appendChild(chip);
         });
-        unassignedDiv.appendChild(chipWrap);
-        teamCardsGrid.parentNode.insertBefore(unassignedDiv, teamCardsGrid.nextSibling);
     }
+    card.appendChild(memberArea);
+
+    return card;
 }
 
 function shuffleArray(arr) {
@@ -2342,6 +2399,12 @@ function handleAutoAssign(mode) {
         return;
     }
 
+    // C3-4: 자동 배정 시 수동 선택 해제
+    if (selectedMemberIdForMove !== null) {
+        selectedMemberIdForMove = null;
+        teamAssignmentSelection.classList.add('hidden');
+    }
+
     const hasAnyAssignment = currentWaitingMembers.some(function(m) {
         return m.teamId !== null && m.teamId !== undefined;
     });
@@ -2392,6 +2455,147 @@ function handleAutoAssign(mode) {
         });
 }
 
+// C3-4: 멤버 칩 클릭 → 선택 상태 진입/변경/해제
+function handleChipClickForSelect(memberId, memberName) {
+    if (selectedMemberIdForMove === memberId) {
+        clearSelection();
+    } else {
+        selectedMemberIdForMove = memberId;
+        selectedMemberName.textContent = memberName;
+        teamAssignmentSelection.classList.remove('hidden');
+        rerenderTeamAssignmentScreen();
+    }
+}
+
+function clearSelection() {
+    selectedMemberIdForMove = null;
+    teamAssignmentSelection.classList.add('hidden');
+    rerenderTeamAssignmentScreen();
+}
+
+// 카드 클릭 → 선택된 멤버 이동
+function handleCardClickForMove(targetTeamId) {
+    if (selectedMemberIdForMove === null) return;
+
+    const member = currentWaitingMembers.find(function(m) {
+        return m.id === selectedMemberIdForMove;
+    });
+    if (!member) {
+        console.warn('선택된 멤버를 찾을 수 없음:', selectedMemberIdForMove);
+        clearSelection();
+        return;
+    }
+
+    const oldTeamId = member.teamId || null;
+    const newTeamId = (targetTeamId === '__unassigned__') ? null : targetTeamId;
+
+    if (oldTeamId === newTeamId) {
+        clearSelection();
+        return;
+    }
+
+    if (newTeamId !== null) {
+        const targetMembers = currentWaitingMembers.filter(function(m) {
+            return m.teamId === newTeamId;
+        });
+        const teamSize = currentTournamentMaxMembers / currentTournamentTeamCount;
+        if (targetMembers.length >= teamSize) {
+            const teamName = getTeamNameFromId(newTeamId);
+            const ok = confirm(
+                '⚠️ ' + teamName + ' 정원(' + teamSize + '명) 초과됩니다.\n' +
+                '현재 ' + targetMembers.length + '명, 옮기면 ' + (targetMembers.length + 1) + '명.\n\n' +
+                '그래도 옮기시겠습니까?'
+            );
+            if (!ok) return;
+        }
+    }
+
+    moveMemberToTeam(member.id, oldTeamId, newTeamId);
+}
+
+function getTeamNameFromId(teamId) {
+    const idx = parseInt(teamId.replace('team-', ''), 10);
+    if (!isNaN(idx)) return idx + '팀';
+    return teamId;
+}
+
+function moveMemberToTeam(memberId, oldTeamId, newTeamId) {
+    const tournamentId = currentTournamentId;
+    const batch = db.batch();
+
+    const memberRef = db.collection('tournaments').doc(tournamentId)
+        .collection('members').doc(memberId);
+    batch.update(memberRef, {
+        teamId: newTeamId,
+        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    if (oldTeamId !== null) {
+        const oldTeamRef = db.collection('tournaments').doc(tournamentId)
+            .collection('teams').doc(oldTeamId);
+        batch.update(oldTeamRef, {
+            memberIds: firebase.firestore.FieldValue.arrayRemove(memberId)
+        });
+    }
+
+    if (newTeamId !== null) {
+        const newTeamRef = db.collection('tournaments').doc(tournamentId)
+            .collection('teams').doc(newTeamId);
+        batch.update(newTeamRef, {
+            memberIds: firebase.firestore.FieldValue.arrayUnion(memberId)
+        });
+    }
+
+    selectedMemberIdForMove = null;
+    teamAssignmentSelection.classList.add('hidden');
+
+    batch.commit()
+        .then(function() {
+            console.log('✅ 멤버 이동 완료:', memberId, oldTeamId, '→', newTeamId);
+        })
+        .catch(function(error) {
+            console.error('❌ 멤버 이동 실패:', error);
+            alert('멤버 이동 실패: ' + error.message);
+            rerenderTeamAssignmentScreen();
+        });
+}
+
+function rerenderTeamAssignmentScreen() {
+    if (screenTeamAssignment.classList.contains('hidden')) return;
+    if (currentTournamentId === null) return;
+
+    db.collection('tournaments').doc(currentTournamentId)
+        .collection('teams').get()
+        .then(function(snapshot) {
+            const teams = [];
+            snapshot.forEach(function(doc) {
+                const data = doc.data();
+                data.id = doc.id;
+                teams.push(data);
+            });
+            renderTeamCardsWithMembers(teams, currentWaitingMembers);
+        })
+        .catch(function(err) {
+            console.warn('팀 배정 화면 재렌더링 중 teams 조회 실패:', err);
+        });
+}
+
+function updateSelectionBar() {
+    if (selectedMemberIdForMove === null) {
+        teamAssignmentSelection.classList.add('hidden');
+        return;
+    }
+    const member = currentWaitingMembers.find(function(m) {
+        return m.id === selectedMemberIdForMove;
+    });
+    if (member) {
+        selectedMemberName.textContent = member.name;
+        teamAssignmentSelection.classList.remove('hidden');
+    } else {
+        clearSelection();
+    }
+}
+
 function showTeamAssignmentScreen() {
     if (currentTournamentTeamCount === null) {
         alert('정모 정보 로딩 중입니다. 잠시 후 다시 시도해주세요.');
@@ -2438,6 +2642,8 @@ let currentTournamentTeamCount = null;
 // 대기실에서 받은 최신 멤버 데이터 (팀 배정 화면에서 사용)
 // 형식: [{ id, name, handicapIndex, courseHandicap, teamId, ... }, ...]
 let currentWaitingMembers = [];
+// C3-4: 현재 선택된 멤버 ID (null이면 선택 없음)
+let selectedMemberIdForMove = null;
 
 // 대기실 떠나기 (리스너 정리 + 메인 복귀)
 function leaveTournamentWaitingRoom() {
