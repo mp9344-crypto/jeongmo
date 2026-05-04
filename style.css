@@ -165,7 +165,7 @@ input[type="number"]:focus {
 
 /* ===== 6. 화면 전환 ===== */
 .hidden {
-    display: none;
+    display: none !important;
 }
 
 main > .screen > h2 {
