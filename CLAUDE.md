@@ -1,7 +1,7 @@
 ## 현재 상태
 
-- 마지막 완료: **C4-3** (본인 팀 멤버 미니 스트립)
-- 다음 단계: **C4-4** (라이브 리더보드 — Gross 모드)
+- 마지막 완료: **C4-4** (라이브 리더보드 Gross 모드)
+- 다음 단계: **C4-5** (Net 모드 + 팀별 합계)
 - 배포 상태: GitHub Pages + Firestore 규칙 모두 동기화 완료
 
 ---
@@ -11,7 +11,7 @@
 - C4-1 ✅ 라운드 자동 전환 + 정모 모드 배지 + 입력 가드
 - C4-2 ✅ 스코어 Firestore sync (500ms debounce, `scheduleSyncMyScoreToTournament`)
 - C4-3 ✅ 본인 팀 멤버 미니 스트립 (`where('teamId')` 서버 필터, onSnapshot cleanup)
-- C4-4 ⏳ 라이브 리더보드 (Gross 모드, 전체 멤버 onSnapshot)
+- C4-4 ✅ 라이브 리더보드 (Gross 모드, 전체 멤버 onSnapshot, cleanup 연동)
 - C4-5 Net 모드 + 팀별 합계
 - C4-6 1초 throttle + 누수 방지
 - C4-7 in_progress 호스트/게스트 재진입 동선
@@ -75,6 +75,7 @@
 - `currentTournamentDoc`: tournament 본 문서 캐시 (pars, gameMode 등), `leaveTournamentWaitingRoom`에서 null 초기화
 - **C4-3 미니 스트립**: `subscribeTournamentTeamMembers(tournamentId, teamId)` — `where('teamId','==',myTeamId)` 서버 필터, `allMembersData` 재사용, `cleanupTournamentRoundListeners()`가 unsub + flushAndClear + allMembersData 초기화 통합 처리
 - **renderSharedModeUI() 분기**: tournamentId 있으면 스트립만, shareCode 있으면 B6 배지+스트립, 없으면 모두 숨김. B6 진입 시 tournament-mode-badge 강제 hidden 처리 필요 (이전 정모 세션 badge 누수 방지)
+- **C4-4 리더보드**: `subscribeAllTournamentMembers(tournamentId)` — 팀 필터 없이 전체 구독, `leaderboardMembersUnsub`/`leaderboardAllMembers` 별도 관리. `cleanupLeaderboardListener()`는 `cleanupTournamentRoundListeners()` 내부에서도 호출됨 (라운드 이탈 시 이중 보장). Gross 정렬: overUnder 오름차순 → playedHoles 내림차순 → 이름순, 0홀은 맨 뒤/rank "-"
 
 ---
 
