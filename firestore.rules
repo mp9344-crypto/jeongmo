@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================
+    // users — 본인만 읽기/쓰기 (1단계부터 유지)
+    // =========================================
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+    }
+
+    // =========================================
+    // rounds — 1:1 공유 라운드 (2단계 B 기존 규칙 유지)
+    // =========================================
+    match /rounds/{roundId} {
+      // 인증된 사용자 누구나 읽기 (참여 확인용)
+      allow read: if request.auth != null;
+      // 호스트만 라운드 정보 수정
+      allow create: if request.auth != null
+                    && request.resource.data.hostId == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.hostId == request.auth.uid;
+      allow delete: if request.auth != null
+                    && resource.data.hostId == request.auth.uid;
+
+      match /members/{userId} {
+        allow read: if request.auth != null;
+        // 본인만 자기 멤버 데이터 쓰기
+        allow create, update: if request.auth != null
+                              && request.auth.uid == userId;
+        allow delete: if false;
+      }
+    }
+
+    // =========================================
+    // tournaments — 정모 (2단계 C 신규)
+    // 옵션 B: 인증된 사용자 + 호스트/본인 보호 + 종료된 정모 수정 금지
+    // =========================================
+    match /tournaments/{tournamentId} {
+
+      // 읽기: 인증된 사용자 누구나 (참여 확인 화면용)
+      allow read: if request.auth != null;
+
+      // 생성: 호스트가 본인이어야 함, status는 waiting부터 시작, 40명 cap
+      allow create: if request.auth != null
+                    && request.resource.data.hostId == request.auth.uid
+                    && request.resource.data.status == "waiting"
+                    && request.resource.data.maxMembers <= 40
+                    && request.resource.data.tier == "free";
+
+      // 수정: 호스트만, 종료되지 않은 경우만
+      // 호스트 ID는 절대 변경 불가
+      allow update: if request.auth != null
+                    && resource.data.hostId == request.auth.uid
+                    && resource.data.status != "completed"
+                    && request.resource.data.hostId == resource.data.hostId
+                    && request.resource.data.maxMembers <= 40;
+
+      // 삭제: 호스트만 (종료 후에도 가능 — 정모 정리용)
+      allow delete: if request.auth != null
+                    && resource.data.hostId == request.auth.uid;
+
+      // === teams 서브컬렉션 (C3에서 사용) ===
+      match /teams/{teamId} {
+        allow read: if request.auth != null;
+        // 호스트만 팀 만들기/수정/삭제 가능, 종료 안 된 정모만
+        allow write: if request.auth != null
+                     && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.hostId == request.auth.uid
+                     && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status != "completed";
+      }
+
+      // === members 서브컬렉션 ===
+      match /members/{userId} {
+        allow read: if request.auth != null;
+
+        // 생성(참여): 본인 ID로만, waiting 상태일 때만
+        allow create: if request.auth != null
+                      && userId == request.auth.uid
+                      && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status == "waiting";
+
+        // 수정: 본인이거나 호스트, 종료되지 않은 정모만
+        // (호스트는 팀 배정 등을 위해 멤버 수정 가능)
+        allow update: if request.auth != null
+                      && (userId == request.auth.uid
+                          || get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.hostId == request.auth.uid)
+                      && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status != "completed";
+
+        // 삭제: 본인이 직접 나가는 경우 OR 호스트가 정모 취소/관리 시
+        // (호스트는 정모 취소 흐름에서 모든 멤버를 batch 삭제해야 함 - C2-4)
+        allow delete: if request.auth != null
+                      && (
+                        // 본인이 자기 멤버 문서 삭제 (게스트가 정모 나가기)
+                        userId == request.auth.uid
+                        ||
+                        // 호스트가 다른 멤버 삭제 (정모 취소 또는 멤버 관리)
+                        get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.hostId == request.auth.uid
+                      )
+                      && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status != "completed";
+      }
+    }
+  }
+}
