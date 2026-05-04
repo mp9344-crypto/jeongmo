@@ -1079,6 +1079,10 @@ function renderPuttsDisplay() {
 }
 
 function changeScore(delta) {
+    if (currentRound !== null && currentRound.tournamentId) {
+        alert('🚧 정모 라운드 스코어 입력은 C4-2에서 활성화됩니다.\n현재는 입력 차단 상태입니다.');
+        return;
+    }
     const holeIndex = currentRound.currentHole - 1;
 
     let currentScore = currentRound.scores[holeIndex];
@@ -1106,6 +1110,10 @@ function changeScore(delta) {
 }
 
 function changePutts(delta) {
+    if (currentRound !== null && currentRound.tournamentId) {
+        alert('🚧 정모 라운드 퍼팅 입력은 C4-2에서 활성화됩니다.');
+        return;
+    }
     const holeIndex = currentRound.currentHole - 1;
     let currentPutts = currentRound.putts[holeIndex];
 
@@ -1150,6 +1158,10 @@ function goToHole(holeNumber) {
 }
 
 function finishRound() {
+    if (currentRound !== null && currentRound.tournamentId) {
+        alert('🚧 정모 라운드 완료는 C5에서 활성화됩니다.');
+        return;
+    }
     const currentIndex = currentRound.currentHole - 1;
     if (currentRound.scores[currentIndex] === null) {
         currentRound.scores[currentIndex] = currentRound.pars[currentIndex];
@@ -1943,14 +1955,21 @@ function enterTournamentWaitingRoom(tournamentId) {
         const tData = doc.data();
         renderTournamentWaitingHeader(tournamentId, tData);
 
-        // status가 in_progress로 바뀌면 (호스트가 라운드 시작)
-        // 모든 멤버에게 자동으로 라운드 진행 화면으로 가야 함
-        // → C4 리더보드/라운드 진행 단계에서 처리. C2-3에서는 안내만.
+        // C4-1: status 변화 감지 → 자동 화면 전환
         if (tData.status === 'in_progress') {
-            console.log('🟢 정모 라운드 시작됨 (C4 단계에서 자동 진입 추가 예정)');
+            console.log('🏌️ 정모 시작 감지 → 라운드 화면 진입');
+            if (!screenHoleInput.classList.contains('hidden') &&
+                currentRound !== null &&
+                currentRound.tournamentId === currentTournamentId) {
+                console.log('이미 라운드 화면 — 중복 진입 방지');
+                return;
+            }
+            currentTournamentDoc = tData;
+            enterTournamentRound(currentTournamentId, tData);
+            return;
         }
         if (tData.status === 'completed') {
-            console.log('🏁 정모 종료됨 (C5 단계에서 결과 화면 자동 진입 예정)');
+            console.log('🏁 정모 종료됨 (C5 단계에서 처리)');
         }
     }, function(error) {
         console.error('❌ 정모 리스너 오류:', error);
@@ -1981,6 +2000,72 @@ function cleanupTournamentWaitingListeners() {
         tournamentWaitingMembersUnsub();
         tournamentWaitingMembersUnsub = null;
         console.log('🧹 대기실 멤버 리스너 해제');
+    }
+}
+
+// C4-1: 정모 라운드 진입 (호스트/게스트 공통)
+function enterTournamentRound(tournamentId, tournamentDoc) {
+    if (currentUser === null) {
+        alert('로그인 정보가 없습니다. 새로고침해주세요.');
+        return;
+    }
+
+    console.log('🏌️ 정모 라운드 진입:', tournamentId);
+
+    db.collection('tournaments').doc(tournamentId)
+        .collection('members').doc(currentUser.uid).get()
+        .then(function(memberDoc) {
+            if (!memberDoc.exists) {
+                alert('이 정모의 멤버가 아닙니다.\n\n메인 화면으로 돌아갑니다.');
+                cleanupTournamentWaitingListeners();
+                showScreen(screenMain);
+                return;
+            }
+
+            const memberData = memberDoc.data();
+            const isHost = (currentUser.uid === tournamentDoc.hostId);
+
+            currentRound = {
+                id: tournamentId,
+                tournamentId: tournamentId,
+                courseName: tournamentDoc.courseName,
+                date: tournamentDoc.date || new Date().toISOString().split('T')[0],
+                pars: tournamentDoc.pars,
+                scores: memberData.scores || new Array(18).fill(null),
+                putts: memberData.putts || new Array(18).fill(null),
+                currentHole: memberData.currentHole || 1,
+                completed: memberData.completed || false,
+                gameMode: tournamentDoc.gameMode,
+                courseHandicap: memberData.courseHandicap || 0,
+                isShared: true,
+                isHost: isHost,
+                shareCode: null
+            };
+
+            showScreen(screenHoleInput);
+            renderTournamentModeBadge(tournamentDoc);
+            renderHoleInputScreen();
+
+            console.log('✅ 정모 라운드 진입 완료. 현재 홀:', currentRound.currentHole);
+        })
+        .catch(function(error) {
+            console.error('❌ 정모 라운드 진입 실패:', error);
+            alert('정모 라운드 진입 실패: ' + error.message + '\n\n메인 화면으로 돌아갑니다.');
+            cleanupTournamentWaitingListeners();
+            showScreen(screenMain);
+        });
+}
+
+// C4-1: 화면 3 상단 정모 배지 렌더링
+function renderTournamentModeBadge(tournamentDoc) {
+    const sharedBadge = document.getElementById('shared-mode-badge');
+    if (sharedBadge) sharedBadge.classList.add('hidden');
+
+    const tBadge = document.getElementById('tournament-mode-badge');
+    const tBadgeName = document.getElementById('tournament-mode-badge-name');
+    if (tBadge && tBadgeName) {
+        tBadgeName.textContent = tournamentDoc.name || '정모';
+        tBadge.classList.remove('hidden');
     }
 }
 
@@ -2725,8 +2810,8 @@ function handleStartRound() {
         })
         .then(function() {
             console.log('✅ 라운드 시작:', currentTournamentId);
-            alert('🚀 라운드가 시작되었습니다!');
-            showScreen(screenMain);
+            // C4-1: 호스트도 onSnapshot이 in_progress 감지 → enterTournamentRound() 호출
+            // 명시적 화면 전환 없음 — onSnapshot 콜백이 처리
         })
         .catch(function(err) {
             console.error('❌ 라운드 시작 실패:', err);
@@ -2777,6 +2862,8 @@ function showTeamAssignmentScreen() {
 let currentTournamentHostId = null;
 let currentTournamentMaxMembers = null;
 let currentTournamentTeamCount = null;
+// C4-1: tournament 본 문서 캐시 (pars, gameMode, courseName 등 라운드 진입 시 사용)
+let currentTournamentDoc = null;
 
 // 대기실에서 받은 최신 멤버 데이터 (팀 배정 화면에서 사용)
 // 형식: [{ id, name, handicapIndex, courseHandicap, teamId, ... }, ...]
@@ -2791,6 +2878,7 @@ function leaveTournamentWaitingRoom() {
     currentTournamentHostId = null;
     currentTournamentMaxMembers = null;
     currentTournamentTeamCount = null;
+    currentTournamentDoc = null;
     currentWaitingMembers = [];
     lastWaitingMemberIds = new Set();
     showScreen(screenMain);
@@ -3869,10 +3957,18 @@ btnPuttsPlus.addEventListener('click', function() {
 });
 
 btnPrevHole.addEventListener('click', function() {
+    if (currentRound !== null && currentRound.tournamentId) {
+        alert('🚧 정모 라운드 홀 이동은 C4-2에서 활성화됩니다.');
+        return;
+    }
     goToHole(currentRound.currentHole - 1);
 });
 
 btnNextHole.addEventListener('click', function() {
+    if (currentRound !== null && currentRound.tournamentId) {
+        alert('🚧 정모 라운드 홀 이동은 C4-2에서 활성화됩니다.');
+        return;
+    }
     if (currentRound.currentHole === 18) {
         finishRound();
     } else {

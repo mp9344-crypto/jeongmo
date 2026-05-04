@@ -1754,3 +1754,12 @@ select:focus {
     transform: none;
     box-shadow: none;
 }
+
+/* =========================================
+   정모 라운드 모드 배지 (C4-1)
+   ========================================= */
+.tournament-badge {
+    background: linear-gradient(135deg, #2d6a4f 0%, #15803d 100%);
+    color: white;
+    border-color: #15803d;
+}
