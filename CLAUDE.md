@@ -1,8 +1,8 @@
 ## 현재 상태
 
-- **D3 완료** (2026-05-05) — 골프장 자동완성 + 정모 만들기 폼 통합
-- **배포 상태**: GitHub Pages (app.js?v=d3a, style.css?v=d3a), Firestore rules 변경 없음
-- 다음: D4 (화면 20 티박스 선택 — 정모 만들기 시 호스트가 기본 티박스 선택)
+- **D4 완료** (2026-05-04) — 티박스 선택 UI + 호스트 정확한 Course Handicap
+- **배포 상태**: GitHub Pages (app.js?v=d4a, style.css?v=d4a), Firestore rules 변경 없음
+- 다음: D5 (게스트/프록시 join 시 정확한 Course Handicap 계산)
 
 ---
 
@@ -98,6 +98,7 @@
 - **teams 서브컬렉션**: 호스트만 write, `status != "completed"` 조건
 - **D8 members create 프록시 분기**: `userId.matches("proxy_.+")` + `proxyMember==true` + `proxyHostId==request.auth.uid` + `status != "completed"`. update/delete는 기존 호스트 권한 그대로 사용 (변경 없음).
 - **D1: courses + teeBoxes 신규 블록** — 옵션 B + addedBy 잠금 + `tier=="free"` + `holes∈{9,18,27}` 강제. update 시 addedBy 변경 불가 + usageCount 변경 불가 (D7에서 increment-only 패스 별도 추가 예정). teeBoxes는 골프장 등록자(addedBy)만 write.
+- **D4**: tournaments에 teeBoxId, teeBoxLabel, courseRating, slopeRating 필드 추가 (스키마 자유). 보안 규칙 변경 없음. 캐시 패턴: 게스트가 courses/{id}/teeBoxes/{tid} 추가 fetch 없이 핸디 계산 가능. 정모 시작 후 골프장 정보 변경돼도 정모에 영향 없음 (의도된 동작).
 
 ---
 
@@ -152,7 +153,11 @@
 - **D3 자동 티박스 선택**: white > blue > black > gold > red > other > 첫번째 (D4에서 사용자가 변경 가능)
 - **D3 정모 만들기 폼 통합**: `selectedCourseForTournament` 상태 객체. 자유 입력 fallback 유지 (courseId=null도 허용). `readTournamentForm()`에 courseId 추가.
 - **D3 화면 18 복귀 흐름**: `pendingReturnToTournamentCreate` 플래그로 정모 폼 ↔ 골프장 등록 왕복. 등록 성공/취소 시 플래그 체크 후 showScreen 분기.
-- **D3 호스트 정확한 Course Handicap**: `selectedCourseForTournament` 있으면 USGA 공식 (tee.slope, tee.courseRating, totalPar), 없으면 임시 공식. 게스트/프록시는 D5에서 처리.
+- **D4 티박스 선택**: `selectedCourseForTournament.autoSelectedTeeBox`가 단일 출처. `renderTeeBoxSelector()` — 티박스 버튼 렌더 + active 표시. `switchTeeBox(teeId)` — autoSelectedTeeBox 갱신 + 파 재채움 + 배지 갱신 + `renderTeeBoxInfo()` 호출. `clearSelectedCourse()`에서 티박스 UI도 같이 숨김.
+- **D4 정모 본 문서 캐시**: courseId + teeBoxId + teeBoxLabel + courseRating + slopeRating 모두 저장. 게스트가 join 시 이 값으로 핸디 계산 (D5).
+- **D4 호스트 핸디 계산 분기**: `formData.courseId && formData.slopeRating && formData.courseRating` 전부 있으면 USGA 공식, 하나라도 빠지면 `Math.round(HI)` fallback.
+- **D4 자유 입력 fallback**: 티박스 UI hidden + courseId/teeBoxId/rating 모두 null. 게스트도 임시 공식 fallback 그대로 (D5 전).
+- **D4 티박스 색상 매핑**: `TEE_BOX_COLOR_HEX` 상수. white는 흰색이라 1px 회색 border 추가.
 
 - 팀 멤버 정보의 **단일 출처는 `members.teamId`** (`teams.memberIds`는 보조 캐시)
 - 자동 배정 = batch 전체, 수동 배정 = batch 1쌍 (members 1건 + 양쪽 teams 2건)
