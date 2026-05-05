@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=f2_1">
+    <link rel="stylesheet" href="style.css?v=f3">
 </head>
 <body>
 
@@ -264,20 +264,32 @@
             <h2>🏌️ 정모 만들기</h2>
             <p class="hint">최대 10팀 / 40명까지 참여 가능</p>
 
-            <section>
-                <label for="input-tournament-name">정모 이름</label>
-                <input type="text" id="input-tournament-name" placeholder="예: 4월 정모, 민준 생일 라운드" maxlength="30">
+            <!-- 기본 정보 -->
+            <section class="card">
+                <div class="card-title">기본 정보</div>
+                <div class="field-group">
+                    <label for="input-tournament-name">정모 이름</label>
+                    <input type="text" id="input-tournament-name" placeholder="예: 4월 정모, 민준 생일 라운드" maxlength="30">
+                </div>
+                <div class="field-group" style="margin-bottom:0">
+                    <label for="input-tournament-date">날짜</label>
+                    <input type="date" id="input-tournament-date">
+                </div>
             </section>
 
-            <section>
-                <label for="input-tournament-course">골프장</label>
-                <div class="course-autocomplete-wrap">
-                    <input type="text" id="input-tournament-course" placeholder="이름 또는 도시 입력 (예: Swaneset, Pit Meadows)" autocomplete="off">
-                    <div id="course-autocomplete-results" class="course-autocomplete-results hidden"></div>
-                </div>
-                <div id="course-selected-badge" class="course-selected-badge hidden">
-                    <span id="course-selected-badge-text"></span>
-                    <button id="btn-clear-selected-course" type="button" class="btn-icon">✕</button>
+            <!-- 골프장 & 티박스 -->
+            <section class="card">
+                <div class="card-title">골프장 &amp; 티박스</div>
+                <div class="field-group" style="margin-bottom:0">
+                    <label for="input-tournament-course">골프장</label>
+                    <div class="course-autocomplete-wrap">
+                        <input type="text" id="input-tournament-course" placeholder="이름 또는 도시 입력 (예: Swaneset, Pit Meadows)" autocomplete="off">
+                        <div id="course-autocomplete-results" class="course-autocomplete-results hidden"></div>
+                    </div>
+                    <div id="course-selected-badge" class="course-selected-badge hidden">
+                        <span id="course-selected-badge-text"></span>
+                        <button id="btn-clear-selected-course" type="button" class="btn-icon">✕</button>
+                    </div>
                 </div>
                 <div id="tee-box-selector" class="tee-box-selector hidden">
                     <label>티박스 선택</label>
@@ -304,28 +316,71 @@
                 <p class="hint" id="course-input-hint">DB에 없으면 자유 입력 그대로 사용 (이름만, 파 정보는 직접 입력)</p>
             </section>
 
-            <section>
-                <label for="input-tournament-date">날짜</label>
-                <input type="date" id="input-tournament-date">
+            <!-- 게임 설정 -->
+            <section class="card">
+                <div class="card-title">게임 설정</div>
+                <div class="field-group">
+                    <label for="select-tournament-game-type">게임 방식</label>
+                    <select id="select-tournament-game-type">
+                        <option value="stroke" selected>스트로크 플레이</option>
+                        <option value="stableford" disabled>스테이블포드 (추후 지원)</option>
+                        <option value="match" disabled>매치 플레이 (추후 지원)</option>
+                        <option value="vegas" disabled>라스베가스 (추후 지원)</option>
+                    </select>
+                </div>
+                <div class="field-group" style="margin-bottom:0">
+                    <label for="select-tournament-game-mode">게임 모드</label>
+                    <select id="select-tournament-game-mode">
+                        <option value="gross">Gross — 총 타수 (실력 그대로)</option>
+                        <option value="net" selected>Net — 핸디 적용 (공정한 게임)</option>
+                    </select>
+                    <p class="hint" id="tournament-game-mode-hint">총 타수에서 Course Handicap을 빼서 공정하게 비교합니다.</p>
+                </div>
             </section>
 
-            <section>
-                <label for="select-tournament-game-type">게임 방식</label>
-                <select id="select-tournament-game-type">
-                    <option value="stroke" selected>스트로크 플레이</option>
-                    <option value="stableford" disabled>스테이블포드 (추후 지원)</option>
-                    <option value="match" disabled>매치 플레이 (추후 지원)</option>
-                    <option value="vegas" disabled>라스베가스 (추후 지원)</option>
-                </select>
+            <!-- 팀 구성 -->
+            <section class="card team-config-section">
+                <div class="card-title">팀 구성</div>
+                <div class="team-config-row">
+                    <div class="team-config-col">
+                        <label for="select-team-count">팀 수</label>
+                        <select id="select-team-count">
+                            <option value="2">2팀</option>
+                            <option value="3">3팀</option>
+                            <option value="4" selected>4팀</option>
+                            <option value="5">5팀</option>
+                            <option value="6">6팀</option>
+                            <option value="7">7팀</option>
+                            <option value="8">8팀</option>
+                            <option value="9">9팀</option>
+                            <option value="10">10팀</option>
+                        </select>
+                    </div>
+                    <div class="team-config-col">
+                        <label for="select-team-size">팀당 인원</label>
+                        <select id="select-team-size">
+                            <option value="2">2명</option>
+                            <option value="3">3명</option>
+                            <option value="4" selected>4명</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="member-count-preview">
+                    <span class="member-count-label">총</span>
+                    <strong id="member-count-display">16</strong>
+                    <span class="member-count-label">명 참여 가능</span>
+                </div>
+                <p class="hint hidden" id="member-count-warning">⚠️ 40명 cap 초과. 팀 수 또는 팀당 인원을 줄여주세요.</p>
             </section>
 
-            <section id="tournament-events-section">
+            <!-- 이벤트 홀 (선택) -->
+            <section class="card" id="tournament-events-section">
                 <div class="events-section-header">
-                    <label>이벤트 홀 <span class="hint-inline">(선택)</span></label>
+                    <div class="card-title" style="margin-bottom:0">이벤트 홀 <span class="card-meta">(선택)</span></div>
                     <span id="events-count-display" class="events-count">0 / 5</span>
                 </div>
                 <div id="tournament-events-list" class="tournament-events-list"></div>
-                <button type="button" id="btn-add-event" class="btn-secondary btn-add-event">+ 이벤트 추가</button>
+                <button type="button" id="btn-add-event" class="btn-ghost btn-add-event">+ 이벤트 추가</button>
                 <div id="add-event-form" class="add-event-form hidden">
                     <div class="add-event-row">
                         <label for="select-event-type">종류</label>
@@ -354,8 +409,9 @@
                 </div>
             </section>
 
-            <section id="tournament-game-prize-section">
-                <label>게임 우승 상금 <span class="hint-inline">(선택)</span></label>
+            <!-- 게임 우승 상금 (선택) -->
+            <section class="card" id="tournament-game-prize-section">
+                <div class="card-title">게임 우승 상금 <span class="card-meta">(선택)</span></div>
                 <div class="add-event-row">
                     <label for="input-game-winner-prize-text">상품/상금</label>
                     <input type="text" id="input-game-winner-prize-text" placeholder="예: 공 한박스, 백화점 상품권" maxlength="50">
@@ -366,63 +422,18 @@
                 </div>
             </section>
 
-            <section>
-                <label for="select-tournament-game-mode">게임 모드</label>
-                <select id="select-tournament-game-mode">
-                    <option value="gross">Gross — 총 타수 (실력 그대로)</option>
-                    <option value="net" selected>Net — 핸디 적용 (공정한 게임)</option>
-                </select>
-                <p class="hint" id="tournament-game-mode-hint">총 타수에서 Course Handicap을 빼서 공정하게 비교합니다.</p>
-            </section>
-
-            <section class="team-config-section">
-                <div class="team-config-row">
-                    <div class="team-config-col">
-                        <label for="select-team-count">팀 수</label>
-                        <select id="select-team-count">
-                            <option value="2">2팀</option>
-                            <option value="3">3팀</option>
-                            <option value="4" selected>4팀</option>
-                            <option value="5">5팀</option>
-                            <option value="6">6팀</option>
-                            <option value="7">7팀</option>
-                            <option value="8">8팀</option>
-                            <option value="9">9팀</option>
-                            <option value="10">10팀</option>
-                        </select>
-                    </div>
-                    <div class="team-config-col">
-                        <label for="select-team-size">팀당 인원</label>
-                        <select id="select-team-size">
-                            <option value="2">2명</option>
-                            <option value="3">3명</option>
-                            <option value="4" selected>4명</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="member-count-preview">
-                    <span class="member-count-label">총</span>
-                    <strong id="member-count-display">16</strong>
-                    <span class="member-count-label">명 참여 가능</span>
-                </div>
-
-                <p class="hint hidden" id="member-count-warning">⚠️ 40명 cap 초과. 팀 수 또는 팀당 인원을 줄여주세요.</p>
-            </section>
-
-            <section>
-                <h3>18홀 파 정보</h3>
+            <!-- 18홀 파 정보 -->
+            <section class="card">
+                <div class="card-title">18홀 파 정보</div>
                 <p class="hint">각 홀의 파를 입력하세요 (3, 4, 5)</p>
-
                 <h4>전반 9홀</h4>
                 <div id="tournament-par-inputs-front" class="par-inputs"></div>
-
                 <h4>후반 9홀</h4>
                 <div id="tournament-par-inputs-back" class="par-inputs"></div>
             </section>
 
-            <button id="btn-create-tournament">정모 만들기 →</button>
-            <button id="btn-cancel-tournament-create" class="btn-secondary">취소</button>
+            <button id="btn-create-tournament" class="btn-primary">정모 만들기 →</button>
+            <button id="btn-cancel-tournament-create" class="btn-ghost">취소</button>
 
         </div>
 
@@ -441,7 +452,7 @@
             <section class="share-info">
                 <div class="share-label">정모 코드</div>
                 <div class="share-code-box">
-                    <div class="share-code" id="tournament-code-display">------</div>
+                    <div class="share-code code-display" id="tournament-code-display">------</div>
                     <button id="btn-copy-tournament-code" class="btn-copy-code">📋 코드만 복사</button>
                 </div>
                 <div class="copy-feedback hidden" id="tournament-code-copy-feedback">✅ 코드 복사됨!</div>
@@ -592,8 +603,8 @@
                 <p class="error-message" id="tournament-join-error-message">오류가 발생했습니다.</p>
             </section>
 
-            <button id="btn-confirm-tournament-join">✅ 정모 참여하기</button>
-            <button id="btn-cancel-tournament-join" class="btn-secondary">취소</button>
+            <button id="btn-confirm-tournament-join" class="btn-primary">✅ 정모 참여하기</button>
+            <button id="btn-cancel-tournament-join" class="btn-ghost">취소</button>
 
         </div>
 
@@ -607,7 +618,7 @@
             <section class="share-info waiting-code-section">
                 <div class="share-label">정모 코드</div>
                 <div class="share-code-box">
-                    <div class="share-code" id="waiting-code-display">------</div>
+                    <div class="share-code code-display" id="waiting-code-display">------</div>
                     <button id="btn-copy-waiting-code" class="btn-copy-code">📋 코드만 복사</button>
                 </div>
                 <div class="copy-feedback hidden" id="waiting-code-copy-feedback">✅ 코드 복사됨!</div>
@@ -976,56 +987,55 @@
             <h2>⛳ 골프장 등록</h2>
             <p class="hint">등록한 골프장은 다른 정모/라운드에서 재사용할 수 있습니다.</p>
 
-            <section>
-                <h3>기본 정보</h3>
-
-                <label for="input-cr-name">골프장 이름 *</label>
-                <input type="text" id="input-cr-name" maxlength="50" placeholder="예: Swaneset Resort">
-
-                <label for="input-cr-city">도시 *</label>
-                <input type="text" id="input-cr-city" maxlength="30" placeholder="예: Pit Meadows">
-
-                <label for="input-cr-country">국가 *</label>
-                <input type="text" id="input-cr-country" maxlength="30" placeholder="예: Canada" value="Canada">
-
-                <label for="select-cr-type">유형 *</label>
-                <select id="select-cr-type">
-                    <option value="public">퍼블릭 (Public)</option>
-                    <option value="resort">리조트 (Resort)</option>
-                    <option value="private">프라이빗 (Private)</option>
-                </select>
-
-                <p class="hint">현재 18홀만 지원합니다 (9홀/27홀은 추후).</p>
+            <section class="card">
+                <div class="card-title">기본 정보</div>
+                <div class="field-group">
+                    <label for="input-cr-name">골프장 이름 *</label>
+                    <input type="text" id="input-cr-name" maxlength="50" placeholder="예: Swaneset Resort">
+                </div>
+                <div class="field-group">
+                    <label for="input-cr-city">도시 *</label>
+                    <input type="text" id="input-cr-city" maxlength="30" placeholder="예: Pit Meadows">
+                </div>
+                <div class="field-group">
+                    <label for="input-cr-country">국가 *</label>
+                    <input type="text" id="input-cr-country" maxlength="30" placeholder="예: Canada" value="Canada">
+                </div>
+                <div class="field-group" style="margin-bottom:0">
+                    <label for="select-cr-type">유형 *</label>
+                    <select id="select-cr-type">
+                        <option value="public">퍼블릭 (Public)</option>
+                        <option value="resort">리조트 (Resort)</option>
+                        <option value="private">프라이빗 (Private)</option>
+                    </select>
+                    <p class="hint" style="margin-top:var(--space-xs)">현재 18홀만 지원합니다 (9홀/27홀은 추후).</p>
+                </div>
             </section>
 
-            <section>
-                <h3>티박스 정보</h3>
+            <section class="card">
+                <div class="card-title">티박스 정보</div>
                 <p class="hint">최소 1개 이상 입력. 스코어카드 보고 정확히 입력하세요.</p>
-
                 <div id="tee-box-list">
                     <!-- 티박스 카드들이 동적으로 추가됨 -->
                 </div>
-
-                <button id="btn-add-tee-box" class="btn-secondary">+ 티박스 추가</button>
+                <button id="btn-add-tee-box" class="btn-ghost">+ 티박스 추가</button>
             </section>
 
-            <section>
-                <button id="btn-confirm-course-register">골프장 등록</button>
-                <button id="btn-cancel-course-register" class="btn-secondary">취소</button>
-            </section>
+            <button id="btn-confirm-course-register" class="btn-primary">골프장 등록</button>
+            <button id="btn-cancel-course-register" class="btn-ghost">취소</button>
 
         </div>
 
         <!-- ===== 화면 19: 골프장 상세 (D7-2) ===== -->
         <div id="screen-course-detail" class="screen hidden">
 
-            <button id="btn-back-from-course-detail" class="btn-secondary">← 뒤로</button>
+            <button id="btn-back-from-course-detail" class="btn-ghost">← 뒤로</button>
 
             <h2 id="course-detail-name">⛳ --</h2>
             <p class="hint" id="course-detail-meta">--</p>
 
-            <section>
-                <h3>기본 정보</h3>
+            <section class="card">
+                <div class="card-title">기본 정보</div>
                 <div class="course-detail-info">
                     <div class="course-detail-row">
                         <span class="course-detail-label">위치</span>
@@ -1050,15 +1060,14 @@
                 </div>
             </section>
 
-            <section>
-                <h3>티박스 (<span id="course-detail-tee-count">0</span>개)</h3>
+            <section class="card">
+                <div class="card-title">티박스 (<span id="course-detail-tee-count">0</span>개)</div>
                 <div id="course-detail-tee-list"></div>
             </section>
 
-            <section>
-                <h3>액션</h3>
-                <button id="btn-report-course" class="btn-secondary">⚠️ 잘못된 정보 신고</button>
-                <button id="btn-delete-course-from-detail" class="btn-secondary hidden">🗑️ 골프장 삭제 (등록자만)</button>
+            <section class="card">
+                <button id="btn-report-course" class="btn-ghost">⚠️ 잘못된 정보 신고</button>
+                <button id="btn-delete-course-from-detail" class="btn-ghost hidden">🗑️ 골프장 삭제 (등록자만)</button>
             </section>
 
         </div>

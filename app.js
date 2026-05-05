@@ -5952,7 +5952,7 @@ function renderTournamentWaitingMembers(members) {
 
     members.forEach(function(member) {
         const div = document.createElement('div');
-        div.className = 'waiting-member';
+        div.className = 'waiting-member member-row';
 
         const isMe = member.id === myUid;
         const isThisHost = member.id === hostId;
@@ -5980,14 +5980,14 @@ function renderTournamentWaitingMembers(members) {
 
         if (isThisHost) {
             const badge = document.createElement('span');
-            badge.className = 'waiting-member-badge';
+            badge.className = 'waiting-member-badge badge badge-accent';
             badge.textContent = '호스트';
             nameWrap.appendChild(badge);
         }
 
         if (isProxy) {
             const proxyBadge = document.createElement('span');
-            proxyBadge.className = 'waiting-member-badge waiting-member-badge-proxy';
+            proxyBadge.className = 'waiting-member-badge waiting-member-badge-proxy badge badge-muted';
             proxyBadge.textContent = '대리';
             nameWrap.appendChild(proxyBadge);
         }

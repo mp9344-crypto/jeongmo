@@ -1,5 +1,6 @@
 ## 현재 상태
 
+**F3 완료** (2026-05-05) — 정모 만들기→대기방→참여 흐름 전체 재스타일 (7 카드 구조, .field-group/.member-row/.code-display/.badge)
 **F2.1 완료** (2026-05-05) — 메인 4액션 버튼 위계 도입 (그린 1개만)
 **F2 완료** (2026-05-05) — 메인 화면 + 골프룰 카드 재스타일
 
@@ -15,7 +16,7 @@
 - E7 ✅ Canvas 결과 공유 이미지
 - E8 ✅ 대기방 채팅 (onSnapshot + 카카오 스타일 + 삭제 권한)
 
-**배포 상태**: Firestore rules 배포 완료 (E5 — complete 타입 추가), GitHub Pages 미배포 (`app.js?v=e8`)
+**배포 상태**: Firestore rules 배포 완료 (E5 — complete 타입 추가), GitHub Pages 미배포 (`app.js?v=f3`)
 
 ---
 
@@ -157,6 +158,20 @@
 - **E6**: 정산 공식 `amount*(M-1)/(K*M)` 역산 도출. 홀인원 정산 제외(축하 목적). cleanupTournamentNotifications silent fail.
 - **E7**: Canvas 메모리 전용(DOM 추가 불필요). 정산표 미포함(카톡 단체 공개 부적합). blob URL 반드시 revokeObjectURL.
 - **E8**: groupConsecutiveMessages null sentAt → 같은 userId면 같은 그룹(freshly sent 처리). 빈 상태 createElement 동적 생성(innerHTML clear 후 getElementById 실패 방지). 보안 규칙 변경 0건(E0에서 이미 배포).
+
+---
+
+## F 단계 디자인 결정 로그
+
+- **F2 원칙**: 그린 면적 자제(Golf Canada 톤) — 텍스트/배경 area fill 금지, 버튼/숫자/배지에만 green accent.
+- **F2 헤더**: 48px→26px 미니멀. 프로필 HCP = `<span class="metric-large">` 큰 숫자 단독 표시.
+- **F2.1 버튼 3단계**: `.btn-primary` 1개만(정모 참여), `.btn-outline`(새 라운드/골프장 등록), `.btn-ghost`(골프룰). `.card > button { margin-bottom: 0 }` 글로벌 12px 상쇄.
+- **F3 카드 구조**: 정모 만들기 7개 섹션(기본정보/골프장&티박스/게임설정/팀구성/이벤트홀/게임상금/파정보). `<section class="card">` + `card-title` 헤더.
+- **F3 .field-group**: label(secondary색, small, medium-weight) + input/select 묶음. 섹션 내부 간격 담당.
+- **F3 .member-row**: 대기방 멤버 행. `.is-me`=accent-light bg + 2px green border, `.is-host`=warning-light bg, `.is-host.is-me`=135deg 그라디언트.
+- **F3 .code-display**: 36px bold 모노스페이스, letter-spacing 0.1em, card bg. 대기방 코드 + 생성 완료 코드 공유.
+- **F3 .badge**: inline-block, pill shape. `.badge-accent`(green), `.badge-warning`(yellow), `.badge-muted`(gray). 호스트/프록시 배지에 적용.
+- **F3 CSS specificity**: `section.team-config-section`(0,1,1) > `.card`(0,1,0) → `.team-config-section` margin을 `margin-bottom`만으로 제한.
 
 ---
 

@@ -911,7 +911,7 @@ select:focus {
    ========================================= */
 
 .share-info {
-    background: #f8f9fa;
+    background: var(--color-bg-card);
     padding: var(--space-md);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-md);
@@ -926,15 +926,14 @@ select:focus {
 
 .share-code {
     font-size: 36px;
-    font-weight: bold;
-    color: var(--color-accent);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
     text-align: center;
-    letter-spacing: 4px;
-    font-family: 'Courier New', monospace;
-    background: #fff;
+    letter-spacing: 0.1em;
+    background: var(--color-bg-card);
     padding: var(--space-md);
-    border-radius: var(--radius-md);
-    border: 2px dashed var(--color-accent);
+    border-radius: var(--radius-lg);
+    font-feature-settings: 'tnum';
 }
 
 .share-link-box {
@@ -998,11 +997,12 @@ select:focus {
    ========================================= */
 
 .join-info {
-    background: #fff;
-    border: 2px solid var(--color-accent);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    padding: 20px;
-    margin-bottom: 20px;
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
 }
 
 .join-row {
@@ -1226,7 +1226,7 @@ select:focus {
     background: var(--color-bg-card);
     border-radius: var(--radius-lg);
     padding: var(--space-md);
-    margin: var(--space-md) 0;
+    margin-bottom: var(--space-md);
 }
 
 .team-config-row {
@@ -1330,10 +1330,10 @@ select:focus {
 
 /* 정모 참여 화면 - 본인 정보 미리보기 (C2-2) */
 .my-profile-preview {
-    background: #f1f8e9;
-    border: 2px solid #aed581;
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-accent);
     border-radius: var(--radius-lg);
-    padding: 14px var(--space-md);
+    padding: var(--space-md);
     margin: var(--space-md) 0;
 }
 
@@ -1364,24 +1364,22 @@ select:focus {
 }
 
 .btn-copy-code {
-    padding: 0 var(--space-md);
-    font-size: 13px;
-    font-weight: 500;
-    background: var(--color-accent);
-    color: #fff;
-    border: none;
+    padding: 10px var(--space-md);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+    background: var(--color-bg);
+    color: var(--color-accent);
+    border: 1.5px solid var(--color-accent);
     border-radius: var(--radius-md);
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
-    font-family: inherit;
-    /* 코드 박스와 같은 높이로, 너비는 자기 컨텐츠만큼만 */
-    min-width: auto;
     width: auto;
+    transition: var(--transition-base);
 }
 
 .btn-copy-code:hover {
-    background: var(--color-accent-hover);
+    background: var(--color-accent-light);
 }
 
 .btn-copy-code:active {
@@ -1410,9 +1408,11 @@ select:focus {
 }
 
 .waiting-members-section {
-    margin: 20px 0;
-    background: var(--color-bg-card);
+    margin-bottom: var(--space-md);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
     padding: var(--space-md);
 }
 
@@ -2498,7 +2498,7 @@ select:focus {
 /* ===== D7-2: 골프장 상세 화면 ===== */
 
 .course-detail-info {
-    background: #f8f9fa;
+    background: var(--color-bg-card);
     border-radius: var(--radius-md);
     padding: 12px;
 }
@@ -2507,8 +2507,8 @@ select:focus {
     display: flex;
     justify-content: space-between;
     padding: 6px 0;
-    font-size: 0.95em;
-    border-bottom: 1px solid #e9ecef;
+    font-size: var(--font-size-small);
+    border-bottom: 1px solid var(--color-border-light);
 }
 
 .course-detail-row:last-child {
@@ -2516,13 +2516,13 @@ select:focus {
 }
 
 .course-detail-label {
-    color: #6c757d;
-    font-weight: 500;
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-medium);
 }
 
 .tee-detail-card {
-    background: #fff;
-    border: 1px solid #dee2e6;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     padding: 12px;
     margin-bottom: 12px;
@@ -2638,8 +2638,8 @@ select:focus {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #f1f8e9;
-    border: 1px solid #aed581;
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     padding: 10px 12px;
     margin-bottom: 6px;
@@ -2674,8 +2674,8 @@ select:focus {
 }
 
 .add-event-form {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     padding: 12px;
     margin-top: var(--space-sm);
@@ -3637,5 +3637,87 @@ select:focus {
 
 .card > button {
     margin-bottom: 0;
+}
+
+/* =========================================
+   F3: 신규 디자인 어휘
+   ========================================= */
+
+.field-group {
+    margin-bottom: var(--space-md);
+}
+
+.field-group label {
+    display: block;
+    font-size: var(--font-size-small);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-xs);
+    font-weight: var(--font-weight-medium);
+}
+
+.member-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-xs);
+    font-size: 15px;
+    transition: all 0.2s;
+}
+
+.member-row.is-me {
+    background: var(--color-accent-light);
+    border-color: var(--color-accent);
+    border-width: 2px;
+    font-weight: 500;
+}
+
+.member-row.is-host {
+    background: var(--color-warning-light);
+    border-color: #ffc107;
+}
+
+.member-row.is-host.is-me {
+    background: linear-gradient(135deg, var(--color-accent-light) 0%, var(--color-warning-light) 100%);
+    border-color: var(--color-accent);
+    border-width: 2px;
+}
+
+.code-display {
+    font-size: 36px;
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.1em;
+    color: var(--color-text-primary);
+    text-align: center;
+    padding: var(--space-md);
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    font-feature-settings: 'tnum';
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: var(--font-size-tiny);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-pill);
+}
+
+.badge-accent {
+    background: var(--color-accent-light);
+    color: var(--color-accent);
+}
+
+.badge-warning {
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+}
+
+.badge-muted {
+    background: var(--color-bg-card);
+    color: var(--color-text-muted);
 }
 
