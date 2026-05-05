@@ -774,6 +774,24 @@ function createCourseWithTeeBoxes(courseData, teeBoxes) {
         });
 }
 
+// =========================================
+// D7-1: usageCount increment (정모/라운드 만들 때 호출)
+// 실패해도 정모/라운드 생성은 계속 진행 (silent fail)
+// =========================================
+function incrementCourseUsageCount(courseId) {
+    if (!courseId) return Promise.resolve();
+    if (currentUser === null) return Promise.resolve();
+    return db.collection('courses').doc(courseId).update({
+        usageCount: firebase.firestore.FieldValue.increment(1)
+    })
+    .then(function() {
+        console.log('📈 골프장 사용 카운트 +1:', courseId);
+    })
+    .catch(function(error) {
+        console.warn('⚠️ usageCount increment 실패 (정모/라운드는 계속 진행):', error);
+    });
+}
+
 function deleteCourseWithTeeBoxes(courseId) {
     if (currentUser === null) return Promise.reject(new Error('NOT_AUTHENTICATED'));
 
@@ -1625,6 +1643,10 @@ function startNewRound() {
     };
 
     saveActiveRound();
+
+    // D7-1: 골프장 usage count 증가 (DB 골프장만, 자유 입력 무시)
+    incrementCourseUsageCount(currentRound.courseId);
+
     showScreen(screenHoleInput);
     renderHoleInputScreen();
 }
@@ -3117,6 +3139,9 @@ function createSharedRound(formData) {
         .then(function() {
             console.log('✅ 라운드 문서 생성 완료');
 
+            // D7-1: 골프장 usage count 증가
+            incrementCourseUsageCount(roundData.courseId);
+
             // 2. 호스트를 멤버로 추가
             const memberData = {
                 name: profile.name,
@@ -3272,6 +3297,9 @@ function createTournament(formData) {
     db.collection('tournaments').doc(tournamentId).set(tournamentData)
         .then(function() {
             console.log('✅ 정모 본 문서 생성 완료');
+
+            // D7-1: 골프장 usage count 증가 (DB 골프장만, 자유 입력 무시)
+            incrementCourseUsageCount(tournamentData.courseId);
 
             // 2. 호스트를 멤버로 추가
             const memberData = {

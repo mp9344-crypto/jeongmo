@@ -132,11 +132,23 @@ service cloud.firestore {
                     && request.resource.data.usageCount == 0
                     && request.resource.data.holes in [9, 18, 27];
 
-      // 등록자가 본인 정보 수정 (이름 오타 등). addedBy 변경 금지, usageCount 변경 금지.
+      // D7-1: 두 가지 update 케이스
+      // 케이스 A: 등록자가 일반 정보 수정 (addedBy/usageCount 잠금)
+      // 케이스 B: 인증된 사용자 누구나 usageCount만 +1 increment
       allow update: if request.auth != null
-                    && resource.data.addedBy == request.auth.uid
-                    && request.resource.data.addedBy == resource.data.addedBy
-                    && request.resource.data.usageCount == resource.data.usageCount;
+                    && (
+                      (resource.data.addedBy == request.auth.uid
+                       && request.resource.data.addedBy == resource.data.addedBy
+                       && request.resource.data.usageCount == resource.data.usageCount)
+                      ||
+                      (request.resource.data.addedBy == resource.data.addedBy
+                       && request.resource.data.name == resource.data.name
+                       && request.resource.data.city == resource.data.city
+                       && request.resource.data.country == resource.data.country
+                       && request.resource.data.holes == resource.data.holes
+                       && request.resource.data.tier == resource.data.tier
+                       && request.resource.data.usageCount == resource.data.usageCount + 1)
+                    );
 
       allow delete: if request.auth != null
                     && resource.data.addedBy == request.auth.uid;
