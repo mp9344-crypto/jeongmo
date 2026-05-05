@@ -1,5 +1,17 @@
 ## 현재 상태
 
+- **E5 완료** (2026-05-05) — 알림 자동 발행 + 라이브 티커 UI
+  - notifications/{id} onSnapshot 구독 (limit 20, createdAt desc)
+  - 스코어 기반: birdie/eagle/albatross/ace 자동 감지 (`detectScoreNotification`)
+  - 이벤트 기반: event_win (KP/롱기스트 위너 등록), ace (홀인원 이벤트 등록), complete (18홀 완료)
+  - 중복 방지: `lastNotifiedScores` — 타입 우선순위(birdie<eagle<albatross<ace), 개선 시만 재발행
+  - 티커 큐: 최대 10개, 8초/메시지 fade-in 전환, `displayNextTicker` 자동 순환
+  - 홀인원 폭죽 오버레이: 3초 confetti CSS 애니메이션, 새 알림 도착 시 자동 트리거
+  - 보안 규칙: `complete` 타입 추가 (E0 누락, 배포 완료)
+  - silent fail: 알림 발행 실패해도 스코어/이벤트 메인 흐름 무중단
+  - cleanup: `cleanupTournamentRoundListeners` + `enterTournamentRound`에 완전 통합
+  - Node.js 29/29, Playwright 시각 확인 (ticker/overlay 모두 정상), Firebase MCP write 확인
+  - 회귀 0: pars=[] 자유 입력 null 반환, B6/개인 tournamentId 없음 자동 스킵, E2/E3/E4 정상
 - **E4 완료** (2026-05-05) — 이벤트 홀 진행 UI (배너 + 위너 입력 모달)
   - 화면 3 상단: 이벤트 배너 (현재 홀 이벤트 있을 때, 여러 개 stack)
   - 배너 탭 → 위너 입력 모달 (KP/롱기스트 배열, 홀인원 단일 객체 분기)
@@ -27,7 +39,7 @@
   - tournaments/{id}/notifications: 신규 서브컬렉션 (type 6종 enum, holeNumber 1~18)
   - tournaments/{id}/messages: 신규 서브컬렉션 (text 1~500자, 호스트/본인 삭제)
   - Firestore rules deploy 완료, app.js 변경 0줄
-- **배포 상태**: Firestore rules 배포 완료 (E0), GitHub Pages 미배포 (app.js?v=e3)
+- **배포 상태**: Firestore rules 배포 완료 (E5 — complete 타입 추가), GitHub Pages 미배포 (app.js?v=e5)
 - 다음: E4 → E5 → E6 → E7 → E1(골프룰) → E8(채팅)
 
 ---
@@ -54,8 +66,7 @@
 - E2 ✅ 게임 방식 선택 UI — gameType 필드 + 드롭다운 + 화면 11/join/16 라벨
 - E3 ✅ 이벤트 홀 설정 UI — events[] 배열 저장 + 화면 8/11/join 표시
 - E4 ✅ 이벤트 홀 진행 UI — 배너 + 위너 입력 모달 + onSnapshot 자동 갱신
-- E5 ~
-- E5 ~
+- E5 ✅ 알림 자동 발행 + 라이브 티커 UI — detectScoreNotification + 큐/ticker + 홀인원 폭죽
 - E6 정산
 - E7 ~
 - E1 골프 룰 참조
@@ -147,6 +158,7 @@
 - **E0: tournaments update 케이스 B 추가** — 멤버가 `eventWinners` 필드만 update 허용. `exists()` 멤버십 검증 + `diff().affectedKeys().hasOnly(['eventWinners'])` 패턴. status=="completed" 시 차단.
 - **E0: notifications 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + type 6종 enum(birdie/eagle/albatross/ace/skin_win/event_win) + holeNumber 1~18. update 금지, 삭제 호스트만.
 - **E0: messages 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + text 1~500자. update 금지, 삭제 호스트 또는 본인.
+- **E5**: notifications 타입 enum에 `complete` 추가 (E0에서 누락). userId==auth.uid 제약으로 event_win/ace(이벤트) 알림은 등록자 uid + 위너 이름(userName) 패턴으로 보안 규칙 통과. 배포 완료.
 - **E4**: 보안 규칙 변경 0건. eventWinners 필드는 E0에서 이미 멤버 update 허용 (diff().affectedKeys().hasOnly(['eventWinners'])). arrayUnion/deleteField 모두 동일 경로. status=="completed" 시 자동 차단.
 - **E3**: 보안 규칙 변경 0건. events[] 배열은 Firestore 스키마 자유 — E0에서 이미 tournaments update 허용 범위에 포함됨. 클라이언트 UI + 검증 + 저장만.
 - **E2**: 보안 규칙 변경 0건. gameType 필드는 Firestore 스키마 자유 — E0에서 이미 tournaments update 허용 범위에 포함됨. 클라이언트 UI + 저장만.
@@ -288,6 +300,30 @@
 
 ---
 
+## E5 회고 (2026-05-05)
+
+**작업 범위**: 알림 자동 발행 + 라이브 티커 UI + 홀인원 폭죽 애니메이션. 보안 규칙: `complete` 타입 추가 1건.
+
+**설계 포인트**:
+- `detectScoreNotification(score, par, holeNumber, userId)` — score===1 → ace (par 무관), par-score>=3 → albatross, ==2 → eagle, ==1 → birdie. `lastNotifiedScores` { "userId_holeNumber": bestType }로 중복/퇴보 차단. `changeScore` 시점에 감지 (sync 시점 아님 — 재진입 sync에서 중복 발행 방지).
+- 이벤트 알림 uid 패턴: 보안 규칙 `userId == auth.uid` 제약 → 등록자 uid를 userId에, 위너 이름을 userName에 저장. 티커는 userName으로 표시. 의미상 mismatch지만 보안 규칙 통과 + 표시 정확성 모두 충족.
+- `complete` 타입: E0 규칙 누락 → E5에서 enum에 추가 배포. holeNumber=18, extra=총타수 문자열.
+- 티커 fixed 오버레이: `position:fixed; top:0; z-index:900` — 화면 교체 없이 모든 화면에 표시. `displayNextTicker` → 8초 setTimeout → 다음 메시지. `tickerDisplayTimer !== null`이면 큐에만 push (중복 displayNextTicker 방지).
+- 홀인원 폭죽: `triggerHoleInOneAnimation` — CSS `@keyframes confetti-fall` (12개 span, nth-child별 다른 left%/delay). 3초 후 auto-hide. 초기 로드 알림은 폭죽 없음 (`initialLoadDone` 플래그).
+- onSnapshot `seenIds` Set: 한 번 처리한 문서 ID 재처리 방지. limit 20 + desc 정렬 → 오래된 알림이 limit 밖으로 밀릴 때 `removed` change 발생 — seenIds로 안전 처리.
+
+**검증 결과**:
+- Node.js 단위 테스트 29/29 통과 (detectScoreNotification 18케이스, renderTickerMessage 9케이스, 큐 cap 2케이스)
+- Playwright: 이글 티커 표시 (다크 네이비 바), 홀인원 overlay 3초 자동 dismiss, 큐 addToTickerQueue 정상 동작
+- Firebase MCP: birdie/ace/complete 타입 Firestore write 성공 → 테스트 데이터 정리
+- 회귀: pars=undefined/null/0 → null, skin_win/unknown → empty string, cleanup 안전 호출
+
+**트러블슈팅**:
+- 홀인원 overlay 스크린샷에서 안 보임 → Playwright 툴 호출 간격이 3초 넘어 auto-dismiss됨. 첫 evaluate에서 `overlayHidden: false` 반환 — 정상 작동 확인됨.
+- module-scoped `tickerQueue/tickerDisplayTimer` window 접근 불가 → 함수 동작 결과(DOM 텍스트, ticker visible)로 간접 검증 (E3/E4 패턴 답습).
+
+---
+
 ## E4 회고 (2026-05-05)
 
 **작업 범위**: 화면 3 이벤트 배너 + 위너 입력 모달 + Firestore 저장/취소 + onSnapshot 자동 갱신. 보안 규칙 변경 0건.
@@ -313,6 +349,12 @@
 ---
 
 ## 코드 패턴 메모
+
+- **E5 알림/티커**: `detectScoreNotification(score, par, holeNumber, userId)` → "birdie"|"eagle"|"albatross"|"ace"|null. `lastNotifiedScores` { "userId_holeNumber": bestType } — 중복/퇴보 차단. `NOTIFICATION_TYPE_PRIORITY` = {birdie:1, eagle:2, albatross:3, ace:4}. `publishNotification(tournamentId, {type, userId, userName, holeNumber, extra?})` silent fail. type 7종: birdie/eagle/albatross/ace/skin_win/event_win/complete.
+- **E5 이벤트 알림 패턴**: event_win/ace(이벤트) 등록자 uid(`currentUser.uid`)로 보안 규칙 통과, `userName`에 위너 이름 저장 (uid≠위너). 티커 `renderTickerMessage`는 `userName` 필드로 표시.
+- **E5 티커**: `tickerQueue[]` 최대 10개 (초과 시 `shift()`). `TICKER_DISPLAY_MS = 8000`. `displayNextTicker()` → `showTickerMessage(text)` → `requestAnimationFrame` fade-in (opacity 0→1). `tickerDisplayTimer` 하나가 큐 순환 담당. `#live-ticker-bar` `position:fixed; top:0; z-index:900` — 모든 화면 위에 표시.
+- **E5 홀인원 폭죽**: `triggerHoleInOneAnimation(notification)` — `#holeinone-overlay` (z-index:9999) 3초 표시 후 auto-hide. `.holeinone-confetti span` 12개 nth-child 각각 다른 left%/animation-delay. `@keyframes confetti-fall` (translateY 0→105vh, rotate 380deg). `@keyframes holeinone-glow` 텍스트 glow 무한 반복. 새 ace 알림 도착 시에만 트리거 (초기 로드 스킵).
+- **E5 onSnapshot**: `subscribeNotifications(tournamentId)` — `orderBy('createdAt','desc').limit(20)`. `seenIds` Set으로 중복 방지. `initialLoadDone` 플래그: 초기 20개는 `batch.reverse()` 후 티커 큐에 추가(폭죽 없음), 이후 도착 알림은 큐+폭죽(ace). cleanup: `cleanupTournamentRoundListeners` + `enterTournamentRound` 모두.
 
 - **E4 이벤트 위너**: `eventWinners` map — `{ eventId: array | object }`. KP/롱기스트=배열, 홀인원=단일 객체 `{achieved, userId, userName, inputBy, inputByName, inputAt}`. `inputAt: Date.now()` (arrayUnion 내 serverTimestamp 미지원). 배너: `#event-banners` .event-banner-item (탭 가능). 모달: `#event-winner-modal` .event-winner-modal-overlay. 액션 동적 렌더: `renderKpLongestModalActions` / `renderHoleInOneModalActions`. 취소 권한: `canCancelLastEventWinner(event, map, uid, isHost)`. 진입 토스트: `triggerEventHoleArrivalToast(holeNumber)` — `eventHoleArrivalShown` Set dedupe.
 - **E4 onSnapshot 통합**: 대기실 `tournamentWaitingTournamentUnsub` + 재진입 `roundTournamentStatusUnsub` 둘 다 `updateEventWinnersDisplay()` 호출. 대기실 경로에서는 "이미 라운드 화면" 조기 반환 직전에 추가.
@@ -416,6 +458,9 @@
 ---
 
 ## 미래 작업 메모 (D 단계 이후)
+
+### E6 알림 정리 로직 (정모 종료 시)
+Spark 플랜이라 Cloud Functions 없음. 정모 종료 시 notifications 서브컬렉션 batch delete. E6 정산 마일스톤에서 처리. 현재는 알림이 무기한 보존됨 (읽기 비용 미미, Firestore 저장은 무료 quota 내).
 
 ### D7 신고 자동 검증 자동화 (PRD 6.4.5)
 "3명 이상 사용 시 자동 검증" + 관리자 도구 화면. 신고 누적되면 별도 단계로 처리.

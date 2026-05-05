@@ -424,6 +424,14 @@ let proxySyncTimers = {};          // { proxyId: timerId }
 let eventHoleArrivalShown = new Set(); // 진입 토스트 중복 방지 (holeNumber)
 let openEventModalId = null;           // 현재 열린 모달의 eventId
 
+// E5: 알림/티커 상태
+let notificationsUnsub = null;         // onSnapshot 해제
+let lastNotifiedScores = {};           // { "userId_holeNumber": bestType } 중복 방지
+let tickerQueue = [];                  // 표시 대기 큐 (최대 10개)
+let tickerDisplayTimer = null;         // 현재 메시지 타이머
+const NOTIFICATION_TYPE_PRIORITY = { birdie: 1, eagle: 2, albatross: 3, ace: 4 };
+const TICKER_DISPLAY_MS = 8000;
+
 // C4-6: 렌더링 throttle 유틸리티
 // 첫 호출 즉시 실행 + delayMs 동안 무시 + 무시 기간 끝나면 마지막 args로 1번 더
 function createThrottle(fn, delayMs) {
@@ -3345,6 +3353,14 @@ function submitEventWinner(eventId, winnerUserId, winnerUserName) {
         .then(function() {
             console.log('✅ 이벤트 위너 저장:', eventId, winnerUserName);
             closeEventWinnerModal();
+            // E5: 이벤트 위너 알림 발행
+            if (currentTournamentDoc && currentTournamentDoc.events) {
+                var ev = currentTournamentDoc.events.find(function(e) { return e.id === eventId; });
+                if (ev) {
+                    var typeKor = ev.type === 'kp' ? 'KP' : ev.type === 'longest' ? '롱기스트' : ev.type;
+                    publishEventWinNotification(currentRound.tournamentId, ev.holeNumber, winnerUserName, typeKor);
+                }
+            }
         })
         .catch(function(error) {
             console.error('❌ 이벤트 위너 저장 실패:', error);
@@ -3370,6 +3386,13 @@ function submitHoleInOne(eventId, winnerUserId, winnerUserName) {
         .then(function() {
             console.log('✅ 홀인원 저장:', eventId, winnerUserName);
             closeEventWinnerModal();
+            // E5: 홀인원 이벤트 알림 발행
+            if (currentTournamentDoc && currentTournamentDoc.events) {
+                var ev = currentTournamentDoc.events.find(function(e) { return e.id === eventId; });
+                if (ev) {
+                    publishHoleInOneEventNotification(currentRound.tournamentId, ev.holeNumber, winnerUserName);
+                }
+            }
         })
         .catch(function(error) {
             console.error('❌ 홀인원 저장 실패:', error);
@@ -3535,11 +3558,39 @@ function changeScore(delta) {
     if (data.isProxy) {
         renderHoleInputScreen();
         scheduleSyncProxyScore(data.proxyId);
+        // E5: 프록시 스코어 알림 감지 (정모 라운드만)
+        if (currentRound && currentRound.tournamentId && currentUser &&
+                currentRound.pars && currentRound.pars[holeIndex]) {
+            var proxyMember = leaderboardAllMembers.find(function(m) { return m.id === data.proxyId; });
+            var proxyName = proxyMember ? (proxyMember.name || '프록시') : '프록시';
+            var pntype = detectScoreNotification(newScore, currentRound.pars[holeIndex], data.currentHole, data.proxyId);
+            if (pntype) {
+                publishNotification(currentRound.tournamentId, {
+                    type: pntype,
+                    userId: currentUser.uid,  // 보안 규칙: 등록자 uid
+                    userName: proxyName,       // 티커: 프록시 이름
+                    holeNumber: data.currentHole
+                });
+            }
+        }
     } else {
         saveActiveRound();
         renderHoleInputScreen();
         if (currentRound.tournamentId) {
             scheduleSyncMyScoreToTournament();
+            // E5: 본인 스코어 알림 감지 (정모 라운드만)
+            if (currentUser && currentRound.pars && currentRound.pars[holeIndex]) {
+                var sntype = detectScoreNotification(newScore, currentRound.pars[holeIndex], data.currentHole, currentUser.uid);
+                if (sntype) {
+                    var suname = (loadUserProfile() || {}).name || '나';
+                    publishNotification(currentRound.tournamentId, {
+                        type: sntype,
+                        userId: currentUser.uid,
+                        userName: suname,
+                        holeNumber: data.currentHole
+                    });
+                }
+            }
         } else if (currentRound.isShared && currentRound.shareCode) {
             scheduleSyncMyScoreToFirestore();
         }
@@ -3617,6 +3668,12 @@ function handleFinishTournamentRound() {
     saveActiveRound();
 
     syncMyScoreToTournament();
+    // E5: 18홀 완료 알림 발행
+    if (currentRound.tournamentId && currentUser) {
+        var finishTotalScore = currentRound.scores.reduce(function(sum, s) { return sum + (s || 0); }, 0);
+        var finishUname = (loadUserProfile() || {}).name || '나';
+        publishCompleteNotification(currentRound.tournamentId, currentUser.uid, finishUname, finishTotalScore);
+    }
     alert('✅ 라운드 완료!\n\n호스트가 정모를 종료할 때까지 대기해주세요.\n🏆 리더보드에서 순위를 확인할 수 있습니다.');
 }
 
@@ -4590,6 +4647,9 @@ function enterTournamentRound(tournamentId, tournamentDoc) {
             subscribeTournamentTeamMembers(tournamentId, myTournamentTeamId);
             // D8-3: 프록시 토글용 전체 멤버 구독 (leaderboardAllMembers 채우기)
             subscribeAllTournamentMembers(tournamentId);
+            // E5: 알림 구독 시작
+            lastNotifiedScores = {};
+            subscribeNotifications(tournamentId);
 
             // C4-7: 새로고침 시 자동 복귀 위해 URL에 ?t=정모코드 유지
             try {
@@ -4665,11 +4725,213 @@ function cleanupTournamentRoundListeners() {
     eventHoleArrivalShown = new Set();
     openEventModalId = null;
     closeEventWinnerModal();
+    // E5: 알림 구독 해제 + 상태 초기화
+    unsubscribeNotifications();
+    lastNotifiedScores = {};
     try {
         if (window.location.search) {
             window.history.replaceState({}, '', window.location.pathname);
         }
     } catch (e) { /* 무시 */ }
+}
+
+// =========================================
+// E5: 알림 발행 + 라이브 티커
+// =========================================
+
+// 스코어 기반 알림 타입 감지 + lastNotifiedScores 중복 방지
+function detectScoreNotification(score, par, holeNumber, userId) {
+    if (!par || par <= 0 || score === null || score === undefined) return null;
+    var type = null;
+    if (score === 1) { type = 'ace'; }
+    else if (par - score >= 3) { type = 'albatross'; }
+    else if (par - score === 2) { type = 'eagle'; }
+    else if (par - score === 1) { type = 'birdie'; }
+    if (type === null) return null;
+    var key = userId + '_' + holeNumber;
+    var existing = lastNotifiedScores[key];
+    var existingPriority = existing ? (NOTIFICATION_TYPE_PRIORITY[existing] || 0) : 0;
+    var newPriority = NOTIFICATION_TYPE_PRIORITY[type] || 0;
+    if (newPriority <= existingPriority) return null;
+    lastNotifiedScores[key] = type;
+    return type;
+}
+
+// 알림 Firestore 저장 — silent fail
+function publishNotification(tournamentId, data) {
+    if (!tournamentId || !currentUser) return;
+    db.collection('tournaments').doc(tournamentId)
+        .collection('notifications')
+        .add(Object.assign({}, data, {
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }))
+        .then(function() {
+            console.log('🔔 알림 발행:', data.type, data.userName, data.holeNumber + '번 홀');
+        })
+        .catch(function(e) {
+            console.warn('⚠️ 알림 발행 실패 (silent):', e.message);
+        });
+}
+
+// KP/롱기스트 위너 알림 (등록자 uid, 위너 이름)
+function publishEventWinNotification(tournamentId, holeNumber, winnerUserName, eventTypeKor) {
+    if (!tournamentId || !currentUser) return;
+    publishNotification(tournamentId, {
+        type: 'event_win',
+        userId: currentUser.uid,      // 보안 규칙: auth.uid = 등록자
+        userName: winnerUserName,     // 티커 표시: 위너 이름
+        holeNumber: holeNumber,
+        extra: holeNumber + '번 홀 ' + eventTypeKor + ' 우승'
+    });
+}
+
+// 홀인원 이벤트 알림 (등록자 uid, 위너 이름)
+function publishHoleInOneEventNotification(tournamentId, holeNumber, winnerUserName) {
+    if (!tournamentId || !currentUser) return;
+    publishNotification(tournamentId, {
+        type: 'ace',
+        userId: currentUser.uid,      // 보안 규칙: auth.uid = 등록자
+        userName: winnerUserName,     // 티커 표시: 위너 이름
+        holeNumber: holeNumber
+    });
+}
+
+// 18홀 완료 알림
+function publishCompleteNotification(tournamentId, userId, userName, totalScore) {
+    if (!tournamentId) return;
+    publishNotification(tournamentId, {
+        type: 'complete',
+        userId: userId,
+        userName: userName,
+        holeNumber: 18,
+        extra: totalScore ? totalScore.toString() : null
+    });
+}
+
+// 티커 메시지 문자열 생성
+function renderTickerMessage(notification) {
+    var name = escapeHtml(notification.userName || '누군가');
+    var hole = notification.holeNumber;
+    var extra = notification.extra || '';
+    switch (notification.type) {
+        case 'birdie':    return '🐦 ' + name + '이 ' + hole + '번 홀 버디!';
+        case 'eagle':     return '🦅🦅 ' + name + '이 ' + hole + '번 홀 이글!';
+        case 'albatross': return '🌟🌟🌟 ' + name + '이 ' + hole + '번 홀 알바트로스!! 대박!';
+        case 'ace':       return '⛳🎯💎 ' + name + '이 ' + hole + '번 홀 홀인원!! 축하!!';
+        case 'event_win': return '🏆 ' + name + '이 ' + extra + '!';
+        case 'complete':  return '✓ ' + name + ' 18홀 완료' + (extra ? ' (' + extra + '타)' : '');
+        default: return '';
+    }
+}
+
+// 티커 큐에 추가 (최대 10개, 자동 표시 시작)
+function addToTickerQueue(notification) {
+    var msg = renderTickerMessage(notification);
+    if (!msg) return;
+    tickerQueue.push({ msg: msg, type: notification.type });
+    if (tickerQueue.length > 10) tickerQueue.shift();
+    if (tickerDisplayTimer === null) displayNextTicker();
+}
+
+// 큐에서 꺼내 순서대로 표시
+function displayNextTicker() {
+    if (tickerQueue.length === 0) { hideTicker(); return; }
+    var item = tickerQueue.shift();
+    showTickerMessage(item.msg);
+    tickerDisplayTimer = setTimeout(function() {
+        tickerDisplayTimer = null;
+        displayNextTicker();
+    }, TICKER_DISPLAY_MS);
+}
+
+// 티커 바에 메시지 표시 (fade in)
+function showTickerMessage(text) {
+    var bar = document.getElementById('live-ticker-bar');
+    var textEl = document.getElementById('live-ticker-text');
+    if (!bar || !textEl) return;
+    textEl.style.opacity = '0';
+    textEl.textContent = text;
+    bar.classList.remove('hidden');
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            textEl.style.opacity = '1';
+        });
+    });
+}
+
+// 티커 바 숨김
+function hideTicker() {
+    var bar = document.getElementById('live-ticker-bar');
+    if (bar) bar.classList.add('hidden');
+}
+
+// 홀인원 폭죽 오버레이 3초 표시
+function triggerHoleInOneAnimation(notification) {
+    var overlay = document.getElementById('holeinone-overlay');
+    var msgEl = document.getElementById('holeinone-message');
+    if (!overlay) return;
+    var name = escapeHtml(notification.userName || '누군가');
+    if (msgEl) msgEl.textContent = '⛳🎯💎 ' + name + '이 ' + notification.holeNumber + '번 홀 홀인원!! 축하!!';
+    overlay.classList.remove('hidden');
+    setTimeout(function() { overlay.classList.add('hidden'); }, 3000);
+}
+
+// E5: notifications onSnapshot 구독
+function subscribeNotifications(tournamentId) {
+    if (notificationsUnsub !== null) {
+        notificationsUnsub();
+        notificationsUnsub = null;
+    }
+    console.log('🔔 알림 구독 시작:', tournamentId);
+
+    var seenIds = new Set();
+    var initialLoadDone = false;
+
+    notificationsUnsub = db.collection('tournaments').doc(tournamentId)
+        .collection('notifications')
+        .orderBy('createdAt', 'desc')
+        .limit(20)
+        .onSnapshot(function(snapshot) {
+            var batch = [];
+            snapshot.docChanges().forEach(function(change) {
+                if (change.type !== 'added') return;
+                var doc = change.doc;
+                if (seenIds.has(doc.id)) return;
+                seenIds.add(doc.id);
+                var n = doc.data();
+                n.id = doc.id;
+                batch.push(n);
+            });
+
+            if (!initialLoadDone) {
+                initialLoadDone = true;
+                // 기존 알림: 시간 순(오래된 것 먼저) → 큐 표시, 폭죽 없음
+                batch.reverse().forEach(function(n) { addToTickerQueue(n); });
+            } else {
+                // 새 알림: 큐 + 홀인원이면 폭죽
+                batch.forEach(function(n) {
+                    addToTickerQueue(n);
+                    if (n.type === 'ace') triggerHoleInOneAnimation(n);
+                });
+            }
+        }, function(error) {
+            console.error('❌ 알림 구독 에러:', error);
+        });
+}
+
+// E5: 알림 구독 해제 + 티커 초기화
+function unsubscribeNotifications() {
+    if (notificationsUnsub !== null) {
+        notificationsUnsub();
+        notificationsUnsub = null;
+        console.log('🧹 알림 구독 해제');
+    }
+    if (tickerDisplayTimer !== null) {
+        clearTimeout(tickerDisplayTimer);
+        tickerDisplayTimer = null;
+    }
+    tickerQueue = [];
+    hideTicker();
 }
 
 // C4-4: 리더보드 화면 진입 — 정모 전체 멤버 구독 시작

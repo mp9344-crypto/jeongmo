@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>정모 - Live Golf Scoring for Friends</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=e4">
+    <link rel="stylesheet" href="style.css?v=e5">
 </head>
 <body>
 
@@ -1035,7 +1035,22 @@
             </div>
         </div>
 
+        <!-- E5: 홀인원 폭죽 오버레이 -->
+        <div id="holeinone-overlay" class="holeinone-overlay hidden">
+            <div class="holeinone-confetti" aria-hidden="true">
+                <span>⛳</span><span>🎉</span><span>🏆</span><span>🎊</span>
+                <span>⭐</span><span>🎉</span><span>✨</span><span>🎊</span>
+                <span>🏅</span><span>🎉</span><span>💎</span><span>🎊</span>
+            </div>
+            <div class="holeinone-message" id="holeinone-message">⛳🎯💎 홀인원!! 축하!!</div>
+        </div>
+
     </main>
+
+    <!-- E5: 라이브 알림 티커 (fixed, 모든 화면 위) -->
+    <div id="live-ticker-bar" class="live-ticker-bar hidden">
+        <span id="live-ticker-text" class="live-ticker-text"></span>
+    </div>
 
     <!-- ===== Firebase SDK (CDN) ===== -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
@@ -1044,7 +1059,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=e4"></script>
+    <script src="app.js?v=e5"></script>
 
 </body>
 </html>

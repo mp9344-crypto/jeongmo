@@ -88,8 +88,8 @@ service cloud.firestore {
                      && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status != "completed";
       }
 
-      // === notifications 서브컬렉션 (E0 신규) ===
-      // type 6종: birdie, eagle, albatross, ace, skin_win, event_win
+      // === notifications 서브컬렉션 (E0 신규, E5에서 complete 추가) ===
+      // type 7종: birdie, eagle, albatross, ace, skin_win, event_win, complete
       match /notifications/{notificationId} {
         // 읽기: 멤버만
         allow read: if request.auth != null
@@ -100,7 +100,7 @@ service cloud.firestore {
                       && exists(/databases/$(database)/documents/tournaments/$(tournamentId)/members/$(request.auth.uid))
                       && request.resource.data.userId == request.auth.uid
                       && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status != "completed"
-                      && request.resource.data.type in ["birdie", "eagle", "albatross", "ace", "skin_win", "event_win"]
+                      && request.resource.data.type in ["birdie", "eagle", "albatross", "ace", "skin_win", "event_win", "complete"]
                       && request.resource.data.holeNumber is int
                       && request.resource.data.holeNumber >= 1
                       && request.resource.data.holeNumber <= 18;

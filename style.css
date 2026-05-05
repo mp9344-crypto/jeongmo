@@ -2820,3 +2820,109 @@ select:focus {
     color: #92400e;
     margin-bottom: 4px;
 }
+
+/* =========================================
+   E5: 라이브 알림 티커
+   ========================================= */
+
+.live-ticker-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f2340 100%);
+    color: #fff;
+    padding: 10px 16px;
+    z-index: 900;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 2px solid #3b82f6;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.live-ticker-bar.hidden { display: none !important; }
+
+.live-ticker-text {
+    display: inline-block;
+    transition: opacity 0.35s ease;
+}
+
+/* =========================================
+   E5: 홀인원 폭죽 오버레이
+   ========================================= */
+
+.holeinone-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.82);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    animation: holeinone-fadein 0.4s ease-out;
+}
+
+.holeinone-overlay.hidden { display: none !important; }
+
+@keyframes holeinone-fadein {
+    from { opacity: 0; transform: scale(0.9); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.holeinone-message {
+    font-size: 22px;
+    font-weight: 900;
+    color: #fbbf24;
+    text-align: center;
+    padding: 20px 24px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.07);
+    line-height: 1.4;
+    z-index: 1;
+    animation: holeinone-glow 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes holeinone-glow {
+    from { text-shadow: 0 0 20px rgba(251, 191, 36, 0.6); transform: scale(1); }
+    to   { text-shadow: 0 0 40px rgba(251, 191, 36, 1), 0 0 70px rgba(245, 130, 10, 0.7); transform: scale(1.04); }
+}
+
+.holeinone-confetti {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.holeinone-confetti span {
+    position: absolute;
+    font-size: 22px;
+    top: -40px;
+    animation: confetti-fall 2.8s ease-in forwards;
+}
+
+.holeinone-confetti span:nth-child(1)  { left:  5%; animation-delay: 0.00s; }
+.holeinone-confetti span:nth-child(2)  { left: 15%; animation-delay: 0.18s; }
+.holeinone-confetti span:nth-child(3)  { left: 25%; animation-delay: 0.35s; }
+.holeinone-confetti span:nth-child(4)  { left: 35%; animation-delay: 0.08s; }
+.holeinone-confetti span:nth-child(5)  { left: 45%; animation-delay: 0.22s; }
+.holeinone-confetti span:nth-child(6)  { left: 55%; animation-delay: 0.12s; }
+.holeinone-confetti span:nth-child(7)  { left: 65%; animation-delay: 0.28s; }
+.holeinone-confetti span:nth-child(8)  { left: 75%; animation-delay: 0.42s; }
+.holeinone-confetti span:nth-child(9)  { left: 83%; animation-delay: 0.05s; }
+.holeinone-confetti span:nth-child(10) { left: 91%; animation-delay: 0.38s; }
+.holeinone-confetti span:nth-child(11) { left: 50%; animation-delay: 0.55s; }
+.holeinone-confetti span:nth-child(12) { left: 30%; animation-delay: 0.48s; }
+
+@keyframes confetti-fall {
+    0%   { transform: translateY(0)     rotate(0deg);   opacity: 1; }
+    100% { transform: translateY(105vh) rotate(380deg); opacity: 0.2; }
+}
