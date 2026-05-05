@@ -1,532 +1,225 @@
 ## 현재 상태
 
-- **E5 완료** (2026-05-05) — 알림 자동 발행 + 라이브 티커 UI
-  - notifications/{id} onSnapshot 구독 (limit 20, createdAt desc)
-  - 스코어 기반: birdie/eagle/albatross/ace 자동 감지 (`detectScoreNotification`)
-  - 이벤트 기반: event_win (KP/롱기스트 위너 등록), ace (홀인원 이벤트 등록), complete (18홀 완료)
-  - 중복 방지: `lastNotifiedScores` — 타입 우선순위(birdie<eagle<albatross<ace), 개선 시만 재발행
-  - 티커 큐: 최대 10개, 8초/메시지 fade-in 전환, `displayNextTicker` 자동 순환
-  - 홀인원 폭죽 오버레이: 3초 confetti CSS 애니메이션, 새 알림 도착 시 자동 트리거
-  - 보안 규칙: `complete` 타입 추가 (E0 누락, 배포 완료)
-  - silent fail: 알림 발행 실패해도 스코어/이벤트 메인 흐름 무중단
-  - cleanup: `cleanupTournamentRoundListeners` + `enterTournamentRound`에 완전 통합
-  - Node.js 29/29, Playwright 시각 확인 (ticker/overlay 모두 정상), Firebase MCP write 확인
-  - 회귀 0: pars=[] 자유 입력 null 반환, B6/개인 tournamentId 없음 자동 스킵, E2/E3/E4 정상
-- **E4 완료** (2026-05-05) — 이벤트 홀 진행 UI (배너 + 위너 입력 모달)
-  - 화면 3 상단: 이벤트 배너 (현재 홀 이벤트 있을 때, 여러 개 stack)
-  - 배너 탭 → 위너 입력 모달 (KP/롱기스트 배열, 홀인원 단일 객체 분기)
-  - [내가 위너] + [다른 사람 선택 ▼] (본인 팀 멤버만, 본인 제외) + [마지막 입력 취소] (호스트/inputBy)
-  - 홀인원: 달성 시 등록 버튼 hidden + "X님이 홀인원! 🎉" 표시
-  - arrayUnion (동시 입력 안전) + read-modify-write (pop) + deleteField (홀인원 취소)
-  - 진입 토스트: 이벤트 홀 최초 진입 시 1회 (eventHoleArrivalShown Set으로 중복 방지)
-  - tournament 본 문서 onSnapshot 통합 — 위너 변경 시 배너/모달 자동 갱신
-  - cleanup: leaveTournament 모든 경로 (eventHoleArrivalShown, openEventModalId, 모달 닫기)
-  - 보안 규칙 변경 0건 (E0 사전 정비 활용), Node.js 29/29, Playwright 통과
-  - 회귀 0: 이벤트 0개/undefined, 비정모 라운드, E2/E3 모두 정상
-- **E3 완료** (2026-05-05) — 이벤트 홀 설정 UI
-  - 화면 8: 이벤트 홀 섹션 (KP/롱기스트/홀인원, 최대 5개, 종류별 홀 자동 필터)
-  - 골프장/티박스 변경 시 검증 실패 이벤트 자동 삭제 + 토스트
-  - tournaments/{id}.events[] 배열 저장
-  - 화면 11/join 이벤트 리스트 표시 (0개 시 hidden)
-  - 보안 규칙 변경 0건 (E0 사전 정비로 이미 허용), Node.js 22/22, Playwright 통과
-- **E2 완료** (2026-05-05) — 게임 방식 선택 UI
-  - 화면 8: "게임 방식" 드롭다운 추가 (스트로크 플레이 활성 + 3종 disabled "(추후 지원)")
-  - tournaments/{id}.gameType 필드 저장 ("stroke" 기본값, 기존 정모 undefined → 자동 fallback)
-  - 화면 11/join/16 메타에 getGameTypeLabel() 라벨 표시
-  - 보안 규칙 변경 0건, 계산 로직 변경 0건
-- **E0 완료** (2026-05-05) — E 단계 시작, 보안 규칙 사전 정비 완료
-  - tournaments update: eventWinners 멤버 update 분기 추가 (diff().affectedKeys().hasOnly 패턴)
-  - tournaments/{id}/notifications: 신규 서브컬렉션 (type 6종 enum, holeNumber 1~18)
-  - tournaments/{id}/messages: 신규 서브컬렉션 (text 1~500자, 호스트/본인 삭제)
-  - Firestore rules deploy 완료, app.js 변경 0줄
-- **배포 상태**: Firestore rules 배포 완료 (E5 — complete 타입 추가), GitHub Pages 미배포 (app.js?v=e5)
-- 다음: E4 → E5 → E6 → E7 → E1(골프룰) → E8(채팅)
+**F2.1 완료** (2026-05-05) — 메인 4액션 버튼 위계 도입 (그린 1개만)
+**F2 완료** (2026-05-05) — 메인 화면 + 골프룰 카드 재스타일
 
----
+**E 단계 전체 완료** (2026-05-05)
 
-## C4 진행 현황
+- E0 ✅ 보안 규칙 사전 정비 (eventWinners 멤버 update + notifications/messages 서브컬렉션)
+- E1 ✅ 골프룰 이해 (GOLF_RULES_CARDS 7개 + 캐러셀 갤러리, 화면 25)
+- E2 ✅ 게임 방식 선택 UI (gameType 필드 + 드롭다운)
+- E3 ✅ 이벤트 홀 설정 UI (events[] 배열 + 화면 8/11/join)
+- E4 ✅ 이벤트 홀 진행 UI (배너 + 위너 입력 모달 + onSnapshot)
+- E5 ✅ 알림 자동 발행 + 라이브 티커 + 홀인원 폭죽
+- E6 ✅ 결과 정산 + 알림 정리
+- E7 ✅ Canvas 결과 공유 이미지
+- E8 ✅ 대기방 채팅 (onSnapshot + 카카오 스타일 + 삭제 권한)
 
-- C4-1 ✅ 라운드 자동 전환 + 정모 모드 배지 + 입력 가드
-- C4-2 ✅ 스코어 Firestore sync (500ms debounce, `scheduleSyncMyScoreToTournament`)
-- C4-3 ✅ 본인 팀 멤버 미니 스트립 (`where('teamId')` 서버 필터, onSnapshot cleanup)
-- C4-4 ✅ 라이브 리더보드 Gross (개인 순위, onSnapshot, cleanup 연동)
-- C4-5 ✅ Net 모드 + 팀별 합계 (개인+팀 양쪽 표시, 비례 핸디) — 시각 확인 완료
-- C4-6 ✅ 1초 throttle + beforeunload 누수 방지 + 32명 부하 테스트 (20회 onSnapshot → 2회 render, 90% 감소 확인)
-- C4-7 ✅ in_progress 재진입 동선 (호스트/기존멤버 자동 화면3, 신규 차단, URL 새로고침 복귀, 종료 감지)
-
-## C5 진행 현황
-
-- C5 ✅ 정모 종료 + 결과 화면 (화면 16) — 우승자 카드, 최종 개인/팀 순위, 나의 스코어카드, 자동 종료 감지
-
----
-
-## E 단계 진행 현황 (PRD 7장: 정모 재미 강화)
-
-- E0 ✅ 보안 규칙 사전 정비 — eventWinners 멤버 update + notifications/messages 서브컬렉션
-- E2 ✅ 게임 방식 선택 UI — gameType 필드 + 드롭다운 + 화면 11/join/16 라벨
-- E3 ✅ 이벤트 홀 설정 UI — events[] 배열 저장 + 화면 8/11/join 표시
-- E4 ✅ 이벤트 홀 진행 UI — 배너 + 위너 입력 모달 + onSnapshot 자동 갱신
-- E5 ✅ 알림 자동 발행 + 라이브 티커 UI — detectScoreNotification + 큐/ticker + 홀인원 폭죽
-- E6 정산
-- E7 ~
-- E1 골프 룰 참조
-- E8 채팅
-
----
-
-## C 단계 회고 (2026-05-04)
-
-### 전체 구조
-- **5단계 C로 분할**: C1 (정모 생성·진입), C2 (대기실·참여), C3 (팀 배정 5단계), C4 (라이브 7단계), C5 (종료 1단계)
-- git 커밋 38개, 약 4,500줄 app.js (C 단계 시작 당시 기준 대비 ~3배 증가)
-
-### 보안 규칙 진화
-- 옵션 B (호스트 + 본인 보호) → status forward-only 강화 (C3-5)
-- `waiting → in_progress → completed` 단방향 Firestore 규칙으로 상태 역행 원천 차단
-- 결과: `handleEndTournament`에서 이미-종료 정모 재쓰기 시 permission-denied로 자동 보호
-
-### 검증 패턴 확립
-- **순수 함수**: `node -e "..."` 인라인 Node.js 단위 테스트 (정렬·계산 로직 즉시 검증)
-- **라이브 UI**: Playwright MCP (시각 확인 + 라이브 동기화 latency)
-- **데이터 주입**: Firebase MCP (멤버 대량 주입, 상태 강제 전환)
-
-### 핵심 검증 통과
-- **40명 cap**: 50개 DOM 행 (40 개인 + 10팀) 0.6ms 렌더링 확인
-- **1초 throttle**: 20회 onSnapshot → renderLeaderboard 2회 호출 (90% 감소)
-- **라이브 동기화**: 게스트 스코어 입력 → 호스트 리더보드 반영 ~1초 이내
-- **status 양방향 차단**: completed → in_progress 역행 시도 permission-denied 확인
-
----
-
-## D 단계 시작 시 첫 메시지 권장 컨텍스트
-
-**새 세션 열 때 이 내용을 포함해서 시작:**
-
-```
-정모 골프 앱 D 단계 시작.
-- C 단계 완료 (2026-05-04), 라운딩 검증 결과: [발견된 이슈 목록]
-- 첨부: CLAUDE.md, index.html, app.js, style.css, PRD
-- D 단계 목표: 골프장 DB + 티박스 선택 (PRD 6장)
-```
-
-**D 단계 주요 작업 (PRD 6장 기준):**
-- 골프장 DB (코스명 자동완성, 파 데이터 자동 입력)
-- 티박스 선택 (레드/화이트/블루, 코스 핸디캡 테이블)
-- 코스 레이팅 / 슬로프 레이팅 기반 정확한 코스 핸디캡 계산
-
-**라운딩 검증 때 체크할 항목:**
-- 실기기에서 스코어 입력 → 리더보드 반영 latency
-- 18홀 완료 시 자동 종료 confirm 타이밍
-- 결과 화면 스크롤 UX (스코어카드 길이)
-- Net 모드 핸디 계산 체감 정확도
+**배포 상태**: Firestore rules 배포 완료 (E5 — complete 타입 추가), GitHub Pages 미배포 (`app.js?v=e8`)
 
 ---
 
 ## 데이터 모델 (확정)
 
 ### tournaments/{id}
-- `status`: `"waiting"` | `"in_progress"` | `"completed"` — forward-only (규칙 강제)
+- `status`: `"waiting"` | `"in_progress"` | `"completed"` (forward-only, 규칙 강제)
 - `hostId`, `name`, `courseName`, `date`, `gameMode`, `pars[]`, `maxMembers`, `teamCount`, `teamSize`, `tier`
-- `startedAt` (in_progress 진입 시 기록), `completedAt`
+- `gameType`: `"stroke"` | `"stableford"` | `"match"` | `"vegas"` (E2)
+- `events[]`: `{id, type, holeNumber, prizeText, prizeAmount}` (E3; type: kp/longest/holeInOne)
+- `eventWinners`: `{ eventId: array | object }` (E4; KP/롱기스트=배열, 홀인원=단일 객체)
+- `gameWinnerPrizeText`, `gameWinnerPrizeAmount` (E6)
+- `courseId`, `teeBoxId`, `teeBoxLabel`, `courseRating`, `slopeRating` (D4 캐시)
+- `startedAt`, `completedAt`
 
 ### tournaments/{id}/teams/{teamId}
-- `name`: 팀 이름 (호스트가 인라인 편집 가능)
-- `colorIndex`: 1~10 (클라이언트 TEAM_COLORS 상수로 HEX 매핑)
-- `memberIds[]`: 보조 캐시 (단일 출처 아님)
-- `createdAt`
+- `name`, `colorIndex` (1~10, TEAM_COLORS 상수로 HEX 매핑), `memberIds[]` (보조 캐시), `createdAt`
 
 ### tournaments/{id}/members/{userId}
-- `teamId`: `null` 또는 `"team-N"` — **단일 출처** (teams.memberIds는 보조 캐시)
-- `name`, `handicapIndex`, `courseHandicap`
-- `scores[]`, `putts[]`, `currentHole`, `completed` — C4-2에서 추가 (라운드 진행 중 sync)
-- `lastUpdatedAt` — sync 시마다 serverTimestamp 갱신
+- `teamId` (단일 출처), `name`, `handicapIndex`, `courseHandicap`
+- `scores[]`, `putts[]`, `currentHole`, `completed`, `lastUpdatedAt`
+- 프록시: `proxyMember:true`, `proxyHostId:<hostUid>`, memberId = `proxy_<ts36><rand4>`
+
+### tournaments/{id}/notifications/{id}
+- `type` (7종: birdie/eagle/albatross/ace/skin_win/event_win/complete)
+- `userId`, `userName`, `holeNumber`, `createdAt`, `extra?`
+
+### tournaments/{id}/messages/{id}
+- `userId`, `userName`, `text` (1~500자), `sentAt`
+
+### courses/{id}
+- `name`, `nameLower`, `city`, `cityLower`, `holes` (9/18/27), `addedBy`, `usageCount`, `addedAt`
+
+### courses/{id}/teeBoxes/{teeId}
+- `pars[18]`, `yardages[18]`, `courseRating`, `slopeRating`, `totalPar`, `totalYardage`, `color`, `label`
 
 ---
 
 ## 보안 규칙 결정 로그
 
-- **옵션 B** (호스트 + 본인 보호) 유지 — 인증된 사용자라면 읽기 가능, 쓰기는 권한 제한
-- **status forward-only 강화** (C3-5): `waiting→in_progress→completed` 단방향만 허용
-- **teams 서브컬렉션**: 호스트만 write, `status != "completed"` 조건
-- **D8 members create 프록시 분기**: `userId.matches("proxy_.+")` + `proxyMember==true` + `proxyHostId==request.auth.uid` + `status != "completed"`. update/delete는 기존 호스트 권한 그대로 사용 (변경 없음).
-- **D1: courses + teeBoxes 신규 블록** — 옵션 B + addedBy 잠금 + `tier=="free"` + `holes∈{9,18,27}` 강제. update 시 addedBy 변경 불가 + usageCount 변경 불가 (D7에서 increment-only 패스 별도 추가 예정). teeBoxes는 골프장 등록자(addedBy)만 write.
-- **D4**: tournaments에 teeBoxId, teeBoxLabel, courseRating, slopeRating 필드 추가 (스키마 자유). 보안 규칙 변경 없음. 캐시 패턴: 게스트가 courses/{id}/teeBoxes/{tid} 추가 fetch 없이 핸디 계산 가능. 정모 시작 후 골프장 정보 변경돼도 정모에 영향 없음 (의도된 동작).
-- **D5**: 보안 규칙 변경 0건. 모든 변경은 클라이언트 계산 로직 (헬퍼 함수 + UI 배지).
-- **D6**: 보안 규칙 변경 0건. rounds 본 문서 신규 필드는 스키마 자유, 기존 호스트 update 권한으로 충분.
-- **D7-1**: courses update에 usageCount increment-only 패스 추가 (D1의 잠금에서 풀되 +1만). 케이스 A(등록자 일반 수정) + 케이스 B(누구나 usageCount +1) 분기.
-- **D7-3**: courses/{id}/reports 서브컬렉션 신규 — 본인 신고만 read/update/delete, 누구나 create (reporterId==본인, handled=false, reason 1~500자 강제).
-- **E0: tournaments update 케이스 B 추가** — 멤버가 `eventWinners` 필드만 update 허용. `exists()` 멤버십 검증 + `diff().affectedKeys().hasOnly(['eventWinners'])` 패턴. status=="completed" 시 차단.
-- **E0: notifications 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + type 6종 enum(birdie/eagle/albatross/ace/skin_win/event_win) + holeNumber 1~18. update 금지, 삭제 호스트만.
-- **E0: messages 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + text 1~500자. update 금지, 삭제 호스트 또는 본인.
-- **E5**: notifications 타입 enum에 `complete` 추가 (E0에서 누락). userId==auth.uid 제약으로 event_win/ace(이벤트) 알림은 등록자 uid + 위너 이름(userName) 패턴으로 보안 규칙 통과. 배포 완료.
-- **E4**: 보안 규칙 변경 0건. eventWinners 필드는 E0에서 이미 멤버 update 허용 (diff().affectedKeys().hasOnly(['eventWinners'])). arrayUnion/deleteField 모두 동일 경로. status=="completed" 시 자동 차단.
-- **E3**: 보안 규칙 변경 0건. events[] 배열은 Firestore 스키마 자유 — E0에서 이미 tournaments update 허용 범위에 포함됨. 클라이언트 UI + 검증 + 저장만.
-- **E2**: 보안 규칙 변경 0건. gameType 필드는 Firestore 스키마 자유 — E0에서 이미 tournaments update 허용 범위에 포함됨. 클라이언트 UI + 저장만.
-
----
-
-## 비즈니스 모델 메모 (D0에서 정립)
-
-- 호스트성 액션 = 미래 유료/구독 후보
-  - 정모 만들기 (`canUserHostTournament`)
-  - 프록시 멤버 추가 (D8 구현, `canUserHostTournament` 가드 적용)
-- 영구 무료 = 개인 라운드, 정모 참여 (게스트), B6 1:1 공유
-- 게이팅 함수 위치: `app.js` `calculateCourseHandicap` 직전
-- D0에선 항상 true 반환 — 구조만 도입. 강제는 D7 이후.
+- **옵션 B 기본**: 인증 사용자 읽기 가능, 쓰기는 권한 제한
+- **status forward-only** (C3-5): waiting→in_progress→completed 단방향만 허용
+- **teams**: 호스트만 write, status!="completed" 조건
+- **D1 courses**: addedBy 잠금. teeBoxes는 addedBy만 write. usageCount 일반 update 잠금.
+- **D7-1 usageCount increment-only**: 케이스 A(등록자 일반 수정, usageCount 잠금) + 케이스 B(누구나 +1만 허용)
+- **D7-3 reports**: 본인만 read/update/delete, 누구나 create (reporterId==본인, handled=false, reason 1~500자)
+- **D8 members create 프록시**: `userId.matches("proxy_.+")` + `proxyMember==true` + `proxyHostId==auth.uid` + status!="completed". update/delete는 기존 호스트 권한 그대로.
+- **E0 eventWinners**: 멤버가 eventWinners 필드만 update (`diff().affectedKeys().hasOnly(['eventWinners'])` + exists() 멤버십 검증)
+- **E0 notifications**: 멤버만 read/create. create: userId==auth.uid + status!="completed" + type 6종 enum + holeNumber 1~18. update 금지, 삭제 호스트만.
+- **E0 messages**: 멤버만 read/create. create: userId==auth.uid + status!="completed" + text 1~500자. update 금지, 삭제 호스트 또는 본인.
+- **E5**: notifications type enum에 `complete` 추가 (E0 누락). 배포 완료. 이후 변경 없음.
 
 ---
 
 ## 진행 원칙
 
-- 마일스톤 잘게 쪼개기 (C3은 5단계, C4는 6~7단계 예상)
-- 각 단계마다 Playwright + Firebase MCP 자동 검증
-- 보안 규칙 변경은 별도 세션 권장 (코드 동작 검증 후 `firebase deploy --only firestore:rules`)
-- 새 화면 만들 때 `.hidden` 우선순위 주의: `.hidden { display: none !important; }` 패턴 필수 (나중에 오는 `display: flex` 규칙에 덮임)
-- 호스트 정모 진행 중 메인 복귀 금지 (D0). 일시 이탈은 `?t=코드` URL 새로고침으로 복귀 (C4-7).
-- 호스트성 액션 추가 시 `canUserHostTournament()` 가드 필수.
-- `showScreen(screenMain)` 진입 시 `renderMyCoursesList()` 자동 호출 (D2부터).
-- 골프장 등록 진입은 호스트성 액션 → `canUserHostTournament()` 가드.
-- Firestore 서브컬렉션 write 보안 규칙에 `get(parent)` 검사 있을 경우 → 부모 문서 먼저 쓰고 서브컬렉션은 그다음 단계 (D2 교훈).
-- 사용자 행동 카운터 (usageCount 등)는 increment-only 보안 규칙 패턴 사용. silent fail로 메인 흐름 막지 않음.
+- 마일스톤 잘게 쪼개기 + 각 단계마다 Node.js 단위 테스트 → Playwright 시각 확인 → Firebase MCP 검증
+- `.hidden { display: none !important; }` 패턴 필수 (나중에 오는 `display: flex`에 덮임)
+- 호스트성 액션 추가 시 `canUserHostTournament()` 가드 필수
+- `showScreen(screenMain)` 진입 시 `renderMyCoursesList()` 자동 호출 (D2부터)
+- Firestore 서브컬렉션 write 보안 규칙에 `get(parent)` 검사 있을 경우 → 부모 문서 먼저 쓰고 서브컬렉션은 그다음 단계 (D2 교훈)
+- 사용자 행동 카운터는 increment-only 보안 규칙 패턴. silent fail로 메인 흐름 막지 않음.
 - 모든 D 단계는 자유 입력 fallback 유지. courseId=null 케이스가 끝까지 작동해야 함.
+- 새 onSnapshot 추가 시 cleanup 함수 반드시 같이 작성. `leaveTournament*` 경로 모두 체크.
+- 새 배지/UI 추가 시 다른 모드 진입 시 숨김 처리도 같이 (renderSharedModeUI B6 분기 사례)
+- 보안 규칙 변경은 별도 세션 권장 (코드 동작 검증 후 `firebase deploy --only firestore:rules`)
+- 순수 함수(정렬·계산)는 Node.js 단위 테스트 우선 — Playwright보다 빠르고 정확
+- GitHub Pages CDN 캐시 2분 지연 → CSS/JS 변경 시 `?v=XXX` query param 필수
+- 호스트 정모 진행 중 메인 복귀 금지. 일시 이탈은 `?t=코드` URL 새로고침으로 복귀.
+
+---
+
+## 핵심 코드 패턴
+
+### C 단계
+
+- **sync**: 정모 라운드 = `scheduleSyncMyScoreToTournament()` (500ms debounce) / 홀 이동 = 즉시. `currentRound.tournamentId` 유무로 정모/비정모 분기 (isShared만으론 부족).
+- **throttle**: `createThrottle(fn, delayMs)` — 첫 호출 즉시 + delayMs 내 후속은 pending 1회. 생성 시 원본 fn 캡처 → 이후 window 교체 무효.
+- **onSnapshot cleanup**: `cleanupTournamentRoundListeners()` — 모든 unsub + flushAndClear + 상태 초기화 통합. `leaveTournament*` 모든 경로.
+- **재진입**: `handleInProgressTournamentEntry` — 호스트 즉시 / 기존 멤버 memberDoc.exists / 신규 차단. `subscribeTournamentStatusForRound`로 completed 감지.
+- **자동 종료 감지**: `renderLeaderboard()` 끝에 `memberStats.every(s => s.completed)` + 호스트 여부 + `autoEndConfirmShown` 플래그.
+- **C5 결과 진입 3경로**: subscribeTournamentStatusForRound completed / URL 직접 / 대기실 종료 감지.
+
+### D 단계
+
+- **D3 자동완성**: `searchCourses(q)` — nameLower + cityLower prefix 쿼리 → 클라이언트 머지/dedupe → usageCount DESC > nameLower ASC, top 5. 자동 티박스: white > blue > black > gold > red > other > 첫번째.
+- **D4 티박스**: `selectedCourseForTournament.autoSelectedTeeBox` 단일 출처. `switchTeeBox(teeId)` — autoSelectedTeeBox 갱신 + 파 재채움 + 배지 갱신. tournament 본 문서에 5개 필드 캐시 (게스트 추가 fetch 불필요).
+- **D4 핸디 분기**: courseId + slopeRating + courseRating 전부 → USGA WHS (`HI × Slope/113 + Rating - Par`), 빠지면 `Math.round(HI)` fallback.
+- **D5 헬퍼**: `calculateMemberCourseHandicapFromTournament(HI, tournament)`. `tournamentHasAccurateHandicapInfo()` — ✨/⚠️ 배지용.
+- **D6 격리**: `selectedCourseForTournament` vs `selectedCourseForRound` 완전 분리. `pendingReturnToTournamentCreate` vs `pendingReturnToRoundCreate` 플래그.
+- **D7-1**: `incrementCourseUsageCount(courseId)` — silent fail. 게스트 join 시 호출 안 함 (인기도 왜곡 방지).
+- **D8 프록시**: `getActiveInputData()` / `commitActiveInputChange()` 추상화. `proxyScoreCache{}` + `proxySyncTimers{}` per-proxyId 독립 debounce. `getMyProxyMembers()` — leaderboardAllMembers 필터.
+
+### E 단계
+
+- **E1 캐러셀**: `_swipeSetup` 플래그 (중복 방지). `buildGolfRuleIndicators()` — `container.children.length === total` 체크. dot: `width:10px !important; padding:0 !important; border-radius:50%` (전역 button 오버라이드).
+- **E3**: `pendingTournamentEvents` in-memory. `validateEventHole(type, holeNumber, pars)` — pars=[] fallback true. `showToast` — `#toast-notification` 동적 생성, `_timer` 프로퍼티로 연속 호출 취소.
+- **E4**: `eventWinners` map — KP/롱기스트=배열, 홀인원=단일 객체 `{achieved,userId,userName,inputBy,inputAt}`. `arrayUnion` 동시 입력 안전. pop = read-modify-write. `inputAt: Date.now()` (arrayUnion 내 serverTimestamp 미지원). `btn-sm { width: auto !important }`.
+- **E5**: `detectScoreNotification` → `lastNotifiedScores {userId_hole: bestType}` dedupe. 이벤트 알림: 등록자 uid → userId, 위너 이름 → userName (보안 규칙 통과 + 표시 정확성). `tickerQueue[]` max 10, 8초 순환. 홀인원 폭죽: z-index:9999, 3초 auto-hide, `initialLoadDone` 플래그로 초기 로드 스킵.
+- **E6 정산**: `winner = amount*(M-1)/(K*M)`, `non-winner = -amount*(M-1)/(M*(M-K))`. M=전체 인원, K=공동우승수. 홀인원 정산 제외. `calculateSettlement(tournament, memberStats, isNetMode)`.
+- **E7 Canvas**: `IMG_W=1080`, `imgText/imgRoundedRect/imgDivider` 헬퍼 (ctx.save/restore). `calcImageHeight = min(1800, 1350+max(0,events.length-1)*100)`. 정산표 이미지 미포함(카톡 단체 공개 부적합). `closeShareModal`: revokeObjectURL + src='' + blob=null.
+- **E8 채팅**: `subscribeChatMessages` — orderBy sentAt desc, limit 50, reverse(). `groupConsecutiveMessages` — same userId + ≤60,000ms + 둘다 sentAt truthy = 같은 그룹 (null sentAt = falsy → 시간 비교 스킵 → 같은 userId면 같은 그룹). 빈 상태: `createElement` 동적 생성 (innerHTML clear 후 detach 방지). `_chatSetup` 플래그. 600ms longpress + contextmenu prevent. 1초 send cooldown.
+- **module-scoped let 테스트 우회**: window에서 접근 불가 → 순수 함수 직접 호출 or DOM 결과로 간접 검증 (E3~E8 공통).
+
+---
+
+## C 단계 회고 (2026-05-04)
+
+5단계 분할 (C1 정모 생성·진입, C2 대기실·참여, C3 팀 배정, C4 라이브 7단계, C5 종료). 38 커밋, ~4,500줄.
+
+핵심 성과: status forward-only Firestore 규칙으로 이미-종료 정모 재쓰기 permission-denied 자동 보호. 40명 cap: 50개 DOM 행 0.6ms 렌더링. 1초 throttle: 20회 onSnapshot → 2회 render (90% 감소). 게스트 스코어 → 호스트 리더보드 ~1초. 검증 3종 패턴 확립: Node.js 순수 함수 / Playwright 시각 확인 / Firebase MCP 데이터 주입.
 
 ---
 
 ## D 단계 회고 (2026-05-05)
 
-**전체 구조**: D 단계는 9개 sub로 분할 (D0, D8, D1~D7). C 단계의 5단계 분할 패턴 답습.
+9개 sub (D0, D8, D1~D7). D0(게이팅 구조) → D8(프록시 멤버) → D1~D6(골프장 DB) → D7(데이터 품질) 순.
 
-**진행 순서 결정**:
-- D0 (게스트 권한 분리) 먼저: 즉시 가치 + 비즈니스 모델 준비
-- D8 (호스트 프록시 멤버) 두 번째: 라운딩 검증에서 친구 요청 즉시 반영
-- D1~D6: 골프장 데이터 풍부화 (PRD 6장 기본 흐름)
-- D7: 마지막 (커뮤니티 데이터 품질)
-
-**보안 규칙 진화**:
-- D1: courses + teeBoxes 신규 (옵션 B + addedBy 잠금)
-- D7-1: usageCount increment-only 패스 (D1 잠금에서 부분 풀기)
-- D7-3: reports 서브컬렉션 (본인 신고만)
-- D8: members create에 프록시 분기
-
-**핵심 검증 통과**:
-- USGA 공식 정확 적용 (호스트/게스트/프록시 모두)
-- 자유 입력 fallback 유지 — 회귀 0
-- 정모/라운드/B6 흐름 격리 (selectedCourseForTournament vs selectedCourseForRound)
-- usageCount increment-only 규칙 (D7-1 firebase deploy + 시나리오 검증)
-- 신고 서브컬렉션 권한 분리 (D7-3 Firestore rules + Playwright 검증)
+- **D0**: `canUserHostTournament()` stub 도입. 현재 항상 true, 추후 유료 게이팅.
+- **D1**: courses + teeBoxes 신규. addedBy 잠금, usageCount 잠금.
+- **D2**: createCourseWithTeeBoxes 2-step 필수 (동시 batch 시 get(parent) 실패). fetchMyCourses: where('addedBy') + 클라이언트 정렬 (orderBy 복합 인덱스 회피).
+- **D3**: prefix 쿼리 + 클라이언트 머지/dedupe. white>blue>black>gold>red>other 자동 선택.
+- **D4**: 티박스 정보를 tournament 본 문서에 캐시 (게스트 추가 fetch 불필요). 자유 입력 fallback 유지.
+- **D5**: `calculateMemberCourseHandicapFromTournament` 단일 헬퍼. ✨/⚠️ 배지. join 화면 티박스 정보 행.
+- **D6**: selectedCourseForTournament vs selectedCourseForRound 완전 격리. rounds 본 문서에도 5개 필드 저장.
+- **D7**: usageCount increment-only (케이스 A+B). reports 서브컬렉션. courseDetailReturnTarget 3경로.
+- **D8**: 프록시 멤버 독립 currentHole. 실사용 후 호스트 기준 공유로 변경 검토 필요 (마이그레이션 불필요).
 
 ---
 
-## E0 회고 (2026-05-05)
+## E 단계 회고 (2026-05-05)
 
-**작업 범위**: 보안 규칙만. app.js / index.html / style.css 변경 0줄. E 단계 중 유일한 규칙-only 마일스톤.
-
-**규칙 설계 포인트**:
-- `diff().affectedKeys().hasOnly(['eventWinners'])` — 멤버가 한 필드만 건드리는 케이스 B 패턴. D7-1 usageCount와 동일 구조.
-- `exists()` vs `get()` 분리: 멤버십 확인은 `exists()`(필드 안 읽음), 상태 확인은 `get()`(필드 읽음). notifications/messages create에서 둘 다 필요.
-- notifications update 금지(`if false`) — 알림은 불변. 삭제는 호스트만 (스팸 관리).
-- messages delete는 호스트 또는 본인 — 본인 메시지 삭제 권리 보장.
-
-**notification type 6종 확정**:
-`birdie` / `eagle` / `albatross` / `ace` / `skin_win` / `event_win`
-- E3에서 skin_win 활성화, E4에서 event_win 활성화, E5에서 birdie~ace 활성화 예정.
-
-**검증 결과**:
-- `firebase_validate_security_rules` 컴파일 통과
-- `firebase deploy --only firestore:rules` 성공
-- Firebase MCP로 notifications/messages 데이터 구조 + eventWinners map 필드 write 확인 → 테스트 데이터 전량 정리
+- **E0**: 보안 규칙만. diff().affectedKeys().hasOnly 패턴. notifications update 금지(불변). type 6종 확정.
+- **E1**: GOLF_RULES_CARDS 7개 정적 배열. _swipeSetup + children.length 중복 방지 패턴. dot !important 오버라이드(전역 button 충돌).
+- **E2**: gameType + getGameTypeLabel() fallback "스트로크 플레이". 기존 정모 undefined backward compat.
+- **E3**: events[] in-memory pendingTournamentEvents. validateEventHole 순수 함수(pars=[] fallback). 골프장/티박스 변경 시 자동 검증·삭제·토스트.
+- **E4**: arrayUnion 동시 입력 안전. pop = read-modify-write. inputAt: Date.now() (arrayUnion 내 serverTimestamp 미지원 함정). escapeHtml() XSS 방지.
+- **E5**: detectScoreNotification 타입 우선순위. event_win: 등록자 uid + 위너 userName(보안 규칙 mismatch 해결). complete 타입 E0 누락 → E5 배포.
+- **E6**: 정산 공식 `amount*(M-1)/(K*M)` 역산 도출. 홀인원 정산 제외(축하 목적). cleanupTournamentNotifications silent fail.
+- **E7**: Canvas 메모리 전용(DOM 추가 불필요). 정산표 미포함(카톡 단체 공개 부적합). blob URL 반드시 revokeObjectURL.
+- **E8**: groupConsecutiveMessages null sentAt → 같은 userId면 같은 그룹(freshly sent 처리). 빈 상태 createElement 동적 생성(innerHTML clear 후 getElementById 실패 방지). 보안 규칙 변경 0건(E0에서 이미 배포).
 
 ---
 
-## E3 회고 (2026-05-05)
+## 비즈니스 모델 메모
 
-**작업 범위**: 화면 8 이벤트 홀 섹션 UI + events[] 저장 + 화면 11/join 이벤트 표시. 보안 규칙 변경 0건 (E0에서 이미 허용).
-
-**설계 포인트**:
-- `events` 필드는 E0 규칙에서 이미 허용 — tournaments update 범위 내.
-- `validateEventHole(type, holeNumber, pars)` — pars=[] → 자유 입력 fallback true. 헬퍼 순수 함수로 단위 테스트 용이.
-- `getCurrentFormPars()` — DB 골프장 선택 시 `selectedCourseForTournament.autoSelectedTeeBox.pars`, 자유 입력 시 DOM input 값 직접 읽기. 두 케이스 통합.
-- `renderEventHoleOptions()` — 이미 등록된 홀+종류 조합은 자동 제외 (중복 방지). "가능한 홀 없음" fallback.
-- 골프장/티박스 변경 훅: `applySelectedCourseToTournamentForm()` + `switchTeeBox()` 끝에 `validateAndCleanEventsOnParsChange(newPars)` 호출. `clearSelectedCourse()`는 자유 입력 → 검증 스킵.
-- `showToast(message)` — E3에서 신규 도입. `#toast-notification` 동적 생성, opacity 전환. 3초 후 fade out.
-
-**검증 결과**:
-- Node.js 단위 테스트 22/22 통과 (validateEventHole 8케이스, formatEventCard 3, validateAndClean 6, 중복/cap 2, 기타)
-- Playwright: 화면 8 종류별 홀 필터, 5개 cap 버튼 비활성화, 삭제 버튼, 토스트 텍스트 확인
-- Firebase MCP: events 배열 3개 → Firestore 저장 확인 → 테스트 데이터 정리
-- 회귀: events=[], events=undefined → 화면 11/join 섹션 hidden 확인
-
-**트러블슈팅**:
-- `window.pendingTournamentEvents` 접근 안 됨 (module-scope let) → DOM 카드 텍스트로 우회 검증. 함수는 전역 접근 가능 (`window.confirmAddEvent` 등).
-- `openAddEventForm()` → `select-event-hole.value` 직접 설정 실패 케이스: 이미 등록된 홀 제외 후 드롭다운이 해당 값 없을 때 빈 string → `parseInt('')=NaN` → "홀을 선택해주세요." alert. 정상 동작.
+- 호스트성 액션 = 미래 유료/구독 후보: 정모 만들기, 프록시 멤버 추가
+- 영구 무료 = 개인 라운드, 정모 참여(게스트), B6 1:1 공유
+- `canUserHostTournament()` / `canUserCreateRound()` — 현재 항상 true. 위치: `app.js` `calculateCourseHandicap` 직전.
 
 ---
 
-## E2 회고 (2026-05-05)
+## 미래 작업 (미처리)
 
-**작업 범위**: 화면 8 드롭다운 UI + gameType 저장 + 라벨 표시. 보안 규칙 변경 0건, 계산 로직 변경 0건.
+**D7 신고 자동 검증**: "3명 이상 사용 시 자동 검증" + 관리자 도구. 신고 누적 시 별도 단계.
 
-**설계 포인트**:
-- `gameType` 필드는 E0 보안 규칙에서 이미 허용 — 별도 규칙 작업 불필요.
-- disabled option으로 Coming Soon 처리: `<option disabled>` 브라우저 기본 회색 처리로 충분. CSS 추가 불필요.
-- `getGameTypeLabel(gameType)` 헬퍼: undefined/null/빈 문자열 모두 "스트로크 플레이" fallback → 기존 정모 backward compatibility 보장.
-- 메타 표시 위치: 화면 11 `tournamentMetaDisplay`, join 화면 `tournamentJoinGameType`, 화면 16 `resultTournamentMeta`.
+**D7 골프장 정보 수정 UI**: 등록자가 이름/티박스 직접 수정. 현재 신고/삭제만 가능.
 
-**검증 결과**:
-- Node.js 단위 테스트 7/7 통과 (stroke/stableford/match/vegas/undefined/null/"")
-- Playwright: 화면 8 드롭다운 4옵션 확인, 화면 11 메타 "스트로크 플레이" 표시 확인
-- Firebase MCP: gameType:"stroke" Firestore 저장 확인 → 테스트 데이터 정리
-- browser_evaluate: DOM 요소 + 함수 전역 접근 확인
+**D8 설계 재검토**: 멤버별 독립 currentHole → 실사용 후 (A) 호스트 기준 공유로 변경 검토. 마이그레이션 불필요(Firestore 데이터 형태 동일).
+
+**createTournament 호스트 핸디 분기 통합**: D4 인라인 분기 → `calculateMemberCourseHandicapFromTournament`로 통일. D5에서 회귀 위험으로 분리 유지.
+
+**호스팅 이전 — GitHub Pages → Firebase Hosting**: Firebase Hosting 셋업 + firebase-config.js GitHub Actions 주입 + 도메인 제한 갱신(jeongmo-app.web.app 추가, mp9344-crypto.github.io 제거). **현재 API 키 도메인 제한** (2026-05-03): 127.0.0.1 / localhost / jeongmo-app.firebaseapp.com / mp9344-crypto.github.io
+
+**다국어 지원 (i18n)**: 한국어 안정화 + 외국 친구 needs 발생 시. data-i18n + translations.js, 예상 200~300 항목. 영어 → 일본어 순.
 
 ---
 
-## C3에서 발견한 한계 (C4에서 처리)
+## 알려진 함정 / 회귀 방지
 
-- `teams` 컬렉션은 onSnapshot 없음 → 팀 이름 변경이 다른 호스트 화면에 자동 반영 안 됨
-- `in_progress` 상태인 정모에 호스트가 재진입할 때 동선 미정의 (현재는 IN_PROGRESS alert로 막힘) → C4-7에서 처리
-- C4에서 라이브 리더보드 화면 만들 때 두 가지 다 정리
-
----
-
-## D8 설계 결정 (검토 필요)
-
-- **홀 위치 처리 방식**: (B) 각자 독립으로 구현
-  - 장점: 멤버별 진행률이 정확. 김삼촌 5번 홀, 본인 7번 홀 같은 비동기 진행 가능
-  - 단점: 같은 그룹 라운딩 시 "본인은 5번 홀인데 김삼촌 토글하니 1번 홀로 돌아감" 혼란 가능
-- **실사용 검증 후 (A) 호스트 기준 공유로 변경 검토**:
-  - scores/putts/completed만 캐시에 저장
-  - currentHole은 항상 `currentRound.currentHole` 사용
-  - 변경 시 마이그레이션 불필요 (Firestore 데이터 형태 동일)
+- `display: flex`가 `.hidden { display: none !important; }` 덮지 못하게 → `!important` 필수
+- 전역 `button { width: 100%; padding: 20px }` → flex row 내 버튼은 `width: auto !important` 오버라이드 필요 (`btn-sm`, `chat-send-btn`, `golf-rule-arrow`, `golf-rule-dot` 사례)
+- `arrayUnion` 내부 serverTimestamp() 미지원 → `Date.now()` 사용
+- module-scoped `let` 변수는 window에서 접근 불가 → 순수 함수 분리 또는 DOM 간접 검증
+- `container.innerHTML = ''` 후 기존 element reference 사용 금지 (detach 후 getElementById null 반환)
+- Firestore orderBy: 해당 필드 없는 문서 제외 (joinedAt 없는 MCP 주입 멤버 대기실 미표시)
+- onSnapshot seenIds Set: removed change로 기처리 문서 재처리 방지
+- `renderLeaderboardThrottled` 생성 시 원본 fn 캡처 — 이후 window 교체 무효
+- Playwright: 3초 CSS animation → screenshot 타이밍에 따라 미표시. evaluate로 DOM 상태 직접 확인.
+- `card > button { margin-bottom: 0 }` 필수: 전역 `button { margin-bottom: 12px }`가 카드 내부 버튼에 적용되어 하단 여백 이중 발생.
+- `.golf-rule-arrow` 투명 배경 적용 시 `!important` 필수: 전역 `button { background-color: accent }`가 이길 수 있음.
 
 ---
 
-## E5 회고 (2026-05-05)
+## F 단계 디자인 결정 로그
 
-**작업 범위**: 알림 자동 발행 + 라이브 티커 UI + 홀인원 폭죽 애니메이션. 보안 규칙: `complete` 타입 추가 1건.
+### F2 (메인 + 골프룰) — 2026-05-05
 
-**설계 포인트**:
-- `detectScoreNotification(score, par, holeNumber, userId)` — score===1 → ace (par 무관), par-score>=3 → albatross, ==2 → eagle, ==1 → birdie. `lastNotifiedScores` { "userId_holeNumber": bestType }로 중복/퇴보 차단. `changeScore` 시점에 감지 (sync 시점 아님 — 재진입 sync에서 중복 발행 방지).
-- 이벤트 알림 uid 패턴: 보안 규칙 `userId == auth.uid` 제약 → 등록자 uid를 userId에, 위너 이름을 userName에 저장. 티커는 userName으로 표시. 의미상 mismatch지만 보안 규칙 통과 + 표시 정확성 모두 충족.
-- `complete` 타입: E0 규칙 누락 → E5에서 enum에 추가 배포. holeNumber=18, extra=총타수 문자열.
-- 티커 fixed 오버레이: `position:fixed; top:0; z-index:900` — 화면 교체 없이 모든 화면에 표시. `displayNextTicker` → 8초 setTimeout → 다음 메시지. `tickerDisplayTimer !== null`이면 큐에만 push (중복 displayNextTicker 방지).
-- 홀인원 폭죽: `triggerHoleInOneAnimation` — CSS `@keyframes confetti-fall` (12개 span, nth-child별 다른 left%/delay). 3초 후 auto-hide. 초기 로드 알림은 폭죽 없음 (`initialLoadDone` 플래그).
-- onSnapshot `seenIds` Set: 한 번 처리한 문서 ID 재처리 방지. limit 20 + desc 정렬 → 오래된 알림이 limit 밖으로 밀릴 때 `removed` change 발생 — seenIds로 안전 처리.
+- 헤더: `h1` 48px → 26px, padding 20px → var(--space-sm), 부제 `.label-muted` 적용 (uppercase + letter-spacing)
+- 프로필 카드: HCP 숫자를 `.metric-large`(32px 굵은 녹색)로 분리. `profile-hcp-block` + `.label-muted "HCP"` 레이블. `profileHandicapDisplay` JS 텍스트 → 숫자만 ("--" / "12.0")으로 단순화. 카드에 border + shadow-lg (elevated).
+- 메인 액션 4개 (`btn-new-round`, `btn-join-by-code`, `btn-register-course`, `btn-golf-rules`): 각각 `<div class="card">` 래퍼 + `.btn-primary` 클래스로 동일 위계. `btn-continue-round`는 JS가 button 자체 hidden 토글하므로 card 래퍼 사용 불가 → 독립 유지.
+- 내 골프장 섹션: `<section>` 에 `card` 클래스 추가. `my-course-item` hover 시 border-color → accent.
+- 골프룰 카드: border + shadow-md 추가. `.golf-rule-arrow` → 투명 배경 + 녹색 텍스트 + 회색 border, hover 시 accent-light 배경. `.golf-rule-dot` 비활성 → `border-strong` + `scale(0.6)` (시각 6px), 활성 → `scale(1.0)` (실 10px).
+- 신규 클래스 8개 (style.css 라인 3545~): `.card`, `.card-elevated`, `.card-header`, `.card-title`, `.card-meta`, `.btn-primary`, `.metric-large`, `.label-muted`
+- 전역 `button { ... }` 셀렉터 보존 (F6 마이그레이션 예정)
+- 그린 액센트 정책: 버튼/숫자/배지에만. 카드 배경은 흰색.
 
-**검증 결과**:
-- Node.js 단위 테스트 29/29 통과 (detectScoreNotification 18케이스, renderTickerMessage 9케이스, 큐 cap 2케이스)
-- Playwright: 이글 티커 표시 (다크 네이비 바), 홀인원 overlay 3초 자동 dismiss, 큐 addToTickerQueue 정상 동작
-- Firebase MCP: birdie/ace/complete 타입 Firestore write 성공 → 테스트 데이터 정리
-- 회귀: pars=undefined/null/0 → null, skin_win/unknown → empty string, cleanup 안전 호출
+### F2.1 (메인 4액션 위계) — 2026-05-05
 
-**트러블슈팅**:
-- 홀인원 overlay 스크린샷에서 안 보임 → Playwright 툴 호출 간격이 3초 넘어 auto-dismiss됨. 첫 evaluate에서 `overlayHidden: false` 반환 — 정상 작동 확인됨.
-- module-scoped `tickerQueue/tickerDisplayTimer` window 접근 불가 → 함수 동작 결과(DOM 텍스트, ticker visible)로 간접 검증 (E3/E4 패턴 답습).
-
----
-
-## E4 회고 (2026-05-05)
-
-**작업 범위**: 화면 3 이벤트 배너 + 위너 입력 모달 + Firestore 저장/취소 + onSnapshot 자동 갱신. 보안 규칙 변경 0건.
-
-**설계 포인트**:
-- `arrayUnion` 사용으로 동시 입력 충돌 방지. 단, arrayUnion 내부에서 serverTimestamp() 미지원 → `inputAt: Date.now()` (number).
-- KP/롱기스트 취소(pop): read-modify-write 패턴. get() 후 배열 마지막 제거 + update(). 빈 배열이 되면 `deleteField()`.
-- 홀인원 취소: `deleteField()` 단순 호출.
-- `updateEventWinnersDisplay()` — 대기실 onSnapshot과 `subscribeTournamentStatusForRound` onSnapshot 두 경로 모두에서 호출. 홀 입력 화면 표시 중일 때만 작동 (가드 있음).
-- `eventHoleArrivalShown` Set — 홀번호로 dedupe. `cleanupTournamentRoundListeners()` + `enterTournamentRound()` 진입 시 초기화.
-- `escapeHtml()` 신규 도입 — 위너 이름을 innerHTML에 출력할 때 XSS 방지.
-- `btn-sm { width: auto !important; flex-shrink: 0; }` — 전역 `button { width: 100% }` 오버라이드 필요 (flex row 내 확인 버튼).
-
-**검증 결과**:
-- Node.js 단위 테스트 29/29 통과 (getEventsForHole 5, getCurrentEventWinner 7, getPreviousEventWinners 4, canCancelLastEventWinner 7, pop 로직 3, Array.isArray 분기 2, 기타)
-- Playwright: 배너 2개 렌더 (위너 있음/없음), KP 모달 레이아웃, 홀인원 achieved 표시
-- 회귀 7/7: 이벤트 0개, events undefined, eventWinners undefined, 모달 open/close, teamId=null, XSS 방지, holeInOne getPrev
-
-**트러블슈팅**:
-- `btn-secondary` 전역 `width: 100%` → flex row에서 "확인" 버튼이 full-width로 select 압박. `btn-sm { width: auto !important }` 추가로 해결.
-- module-scoped `let` 변수(`currentTournamentDoc` 등)는 window에서 접근 불가 → Playwright 테스트에서 DOM 직접 조작 + 순수 함수 분리 전략 (E3 패턴 답습).
-
----
-
-## 코드 패턴 메모
-
-- **E5 알림/티커**: `detectScoreNotification(score, par, holeNumber, userId)` → "birdie"|"eagle"|"albatross"|"ace"|null. `lastNotifiedScores` { "userId_holeNumber": bestType } — 중복/퇴보 차단. `NOTIFICATION_TYPE_PRIORITY` = {birdie:1, eagle:2, albatross:3, ace:4}. `publishNotification(tournamentId, {type, userId, userName, holeNumber, extra?})` silent fail. type 7종: birdie/eagle/albatross/ace/skin_win/event_win/complete.
-- **E5 이벤트 알림 패턴**: event_win/ace(이벤트) 등록자 uid(`currentUser.uid`)로 보안 규칙 통과, `userName`에 위너 이름 저장 (uid≠위너). 티커 `renderTickerMessage`는 `userName` 필드로 표시.
-- **E5 티커**: `tickerQueue[]` 최대 10개 (초과 시 `shift()`). `TICKER_DISPLAY_MS = 8000`. `displayNextTicker()` → `showTickerMessage(text)` → `requestAnimationFrame` fade-in (opacity 0→1). `tickerDisplayTimer` 하나가 큐 순환 담당. `#live-ticker-bar` `position:fixed; top:0; z-index:900` — 모든 화면 위에 표시.
-- **E5 홀인원 폭죽**: `triggerHoleInOneAnimation(notification)` — `#holeinone-overlay` (z-index:9999) 3초 표시 후 auto-hide. `.holeinone-confetti span` 12개 nth-child 각각 다른 left%/animation-delay. `@keyframes confetti-fall` (translateY 0→105vh, rotate 380deg). `@keyframes holeinone-glow` 텍스트 glow 무한 반복. 새 ace 알림 도착 시에만 트리거 (초기 로드 스킵).
-- **E5 onSnapshot**: `subscribeNotifications(tournamentId)` — `orderBy('createdAt','desc').limit(20)`. `seenIds` Set으로 중복 방지. `initialLoadDone` 플래그: 초기 20개는 `batch.reverse()` 후 티커 큐에 추가(폭죽 없음), 이후 도착 알림은 큐+폭죽(ace). cleanup: `cleanupTournamentRoundListeners` + `enterTournamentRound` 모두.
-
-- **E4 이벤트 위너**: `eventWinners` map — `{ eventId: array | object }`. KP/롱기스트=배열, 홀인원=단일 객체 `{achieved, userId, userName, inputBy, inputByName, inputAt}`. `inputAt: Date.now()` (arrayUnion 내 serverTimestamp 미지원). 배너: `#event-banners` .event-banner-item (탭 가능). 모달: `#event-winner-modal` .event-winner-modal-overlay. 액션 동적 렌더: `renderKpLongestModalActions` / `renderHoleInOneModalActions`. 취소 권한: `canCancelLastEventWinner(event, map, uid, isHost)`. 진입 토스트: `triggerEventHoleArrivalToast(holeNumber)` — `eventHoleArrivalShown` Set dedupe.
-- **E4 onSnapshot 통합**: 대기실 `tournamentWaitingTournamentUnsub` + 재진입 `roundTournamentStatusUnsub` 둘 다 `updateEventWinnersDisplay()` 호출. 대기실 경로에서는 "이미 라운드 화면" 조기 반환 직전에 추가.
-- **E4 arrayUnion**: `firebase.firestore.FieldValue.arrayUnion(entry)` — inputAt은 `Date.now()`. 취소(pop)는 read-modify-write: get → slice(0, -1) → update 또는 deleteField(빈 배열).
-- **E4 btn-sm**: flex row 내 버튼은 `width: auto !important; flex-shrink: 0` 필수 (전역 `button { width: 100% }` 오버라이드).
-
-- **E3 이벤트 홀**: `events[]` 배열 — `{id, type, holeNumber, prize}`. type: "kp"|"longest"|"holeInOne". 최대 5개 (`MAX_EVENTS`). KP/홀인원=파3, 롱기스트=파4/5. 자유 입력(pars=[]) → 검증 스킵(모든 홀 허용). `pendingTournamentEvents` in-memory 상태, `openTournamentCreateScreen()`에서 초기화. 골프장/티박스 변경 시 `validateAndCleanEventsOnParsChange(newPars)` 호출 → 삭제된 이벤트 `showToast(msg)`. `getCurrentFormPars()` — DB 골프장 선택 시 `autoSelectedTeeBox.pars`, 자유입력 시 DOM input 직접 읽기. 화면 8 이벤트 섹션 ID: `tournament-events-section`. 화면 11 ID: `tournament-link-events`. 화면 join ID: `tournament-join-events-section`.
-- **E3 showToast**: `#toast-notification` 동적 생성 (없으면 append), `toast-show` CSS class로 opacity 1. 3초 후 class 제거. `_timer` 프로퍼티로 연속 호출 시 이전 타이머 취소.
-
-- **E2 게임 방식**: `gameType` 필드 — "stroke" | "stableford" | "match" | "vegas". 기본값 "stroke", 기존 정모 undefined → `getGameTypeLabel()` fallback "스트로크 플레이". `selectTournamentGameType` disabled 옵션 3개 "(추후 지원)" 텍스트로 Coming Soon 처리 (CSS 불필요, `<option disabled>` 브라우저 기본 회색). 메타 표시 순서: "골프장 · 날짜 · **게임방식** · Net/Gross · 최대N명".
-
-- **D3 자동완성 검색**: `searchCourses(q)` — nameLower + cityLower 양쪽 prefix 쿼리(`q` ~ `q+`) → 클라이언트 머지/dedupe → usageCount DESC > nameLower ASC 정렬, top 5
-- **D3 자동 티박스 선택**: white > blue > black > gold > red > other > 첫번째 (D4에서 사용자가 변경 가능)
-- **D3 정모 만들기 폼 통합**: `selectedCourseForTournament` 상태 객체. 자유 입력 fallback 유지 (courseId=null도 허용). `readTournamentForm()`에 courseId 추가.
-- **D3 화면 18 복귀 흐름**: `pendingReturnToTournamentCreate` 플래그로 정모 폼 ↔ 골프장 등록 왕복. 등록 성공/취소 시 플래그 체크 후 showScreen 분기.
-- **D4 티박스 선택**: `selectedCourseForTournament.autoSelectedTeeBox`가 단일 출처. `renderTeeBoxSelector()` — 티박스 버튼 렌더 + active 표시. `switchTeeBox(teeId)` — autoSelectedTeeBox 갱신 + 파 재채움 + 배지 갱신 + `renderTeeBoxInfo()` 호출. `clearSelectedCourse()`에서 티박스 UI도 같이 숨김.
-- **D4 정모 본 문서 캐시**: courseId + teeBoxId + teeBoxLabel + courseRating + slopeRating 모두 저장. 게스트가 join 시 이 값으로 핸디 계산 (D5).
-- **D4 호스트 핸디 계산 분기**: `formData.courseId && formData.slopeRating && formData.courseRating` 전부 있으면 USGA 공식, 하나라도 빠지면 `Math.round(HI)` fallback.
-- **D4 자유 입력 fallback**: 티박스 UI hidden + courseId/teeBoxId/rating 모두 null. 게스트도 임시 공식 fallback 그대로 (D5 전).
-- **D4 티박스 색상 매핑**: `TEE_BOX_COLOR_HEX` 상수. white는 흰색이라 1px 회색 border 추가.
-- **D5 핸디 계산 단일 헬퍼**: `calculateMemberCourseHandicapFromTournament(handicapIndex, tournamentData)` — 게스트/프록시 진입점. 호스트는 D4 createTournament 인라인 분기 그대로 (회귀 위험 회피. D6에서 통합 검토).
-- **D5 isAccurate 체크**: `tournamentHasAccurateHandicapInfo(tournamentData)` — courseId + slopeRating + courseRating + pars[18] 모두 있어야 true. UI 배지(✨/⚠️) 표시 기준.
-- **D5 정확/임시 배지**: Course Handicap 표시값에 ` ✨ (정확 계산)` / ` ⚠️ (임시 공식)` suffix. 게스트가 join 전에 핸디 계산 방식 인지 가능.
-- **D5 티박스 정보 행**: join 화면 정모 정보 카드에 `#tournament-join-tee-info` — `teeBoxLabel` 있을 때만 표시 (Rating/Slope 포함). 자유 입력 정모는 hidden.
-- **D5 프록시 정확 핸디**: `confirmAddProxyMember`에서 `calculateMemberCourseHandicapFromTournament(handicapIndex, currentTournamentDoc)` 사용. `currentTournamentDoc` null이면 헬퍼가 자동 fallback.
-- **D5 핸디 미설정 Net 정모**: 기존 코드가 join 화면 전에 alert + 프로필 화면 redirect (회귀 아님, 기존 동작 유지).
-- **D6 라운드용 자동완성/티박스 UI**: 정모용 `selectedCourseForTournament`와 격리. 별도 `selectedCourseForRound` 상태 + DOM (round- prefix). 함수도 별도 (`selectCourseForRound`, `switchRoundTeeBox`, `renderRoundTeeBoxSelector` 등).
-- **D6 화면 18 ↔ 화면 9 왕복**: `pendingReturnToRoundCreate` 플래그. D3의 `pendingReturnToTournamentCreate`와 분기. `confirmCourseRegister`/`btnCancelCourseRegister` 둘 다 수정.
-- **D6 currentRound 신규 필드**: courseId, teeBoxId, teeBoxLabel, courseRating, slopeRating (localStorage 캐시). `startNewRound`에서 formData에서 복사.
-- **D6 rounds 본 문서 신규 필드**: 동일 5개 (B6 공유 라운드 `createSharedRound`에서 추가). B6 게스트 join + `enterSharedHoleInput`에서 currentRound로 복사.
-- **D6 핸디 헬퍼**: `calculateMemberCourseHandicapFromRound(handicapIndex, roundData)` — D5 `calculateMemberCourseHandicapFromTournament`와 동일 패턴. `roundHasAccurateHandicapInfo(roundData)` — 배지용.
-- **D6 onGameModeChange 수정**: `selectedCourseForRound` 있으면 정확 공식 + ✨, 없으면 `Math.round(HI)` + ⚠️ (핸디 설정 시).
-- **D6 openNewRoundScreen**: 진입 시 `clearSelectedRoundCourse()` + `hideRoundAutocompleteResults()` 호출 (이전 선택 초기화).
-- **D6 input id 충돌 없음**: 화면 18은 이미 D2에서 `input-cr-name`으로 분리됨. `input-course-name`은 화면 9 전용.
-- **D7-1 usageCount increment**: `incrementCourseUsageCount(courseId)` — 정모/B6/개인 라운드 만들 때 호출. silent fail (정모 생성 흐름 안 막음). 게스트 join 시는 호출 안 함 (인기도 왜곡 방지).
-- **D7-1 보안 규칙 increment-only**: 케이스 A(등록자 일반 수정, usageCount 잠금) + 케이스 B(누구나 usageCount만 +1). -1이나 +5 등 거부.
-- **D7-2 화면 19 진입 경로 3가지**: 메인(내 골프장 카드 클릭), 정모 만들기 자동완성 "상세" 버튼, 라운드 자동완성 "상세" 버튼. `courseDetailReturnTarget` 변수로 뒤로 가기 분기.
-- **D7-2 fetchCourseDetailWithAllTeeBoxes**: 모든 티박스 fetch + black>blue>white>gold>red>other 정렬. `fetchCourseWithFirstTeeBox`와 다름.
-- **D7-2 삭제 (화면 19에서)**: `btnDeleteCourseFromDetail` 핸들러에서 직접 삭제 + 메인 복귀. `handleDeleteMyCourse`는 메인에서 목록 갱신용이라 화면 전환 없음.
-- **D7-3 신고**: `courses/{id}/reports` 서브컬렉션. reporterId 본인만, handled 기본 false. 관리자(나) 검토는 Firebase Console에서 수동.
-
-- 팀 멤버 정보의 **단일 출처는 `members.teamId`** (`teams.memberIds`는 보조 캐시)
-- 자동 배정 = batch 전체, 수동 배정 = batch 1쌍 (members 1건 + 양쪽 teams 2건)
-- onSnapshot은 멤버 데이터만 구독, teams는 수동 fetch + `rerenderTeamAssignmentScreen()`
-- GitHub Pages CDN 캐시 2분 지연 → CSS/JS 변경 시 `?v=XXX` query param 필수
-- **C4 sync 패턴**: 정모 라운드 = `scheduleSyncMyScoreToTournament()` (500ms debounce) / 홀 이동 = `syncMyScoreToTournament()` (즉시) / B6 공유 = 기존 `scoreSync*ToFirestore` 함수 / personal = localStorage만
-- **C4 분기 키**: `currentRound.tournamentId` 유무로 정모/비정모 분기 (isShared만으로 부족)
-- `currentTournamentDoc`: tournament 본 문서 캐시 (pars, gameMode 등), `leaveTournamentWaitingRoom`에서 null 초기화
-- **C4-3 미니 스트립**: `subscribeTournamentTeamMembers(tournamentId, teamId)` — `where('teamId','==',myTeamId)` 서버 필터, `allMembersData` 재사용, `cleanupTournamentRoundListeners()`가 unsub + flushAndClear + allMembersData 초기화 통합 처리
-- **renderSharedModeUI() 분기**: tournamentId 있으면 스트립만, shareCode 있으면 B6 배지+스트립, 없으면 모두 숨김. B6 진입 시 tournament-mode-badge 강제 hidden 처리 필요 (이전 정모 세션 badge 누수 방지)
-- **C4-4/C4-5 리더보드**: `subscribeAllTournamentMembers(tournamentId)` — 팀 필터 없이 전체 구독. `cleanupLeaderboardListener()`는 `cleanupTournamentRoundListeners()` 내부에서도 호출됨 (이중 보장). `computeMemberStats(member, pars)` — Gross+Net 동시 계산, 비례 핸디 `(playedHoles/18) * courseHandicap`. `fetchLeaderboardTeams(tournamentId)` — teams one-shot fetch, `leaderboardTeams[]` 캐시. `renderLeaderboard()`는 gameMode 분기로 Gross/Net 자동 전환 + 팀 섹션 동시 렌더. 팀 row는 `TEAM_COLORS[colorIndex]`로 컬러 적용.
-- **C4-6 throttle 패턴**: `createThrottle(fn, delayMs)` — 첫 호출 즉시 실행 + delayMs 내 후속 호출은 pending 1회로 합산. `renderLeaderboardThrottled`, `renderMembersStripThrottled`가 onSnapshot 콜백에서 사용. `cleanupAllListenersOnUnload()`를 `window.addEventListener('beforeunload', ...)`에 등록. 부하 테스트: 20회 Firestore 업데이트 → renderLeaderboard 2회 호출 (90% 감소). monkey-patch 주의: `renderLeaderboardThrottled`는 생성 시 `renderLeaderboard` 원본 참조를 캡처하므로 이후 `window.renderLeaderboard` 교체가 throttle 내부 fn에 미치지 않음.
-- **C4-7 재진입 패턴**: `fetchTournament`가 in_progress 시 데이터 반환(throw 안 함). `handleTournamentEntry`에서 in_progress → `handleInProgressTournamentEntry` 분기. 호스트 즉시 진입 / 기존 멤버 memberDoc.exists 체크 후 진입 / 신규 차단 alert. `subscribeTournamentStatusForRound` — 대기실 거치지 않은 재진입 시 completed 감지용 onSnapshot. `enterTournamentRound` 진입 시 `?t=코드` URL 갱신 (새로고침 복귀). `cleanupTournamentRoundListeners`에서 `roundTournamentStatusUnsub` 정리 + URL 정리. 대기실 onSnapshot의 `.orderBy('joinedAt')` 주의: joinedAt 없는 Firebase MCP 주입 멤버는 대기실에서 보이지 않음 (Firestore orderBy는 해당 필드 없는 문서 제외).
-- **C5 결과 화면 진입 경로 3가지**: (1) `subscribeTournamentStatusForRound` completed 감지 → `enterTournamentResultScreen(data)`, (2) URL/코드로 completed 정모 진입 → `handleTournamentEntry` completed 분기, (3) 대기실 중 종료 감지 → waiting room onSnapshot completed 분기
-- **C5 자동 종료 감지**: `renderLeaderboard()` 마지막에 `memberStats.every(s => s.completed)` 체크 + 호스트 여부 확인 + `autoEndConfirmShown` 플래그로 중복 방지. `showLeaderboardScreen()`에서 `autoEndConfirmShown = false` 리셋.
-- **C5 결과 화면 데이터**: `enterTournamentResultScreen`에서 `cleanupLeaderboardListener` + `cleanupTournamentRoundListeners` 호출 후 members+teams one-shot fetch. `resultMembers[]`, `resultTeams[]`, `resultTournamentDoc` 캐시 사용.
-- **handleEndTournament**: Firestore rules forward-only로 보호 — already-completed 정모에 write 시도하면 permission-denied. 정상 케이스에선 status: 'completed' 쓰면 onSnapshot 감지 → enterTournamentResultScreen.
-- **D8 프록시 패턴**: memberId = `proxy_<ts36><rand4>`, `proxyMember:true`, `proxyHostId:<hostUid>`. `getActiveInputData()` / `commitActiveInputChange(updates)` 추상화로 본인/프록시 분기 통합. `proxyScoreCache{}` 인메모리 + `proxySyncTimers{}` per-proxyId 독립 500ms debounce. `getMyProxyMembers()` — `leaderboardAllMembers` 필터 (`proxyMember===true && proxyHostId===myUid`). `subscribeAllTournamentMembers`를 `enterTournamentRound`에서도 호출 — 리더보드 방문 없이 leaderboardAllMembers 채우기. onSnapshot 콜백에서 hole input 활성 시 `renderProxyInputTargets()` 추가 호출. `cleanupTournamentRoundListeners`에서 `flushAllProxySyncTimers()` + `proxyScoreCache={}` + `proxyInputTargetId=null` 초기화.
-- **D8 홀 위치 처리**: 멤버별 독립 (본인과 프록시 각자 currentHole 유지). 토글 전환 시 화면이 해당 멤버의 currentHole로 이동. `proxyScoreCache`는 scores, putts, currentHole, completed 모두 저장. → 설계 대안 검토는 "D8 설계 결정" 섹션 참조.
-- **D0 게이팅 구조**: `canUserHostTournament()` / `canUserCreateRound()` — 현재는 항상 true, 추후 유료 기능 게이팅용 stub.
-- **D1 calculateCourseHandicap 시그니처**: `(handicapIndex, teeBox?, totalPar?)` — 인자 1개만 넘기면 `Math.round(handicapIndex)` fallback. 3인자 모두 있으면 USGA WHS 공식: `HI × (Slope/113) + (CourseRating - Par)`. D4부터 정모 만들기 시 티박스 같이 넘기게 점진적 교체 예정.
-- **D1 courses 데이터 모델**: `nameLower`/`cityLower`는 D3 자동완성용 캐시 — 클라이언트가 입력 시 `toLowerCase()`로 채워야 함. `usageCount`는 일반 update에서 잠금 (D7에서 increment-only 패스 별도 추가). `teeBoxes` 서브컬렉션: `pars[18]`, `yardages[18]`, `courseRating`, `slopeRating`, `totalPar`, `totalYardage` 필수.
-- **D1 신규 컬렉션 검증 패턴**: Firestore rules 변경 후 `firebase_validate_security_rules` + deploy 컴파일 통과 확인 → Firebase MCP로 데이터 모델 구조 검증 → 테스트 데이터 정리.
-- **D2 골프장 등록**: `createCourseWithTeeBoxes` — 코스 문서 먼저 `set()`, 그다음 teeBoxes `batch.set()` (2-step 필수: 동시 batch 시 teeBoxes 보안 규칙의 `get(parent)` 실패). `deleteCourseWithTeeBoxes` — teeBoxes batch 삭제 후 본 문서 삭제 (cascade).
-- **D2 티박스 ID**: 색상 키 (`white`/`blue`/`black`/`gold`/`red`/`other`). 같은 골프장 내 색상 중복 금지 (클라이언트 검증). 라벨 비면 색상 영문명 자동 채움.
-- **D2 fetchMyCourses**: `where('addedBy')` 단일 필터 + 클라이언트 정렬 (`addedAt` desc). `orderBy` 사용 시 복합 인덱스 필요 → 제거.
-- **D2 메인 화면**: `showScreen(screenMain)` 진입 시 `renderMyCoursesList()` 자동 호출. 골프장 0개면 섹션 hidden, 1개 이상이면 표시.
-- **D2 화면 ID 충돌 주의**: `screen-new-round`에 이미 `input-course-name`/`inputCourseName` 사용 중 → 화면 18은 `input-cr-name`/`inputCrName` 등 `cr-` 접두사 사용.
-
----
-
-## 데이터 흐름 요약 (C4-3 기준)
-
-**본인 입력 흐름:**
-`changeScore` → `saveActiveRound` → tournamentId 분기 → `scheduleSyncMyScoreToTournament` (500ms debounce) → `tournaments/{id}/members/{uid}.scores` 업데이트
-
-**팀원 현황 보기:**
-`enterTournamentRound` → `subscribeTournamentTeamMembers(where teamId)` → onSnapshot → `allMembersData` → `renderMembersStrip`
-
-**정리:**
-`leaveTournamentWaitingRoom` → `cleanupTournamentRoundListeners` (unsub + flushAndClear + allMembersData 초기화)
-
----
-
-## 회귀 방지 체크포인트 (C4-3에서 발견)
-
-- **새 배지/UI 추가 시**: 다른 모드 진입 시 숨김 처리도 같이 — `renderSharedModeUI()` B6 분기에서 `tournament-mode-badge` hidden 추가한 사례
-- **새 onSnapshot 추가 시**: cleanup 함수도 반드시 같이 작성 (메모리 누수 방지), `leaveTournament*` 경로 모두 체크
-- **새 분기 (`currentRound.tournamentId`) 추가 시**: personal / B6 케이스 회귀 안 깨지는지 코드 리뷰 필수
-
----
-
-## Playwright MCP 자동화 안정성 메모
-
-- 세션 만료 시 Claude Code 재시작하면 MCP도 같이 재시작됨
-- `browser_snapshot` 이 "browser has been closed" 에러 → Claude Code 재시작 필요
-- 두 컨텍스트 동시 제어 어려우면 순차 처리 (호스트 셋업 완료 → 게스트 진입)
-- **순수 함수(정렬·계산)는 Node.js 단위 테스트 우선** — Playwright보다 빠르고 정확, 브라우저 불필요
-- 실 브라우저 필요한 부분만 Playwright (시각 확인 + 라이브 동기화 latency)
-
----
-
-## 미래 작업 메모 (D 단계 이후)
-
-### E6 알림 정리 로직 (정모 종료 시)
-Spark 플랜이라 Cloud Functions 없음. 정모 종료 시 notifications 서브컬렉션 batch delete. E6 정산 마일스톤에서 처리. 현재는 알림이 무기한 보존됨 (읽기 비용 미미, Firestore 저장은 무료 quota 내).
-
-### D7 신고 자동 검증 자동화 (PRD 6.4.5)
-"3명 이상 사용 시 자동 검증" + 관리자 도구 화면. 신고 누적되면 별도 단계로 처리.
-
-### D7 골프장 정보 수정 UI
-등록자가 자기 골프장 이름/티박스 등 직접 수정. 현재는 신고/삭제만 가능. 사용자 needs 발생 시 추가.
-
-### D7 collectionGroup query로 관리자 페이지
-모든 reports를 한 곳에서 보는 화면. 현재는 Firebase Console에서 수동 검토.
-
-### 골프장 사진 업로드 (PRD 6.8)
-Firebase Storage 도입 필요. D 단계 비포함으로 보류.
-
-### 멤버별 티박스 변경 (PRD 6.4.3 선택사항)
-D5에서 정모 기본 티박스 → 모든 멤버 동일 적용. 시니어/주니어가 레드 티 등 다른 티박스 사용하는 경우는 사용자 needs 발생 시 별도 단계로 추가.
-
-### createTournament 호스트 핸디 분기 통합 (D6 또는 이후)
-D4 createTournament 내부의 인라인 핸디 분기를 `calculateMemberCourseHandicapFromTournament`로 통일. D5에서는 회귀 위험 회피를 위해 분리 유지.
-
-### 호스팅 이전 — GitHub Pages → Firebase Hosting
-
-현재 상태:
-- GitHub Pages에 호스팅 (mp9344-crypto.github.io/jeongmo/)
-- Public 저장소 + firebase-config.js도 git 추적 (호스팅 구조상 어쩔 수 없음)
-- API 키는 도메인 제한으로 보호 (Google Cloud Console)
-
-할 일:
-1. Firebase Hosting 셋업 (firebase init hosting)
-2. firebase-config.js를 다시 git에서 빼고 GitHub Actions로 빌드 시 주입
-3. 도메인 제한 변경:
-   - 추가: jeongmo-app.web.app
-   - 제거: mp9344-crypto.github.io
-4. (선택) 커스텀 도메인 구매 후 연결
-
-이전 안 하는 동안 위험도: 낮음 (도메인 제한 + Firestore Rules 옵션 B로 보호)
-
-### API 키 도메인 제한 현황 (2026-05-03 적용)
-
-Google Cloud Console (jeongmo-app 프로젝트) → Browser key:
-- 127.0.0.1
-- jeongmo-app.firebaseapp.com (Firebase Auth 안전망)
-- localhost
-- mp9344-crypto.github.io (현재 호스팅 도메인)
-
-### 다국어 지원 (i18n) — 사용자 needs 발생 시
-
-추가 시점: 한국어 안정화 완료 + 외국 친구가 사용할 needs 생길 때
-우선순위: 영어 → 일본어 → 그 외
-예상 작업 시간: 1~2주 (영어만)
-
-작업 범위:
-- HTML/JS의 모든 한국어 텍스트를 translations.js로 추출 (200~300개 항목 예상)
-- data-i18n 속성으로 키 참조 구조로 변환
-- 언어 선택 UI (브라우저 언어 자동 감지 + 수동 변경)
-- localStorage에 언어 설정 저장
-- Open Graph 메타태그도 다국어
-- Intl.DateTimeFormat으로 날짜 포맷 자동화
-
-함정:
-- 영어 텍스트는 한국어보다 30~50% 김 → 모바일 버튼 점검 필수
-- 골프 용어는 영어 원어가 자연스러움 (Stroke Play, Net, Gross 등)
-- "정모"의 영어 번역: "JeongMo" 그대로 또는 "Friends Round" 추천
-- 카카오톡 인앱 브라우저 외 메신저 호환성 (LINE, WhatsApp 등) 점검
-
-지금 안 하는 이유:
-- 친구 단톡방 앱이라 사용자 모두 한국어
-- C~D 단계 동안 새 기능마다 번역 추가하면 작업량 1.5배
-- 한국어 표현 안정화 후 번역하는 게 정석 (피드백 받고 다듬은 후)
-- PRD 2.4 "본질에 집중" 원칙
+- **그린 면적 1개 원칙**: 화면당 Primary(그린 채움)는 1개. 나머지는 Outline 또는 Ghost.
+- 새 라운드 시작 → `.btn-outline` (흰 배경 + 1.5px 녹색 보더 + 녹색 텍스트)
+- 정모/공유 코드로 참여 → `.btn-primary` 유지 (유일한 그린 채움)
+- 골프장 등록 → `.btn-outline`
+- 골프룰 이해 → `.btn-ghost` (흰 배경 + 회색 보더 + 진회색 텍스트)
+- 신규 클래스 2개 추가: `.btn-outline`, `.btn-ghost` (각각 `margin-bottom: 0` 포함)
+- 이 위계 패턴(Primary 1 / Outline / Ghost)을 F3~F5 화면에도 동일 적용 예정
+- 캐시 버스트: `?v=f2_1`

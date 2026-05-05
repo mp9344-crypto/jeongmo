@@ -52,6 +52,7 @@ const screenAddProxyMember = document.getElementById('screen-add-proxy-member');
 const screenCourseRegister = document.getElementById('screen-course-register');
 const screenCourseDetail = document.getElementById('screen-course-detail');
 const screenReportCourse = document.getElementById('screen-report-course');
+const screenGolfRules = document.getElementById('screen-golf-rules');
 
 const allScreens = [
     screenMain,
@@ -72,7 +73,8 @@ const allScreens = [
     screenAddProxyMember,
     screenCourseRegister,
     screenCourseDetail,
-    screenReportCourse
+    screenReportCourse,
+    screenGolfRules
 ];
 
 // 메인 화면 - 프로필 카드
@@ -120,7 +122,10 @@ const btnAddEvent = document.getElementById('btn-add-event');
 const addEventForm = document.getElementById('add-event-form');
 const selectEventType = document.getElementById('select-event-type');
 const selectEventHole = document.getElementById('select-event-hole');
-const inputEventPrize = document.getElementById('input-event-prize');
+const inputEventPrizeText = document.getElementById('input-event-prize-text');
+const inputEventPrizeAmount = document.getElementById('input-event-prize-amount');
+const inputGameWinnerPrizeText = document.getElementById('input-game-winner-prize-text');
+const inputGameWinnerPrizeAmount = document.getElementById('input-game-winner-prize-amount');
 const btnConfirmAddEvent = document.getElementById('btn-confirm-add-event');
 const btnCancelAddEvent = document.getElementById('btn-cancel-add-event');
 const tournamentLinkEventsBox = document.getElementById('tournament-link-events');
@@ -335,7 +340,20 @@ const resultRankingsList = document.getElementById('result-rankings-list');
 const resultTeamSectionTitle = document.getElementById('result-team-section-title');
 const resultTeamRankingsList = document.getElementById('result-team-rankings-list');
 const resultMyScorecard = document.getElementById('result-my-scorecard');
+const resultWinnerPrize = document.getElementById('result-winner-prize');
+const resultEventResultsSection = document.getElementById('result-event-results-section');
+const resultEventResultsList = document.getElementById('result-event-results-list');
+const resultSettlementSection = document.getElementById('result-settlement-section');
+const resultSettlementList = document.getElementById('result-settlement-list');
 const btnResultBackToMain = document.getElementById('btn-result-back-to-main');
+// E7: 결과 공유
+const btnShareResult = document.getElementById('btn-share-result');
+const shareResultModal = document.getElementById('share-result-modal');
+const sharePreviewImg = document.getElementById('share-preview-img');
+const shareGeneratingHint = document.getElementById('share-generating-hint');
+const btnShareNative = document.getElementById('btn-share-native');
+const btnShareDownload = document.getElementById('btn-share-download');
+const btnShareModalClose = document.getElementById('btn-share-modal-close');
 
 // 퍼팅 입력
 const puttsDisplay = document.getElementById('putts-display');
@@ -429,7 +447,16 @@ let notificationsUnsub = null;         // onSnapshot 해제
 let lastNotifiedScores = {};           // { "userId_holeNumber": bestType } 중복 방지
 let tickerQueue = [];                  // 표시 대기 큐 (최대 10개)
 let tickerDisplayTimer = null;         // 현재 메시지 타이머
+
+// E7: 결과 공유
+let shareResultBlob = null;
+let sharePreviewUrl = null;
 const NOTIFICATION_TYPE_PRIORITY = { birdie: 1, eagle: 2, albatross: 3, ace: 4 };
+
+// E8: 채팅
+let chatMessagesUnsub = null;
+let chatSendCooldown = false;
+let chatLongPressTimer = null;
 const TICKER_DISPLAY_MS = 8000;
 
 // C4-6: 렌더링 throttle 유틸리티
@@ -1574,8 +1601,16 @@ function validateEventHole(type, holeNumber, pars) {
 }
 
 function formatEventCard(event) {
-    const prizeText = (event.prize && event.prize > 0) ? ' · $' + event.prize : '';
-    return event.holeNumber + '번홀 · ' + getEventTypeLabel(event.type) + prizeText;
+    return event.holeNumber + '번홀 · ' + getEventTypeLabel(event.type) + formatPrizeDisplay(event.prizeText, event.prizeAmount);
+}
+
+function formatPrizeDisplay(text, amount) {
+    var hasText = text && text.trim().length > 0;
+    var hasAmount = amount && amount > 0;
+    if (hasText && hasAmount) return ' · ' + text.trim() + ' ($' + amount + ')';
+    if (hasText) return ' · ' + text.trim();
+    if (hasAmount) return ' · $' + amount;
+    return '';
 }
 
 function generateEventId() {
@@ -1710,13 +1745,13 @@ function renderProfileCard() {
 
     if (profile === null) {
         profileNameDisplay.textContent = '이름을 설정해주세요';
-        profileHandicapDisplay.textContent = 'Handicap: --';
+        profileHandicapDisplay.textContent = '--';
     } else {
         profileNameDisplay.textContent = profile.name;
         if (profile.handicapIndex !== null && profile.handicapIndex !== undefined) {
-            profileHandicapDisplay.textContent = 'Handicap Index: ' + profile.handicapIndex.toFixed(1);
+            profileHandicapDisplay.textContent = profile.handicapIndex.toFixed(1);
         } else {
-            profileHandicapDisplay.textContent = 'Handicap: --';
+            profileHandicapDisplay.textContent = '--';
         }
     }
 }
@@ -2309,7 +2344,8 @@ function getCurrentFormPars() {
 function openAddEventForm() {
     if (pendingTournamentEvents.length >= MAX_EVENTS) return;
     selectEventType.value = 'kp';
-    inputEventPrize.value = '';
+    inputEventPrizeText.value = '';
+    inputEventPrizeAmount.value = '';
     renderEventHoleOptions();
     addEventForm.classList.remove('hidden');
     btnAddEvent.classList.add('hidden');
@@ -2327,7 +2363,8 @@ function onEventTypeChange() {
 function confirmAddEvent() {
     const type = selectEventType.value;
     const holeNumber = parseInt(selectEventHole.value, 10);
-    const prize = parseInt(inputEventPrize.value, 10) || 0;
+    const prizeText = (inputEventPrizeText.value || '').trim().slice(0, 50);
+    const prizeAmount = Math.max(0, parseInt(inputEventPrizeAmount.value, 10) || 0);
 
     if (!holeNumber || holeNumber < 1 || holeNumber > 18) {
         alert('홀을 선택해주세요.');
@@ -2357,7 +2394,8 @@ function confirmAddEvent() {
         id: generateEventId(),
         type: type,
         holeNumber: holeNumber,
-        prize: prize
+        prizeText: prizeText,
+        prizeAmount: prizeAmount
     });
 
     closeAddEventForm();
@@ -2901,6 +2939,8 @@ function readTournamentForm() {
         maxMembers: maxMembers,
         pars: pars,
         events: pendingTournamentEvents.slice(),
+        gameWinnerPrizeText: (inputGameWinnerPrizeText.value || '').trim().slice(0, 50),
+        gameWinnerPrizeAmount: Math.max(0, parseInt(inputGameWinnerPrizeAmount.value, 10) || 0),
         tier: 'free'
     };
 }
@@ -2931,6 +2971,10 @@ function openTournamentCreateScreen() {
     pendingTournamentEvents = [];
     closeAddEventForm();
     renderEventsList();
+
+    // E6: 게임 우승 상금 초기화
+    inputGameWinnerPrizeText.value = '';
+    inputGameWinnerPrizeAmount.value = '';
 
     createTournamentParInputs(null);
 
@@ -3121,10 +3165,10 @@ function renderEventBanners(holeNumber) {
         var item = document.createElement('div');
         item.className = 'event-banner-item';
         var winner = getCurrentEventWinner(event, winnersMap);
-        var prizeText = (event.prize && event.prize > 0) ? ' · $' + event.prize : '';
+        var prizeSuffix = formatPrizeDisplay(event.prizeText, event.prizeAmount);
         var winnerText = winner ? ('현재 위너: ' + winner.userName + ' ✨') : '아직 입력 안 됨';
         item.innerHTML =
-            '<div class="event-banner-top">🏆 ' + event.holeNumber + '번홀: ' + getEventTypeLabel(event.type) + prizeText + '</div>' +
+            '<div class="event-banner-top">🏆 ' + event.holeNumber + '번홀: ' + getEventTypeLabel(event.type) + prizeSuffix + '</div>' +
             '<div class="event-banner-winner">' + escapeHtml(winnerText) + '</div>';
         item.addEventListener('click', (function(eid) {
             return function() { openEventWinnerModal(eid); };
@@ -3178,9 +3222,8 @@ function renderEventWinnerModalContent(event) {
     var canCancel = !!(myUid && canCancelLastEventWinner(event, winnersMap, myUid, isHost));
 
     // 제목
-    var prizeText = (event.prize && event.prize > 0) ? ' · $' + event.prize : '';
     document.getElementById('event-modal-title').textContent =
-        event.holeNumber + '번홀 · ' + getEventTypeLabel(event.type) + prizeText;
+        event.holeNumber + '번홀 · ' + getEventTypeLabel(event.type) + formatPrizeDisplay(event.prizeText, event.prizeAmount);
 
     // 현재 위너 표시
     var cwEl = document.getElementById('event-modal-current-winner');
@@ -4245,6 +4288,8 @@ function createTournament(formData) {
         teamSize: formData.teamSize,
         maxMembers: formData.maxMembers,
         events: formData.events && formData.events.length > 0 ? formData.events : [],
+        gameWinnerPrizeText: formData.gameWinnerPrizeText || '',
+        gameWinnerPrizeAmount: formData.gameWinnerPrizeAmount || 0,
         hostId: userId,
         hostName: profile.name,
         status: 'waiting',
@@ -4546,6 +4591,10 @@ function enterTournamentWaitingRoom(tournamentId) {
         // C4-1: status 변화 감지 → 자동 화면 전환
         if (tData.status === 'in_progress') {
             console.log('🏌️ 정모 시작 감지 → 라운드 화면 진입');
+            // E8: 채팅 hidden + unsub (라운드 시작 시)
+            var chatSec = document.getElementById('chat-section');
+            if (chatSec) chatSec.classList.add('hidden');
+            unsubscribeChatMessages();
             if (!screenHoleInput.classList.contains('hidden') &&
                 currentRound !== null &&
                 currentRound.tournamentId === currentTournamentId) {
@@ -4580,6 +4629,12 @@ function enterTournamentWaitingRoom(tournamentId) {
         }, function(error) {
             console.error('❌ 대기실 멤버 리스너 오류:', error);
         });
+
+    // 3. E8: 채팅 구독 + UI 표시
+    var chatSection = document.getElementById('chat-section');
+    chatSection.classList.remove('hidden');
+    setupChatInputListeners();
+    subscribeChatMessages(tournamentId);
 }
 
 function cleanupTournamentWaitingListeners() {
@@ -4593,6 +4648,8 @@ function cleanupTournamentWaitingListeners() {
         tournamentWaitingMembersUnsub = null;
         console.log('🧹 대기실 멤버 리스너 해제');
     }
+    // E8: 채팅 리스너 정리
+    unsubscribeChatMessages();
 }
 
 // C4-1: 정모 라운드 진입 (호스트/게스트 공통)
@@ -4758,6 +4815,25 @@ function detectScoreNotification(score, par, holeNumber, userId) {
 }
 
 // 알림 Firestore 저장 — silent fail
+// E6: 정모 종료 시 notifications 서브컬렉션 batch delete (silent fail)
+function cleanupTournamentNotifications(tournamentId) {
+    if (!tournamentId) return;
+    db.collection('tournaments').doc(tournamentId)
+        .collection('notifications').get()
+        .then(function(snapshot) {
+            if (snapshot.empty) return;
+            var batch = db.batch();
+            snapshot.docs.forEach(function(doc) { batch.delete(doc.ref); });
+            return batch.commit();
+        })
+        .then(function() {
+            console.log('🧹 알림 정리 완료:', tournamentId);
+        })
+        .catch(function(e) {
+            console.warn('⚠️ 알림 정리 실패 (silent):', e.message);
+        });
+}
+
 function publishNotification(tournamentId, data) {
     if (!tournamentId || !currentUser) return;
     db.collection('tournaments').doc(tournamentId)
@@ -4978,6 +5054,7 @@ function handleEndTournament() {
         completedAt: firebase.firestore.FieldValue.serverTimestamp()
     }).then(function() {
         console.log('🏁 정모 종료 처리 완료:', tournamentId);
+        cleanupTournamentNotifications(tournamentId); // E6: silent fail
         // subscribeTournamentStatusForRound의 completed 감지가 enterTournamentResultScreen 호출
     }).catch(function(error) {
         console.error('❌ 정모 종료 실패:', error);
@@ -5120,6 +5197,12 @@ function renderTournamentResult() {
         resultWinnerScore.textContent = '';
     }
 
+    // E6: 우승 상품/상금, 이벤트 결과, 정산표
+    renderGameWinnerPrize(resultTournamentDoc, memberStats, isNetMode);
+    renderEventResults(resultTournamentDoc);
+    var settlement = calculateSettlement(resultTournamentDoc, memberStats, isNetMode);
+    renderSettlementTable(settlement);
+
     // 개인 순위
     renderResultRankings(memberStats, isNetMode, myUid);
 
@@ -5136,6 +5219,180 @@ function renderTournamentResult() {
     // 나의 스코어카드
     var myMember = resultMembers.find(function(m) { return m.id === myUid; });
     renderMyScorecard(myMember, pars, isNetMode);
+}
+
+// E6: 게임 우승 상품/상금 표시
+function renderGameWinnerPrize(tournament, memberStats, isNetMode) {
+    var text = tournament.gameWinnerPrizeText || '';
+    var amount = tournament.gameWinnerPrizeAmount || 0;
+    if (!text && !amount) {
+        resultWinnerPrize.classList.add('hidden');
+        resultWinnerPrize.innerHTML = '';
+        return;
+    }
+    var lines = [];
+    if (text) lines.push('상품: ' + escapeHtml(text));
+    if (amount > 0) lines.push('상금: $' + amount);
+
+    // 동타 처리: 우승자 여러 명이면 공동 우승 표시
+    if (memberStats.length > 1 && memberStats[0].playedHoles > 0) {
+        var bestKey = isNetMode ? memberStats[0].netOverPar : memberStats[0].grossOverPar;
+        var winCount = 0;
+        for (var i = 0; i < memberStats.length; i++) {
+            var key = isNetMode ? memberStats[i].netOverPar : memberStats[i].grossOverPar;
+            if (memberStats[i].playedHoles > 0 && key === bestKey) winCount++;
+            else break;
+        }
+        if (winCount > 1) lines.push('(공동 우승 ' + winCount + '명 — 각 $' + Math.round((amount / winCount) * 100) / 100 + ')');
+    }
+
+    resultWinnerPrize.innerHTML = lines.join('<br>');
+    resultWinnerPrize.classList.remove('hidden');
+}
+
+// E6: 이벤트 결과 카드 렌더
+function renderEventResults(tournament) {
+    var events = tournament.events || [];
+    if (events.length === 0) {
+        resultEventResultsSection.classList.add('hidden');
+        return;
+    }
+    var eventWinners = tournament.eventWinners || {};
+    resultEventResultsList.innerHTML = '';
+
+    events.forEach(function(event) {
+        var card = document.createElement('div');
+        card.className = 'event-result-card';
+
+        var header = document.createElement('div');
+        header.className = 'event-result-header';
+        header.textContent = event.holeNumber + '번홀 · ' + getEventTypeLabel(event.type) + formatPrizeDisplay(event.prizeText, event.prizeAmount);
+        card.appendChild(header);
+
+        var body = document.createElement('div');
+        body.className = 'event-result-body';
+
+        var map = eventWinners[event.id];
+        if (event.type === 'holeInOne') {
+            if (map && map.achieved) {
+                body.innerHTML = '🎯 ' + escapeHtml(map.userName || '?');
+            } else {
+                body.classList.add('event-result-none');
+                body.textContent = '⊘ 달성 없음';
+            }
+        } else {
+            // KP / 롱기스트
+            var arr = Array.isArray(map) ? map : [];
+            if (arr.length > 0) {
+                body.innerHTML = '🏆 ' + escapeHtml(arr[arr.length - 1].userName || '?');
+            } else {
+                body.classList.add('event-result-none');
+                body.textContent = '⊘ 입력 없음';
+            }
+        }
+        card.appendChild(body);
+        resultEventResultsList.appendChild(card);
+    });
+
+    resultEventResultsSection.classList.remove('hidden');
+}
+
+// E6: 정산 계산
+function calculateSettlement(tournament, memberStats, isNetMode) {
+    var gameAmount = tournament.gameWinnerPrizeAmount || 0;
+    var events = tournament.events || [];
+    var eventWinners = tournament.eventWinners || {};
+
+    var allMembers = memberStats.filter(function(s) { return s.playedHoles > 0; });
+    var M = allMembers.length;
+    if (M < 2) return [];
+
+    var settlements = {};
+
+    function add(uid, name, delta, label) {
+        if (!settlements[uid]) settlements[uid] = { id: uid, name: name, total: 0, items: [] };
+        settlements[uid].total += delta;
+        settlements[uid].items.push({ label: label, delta: delta });
+    }
+
+    // 게임 우승 정산 — 공식: winner net = amount*(M-1)/(K*M), non-winner = -amount*(M-1)/(M*(M-K))
+    if (gameAmount > 0) {
+        var bestKey = isNetMode ? allMembers[0].netOverPar : allMembers[0].grossOverPar;
+        var gWinners = allMembers.filter(function(s) {
+            return (isNetMode ? s.netOverPar : s.grossOverPar) === bestKey;
+        });
+        var gNonWinners = allMembers.filter(function(s) {
+            return (isNetMode ? s.netOverPar : s.grossOverPar) !== bestKey;
+        });
+        var K = gWinners.length;
+        if (gNonWinners.length > 0) {
+            var gWinShare = Math.round(gameAmount * (M - 1) / (K * M) * 100) / 100;
+            var gLoseShare = Math.round(gameAmount * (M - 1) / (M * (M - K)) * 100) / 100;
+            gWinners.forEach(function(w) { add(w.id, w.name, gWinShare, '게임 우승'); });
+            gNonWinners.forEach(function(l) { add(l.id, l.name, -gLoseShare, '게임 우승'); });
+        }
+    }
+
+    // 이벤트 정산 — K=1이므로: winner net = amount*(M-1)/M, non-winner = -amount/M
+    events.forEach(function(event) {
+        if (event.type === 'holeInOne') return; // 홀인원 정산 제외
+        var eAmount = event.prizeAmount || 0;
+        if (eAmount <= 0) return;
+
+        var map = eventWinners[event.id];
+        var arr = Array.isArray(map) ? map : [];
+        if (arr.length === 0) return; // 위너 없음
+
+        var lastWinner = arr[arr.length - 1];
+        var winnerId = lastWinner.userId;
+        var winnerName = lastWinner.userName || '?';
+        var label = event.holeNumber + '번홀 ' + getEventTypeLabel(event.type);
+        var eWinNet = Math.round(eAmount * (M - 1) / M * 100) / 100;
+        var ePayEach = Math.round(eAmount / M * 100) / 100;
+
+        add(winnerId, winnerName, eWinNet, label);
+        allMembers.forEach(function(m) {
+            if (m.id === winnerId) return;
+            add(m.id, m.name, -ePayEach, label);
+        });
+    });
+
+    return Object.values(settlements)
+        .filter(function(s) { return Math.abs(s.total) > 0.001; })
+        .sort(function(a, b) { return b.total - a.total; });
+}
+
+// E6: 정산표 렌더 (조건부)
+function renderSettlementTable(settlement) {
+    if (settlement.length === 0) {
+        resultSettlementSection.classList.add('hidden');
+        return;
+    }
+    resultSettlementList.innerHTML = '';
+    settlement.forEach(function(s) {
+        var row = document.createElement('div');
+        row.className = 'settlement-row' + (s.total > 0 ? ' settlement-positive' : ' settlement-negative');
+
+        var nameEl = document.createElement('span');
+        nameEl.className = 'settlement-name';
+        nameEl.textContent = s.name;
+        row.appendChild(nameEl);
+
+        var amtEl = document.createElement('span');
+        amtEl.className = 'settlement-amount';
+        amtEl.textContent = (s.total > 0 ? '+' : '') + Math.round(s.total * 100) / 100 + '$';
+        row.appendChild(amtEl);
+
+        var breakdownEl = document.createElement('span');
+        breakdownEl.className = 'settlement-breakdown';
+        breakdownEl.textContent = s.items.map(function(item) {
+            return item.label + ' ' + (item.delta > 0 ? '+' : '') + Math.round(item.delta * 100) / 100 + '$';
+        }).join(', ');
+        row.appendChild(breakdownEl);
+
+        resultSettlementList.appendChild(row);
+    });
+    resultSettlementSection.classList.remove('hidden');
 }
 
 function renderResultRankings(memberStats, isNetMode, myUid) {
@@ -7970,6 +8227,272 @@ document.getElementById('event-winner-modal').addEventListener('click', function
 refreshMainScreen();
 handleInitialRouting();   // ★ B5: URL에 공유 코드 있으면 참여 흐름 시작
 
+// =========================================
+// E7: Canvas 결과 이미지 생성 + 공유 모달
+// =========================================
+
+var IMG_W = 1080;
+var IMG_PAD = 64;
+var IMG_FONT = '"Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
+
+function formatDateForImage(dateStr) {
+    if (!dateStr) return '';
+    var m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return dateStr;
+    return m[1] + '년 ' + parseInt(m[2]) + '월 ' + parseInt(m[3]) + '일';
+}
+
+function formatTopRanking(memberStats, limit) {
+    var lim = limit || 5;
+    var active = memberStats.filter(function(s) { return s.playedHoles > 0; });
+    return { top: active.slice(0, lim), extra: Math.max(0, active.length - lim) };
+}
+
+function calcImageHeight(tournament) {
+    var eventCount = (tournament.events || []).length;
+    return Math.min(1800, 1350 + Math.max(0, eventCount - 1) * 100);
+}
+
+function imgRoundedRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+function imgText(ctx, text, x, y, size, weight, color, align) {
+    ctx.save();
+    ctx.font = (weight || 'normal') + ' ' + size + 'px ' + IMG_FONT;
+    ctx.fillStyle = color || '#1A1A1A';
+    ctx.textAlign = align || 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(text, x, y);
+    ctx.restore();
+}
+
+function imgDivider(ctx, y, padX, colW) {
+    ctx.save();
+    ctx.fillStyle = '#E5E5E5';
+    ctx.fillRect(padX, y, colW, 2);
+    ctx.restore();
+}
+
+function generateResultImage(tournament, memberStats) {
+    return new Promise(function(resolve, reject) {
+        try {
+            var isNetMode = tournament.gameMode === 'net';
+            var events = tournament.events || [];
+            var totalH = calcImageHeight(tournament);
+            var W = IMG_W;
+            var PAD = IMG_PAD;
+            var COL_W = W - PAD * 2;
+            var MID = W / 2;
+
+            var canvas = document.createElement('canvas');
+            canvas.width = W;
+            canvas.height = totalH;
+            var ctx = canvas.getContext('2d');
+
+            // 배경
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, W, totalH);
+
+            var y = 0;
+
+            // 상단 액센트 바
+            ctx.fillStyle = '#1B7340';
+            ctx.fillRect(0, 0, W, 18);
+            y = 18 + 72;
+
+            // 헤더
+            imgText(ctx, '🏌️ 정모 결과', MID, y, 58, 'bold', '#1A1A1A', 'center');
+            y += 58;
+            imgText(ctx, tournament.name || '정모', MID, y, 32, 'bold', '#1B7340', 'center');
+            y += 40;
+            imgText(ctx, formatDateForImage(tournament.date), MID, y, 26, 'normal', '#555555', 'center');
+            y += 56;
+
+            // 구분선 + 코스 정보
+            imgDivider(ctx, y, PAD, COL_W);
+            y += 26;
+            imgText(ctx, '⛳  ' + (tournament.courseName || '직접 입력'), MID, y, 28, 'normal', '#1A1A1A', 'center');
+            y += 38;
+            imgText(ctx, getGameTypeLabel(tournament.gameType) + '  ·  ' + (isNetMode ? 'Net 모드' : 'Gross 모드'), MID, y, 24, 'normal', '#555555', 'center');
+            y += 52;
+
+            // 구분선 + 게임 우승 카드
+            imgDivider(ctx, y, PAD, COL_W);
+            y += 26;
+
+            var winner = memberStats.find(function(s) { return s.playedHoles > 0; });
+            var gwText = tournament.gameWinnerPrizeText || '';
+            var gwAmount = tournament.gameWinnerPrizeAmount || 0;
+            var hasPrize = gwText || gwAmount > 0;
+            var cardH = hasPrize ? 234 : 192;
+
+            ctx.fillStyle = '#F5F5F5';
+            imgRoundedRect(ctx, PAD, y, COL_W, cardH, 18);
+            ctx.fill();
+
+            var cy = y + 40;
+            imgText(ctx, '🏆  게임 우승', MID, cy, 26, 'bold', '#1B7340', 'center');
+            cy += 56;
+            imgText(ctx, winner ? winner.name : '-', MID, cy, 46, 'bold', '#1A1A1A', 'center');
+            cy += 46;
+            if (winner) {
+                var sc = isNetMode
+                    ? (winner.net.toFixed(1) + '  (' + formatOverUnder(winner.netOverPar) + ')')
+                    : (winner.total + '타  (' + formatOverUnder(winner.grossOverPar) + ')');
+                imgText(ctx, sc, MID, cy, 28, 'normal', '#555555', 'center');
+                cy += 40;
+            }
+            if (hasPrize) {
+                var pLine = formatPrizeDisplay(gwText, gwAmount).replace(/^ · /, '');
+                imgText(ctx, '✨  ' + pLine, MID, cy, 26, 'normal', '#1B7340', 'center');
+            }
+            y += cardH + 28;
+
+            // 이벤트 결과 (있을 때만)
+            if (events.length > 0) {
+                imgDivider(ctx, y, PAD, COL_W);
+                y += 30;
+                imgText(ctx, '🎯  이벤트 결과', PAD, y, 32, 'bold', '#1A1A1A', 'left');
+                y += 52;
+                var eWinners = tournament.eventWinners || {};
+                events.forEach(function(ev) {
+                    var evLabel = ev.holeNumber + '번홀  ·  ' + getEventTypeLabel(ev.type);
+                    var prizeStr = formatPrizeDisplay(ev.prizeText, ev.prizeAmount);
+                    if (prizeStr) evLabel += prizeStr;
+                    imgText(ctx, evLabel, PAD, y, 24, 'normal', '#555555', 'left');
+                    y += 36;
+                    var evMap = eWinners[ev.id];
+                    var evLine;
+                    if (ev.type === 'holeInOne') {
+                        evLine = (evMap && evMap.achieved) ? '🎯  ' + (evMap.userName || '?') : '⊘  달성 없음';
+                    } else {
+                        var evArr = Array.isArray(evMap) ? evMap : [];
+                        evLine = evArr.length > 0 ? '🏆  ' + (evArr[evArr.length - 1].userName || '?') : '⊘  입력 없음';
+                    }
+                    imgText(ctx, evLine, PAD, y, 28, 'bold', '#1A1A1A', 'left');
+                    y += 54;
+                });
+            }
+
+            // 최종 순위 Top 5
+            imgDivider(ctx, y, PAD, COL_W);
+            y += 30;
+            imgText(ctx, '📊  최종 순위', PAD, y, 32, 'bold', '#1A1A1A', 'left');
+            y += 52;
+            var ranking = formatTopRanking(memberStats, 5);
+            var rankEmoji = ['🥇', '🥈', '🥉'];
+            ranking.top.forEach(function(s, i) {
+                var rankLabel = i < 3 ? rankEmoji[i] : (i + 1) + '.';
+                imgText(ctx, rankLabel, PAD, y, 28, 'bold', '#1A1A1A', 'left');
+                imgText(ctx, s.name, PAD + 82, y, 28, 'normal', '#1A1A1A', 'left');
+                var rScore = isNetMode
+                    ? (s.net.toFixed(1) + '  (' + formatOverUnder(s.netOverPar) + ')')
+                    : (s.total + '타  (' + formatOverUnder(s.grossOverPar) + ')');
+                imgText(ctx, rScore, W - PAD, y, 26, 'normal', '#555555', 'right');
+                y += 54;
+            });
+            if (ranking.extra > 0) {
+                imgText(ctx, '외 ' + ranking.extra + '명', MID, y + 6, 22, 'normal', '#888888', 'center');
+                y += 44;
+            }
+
+            // 푸터
+            var footerY = totalH - 72;
+            imgDivider(ctx, footerY, PAD, COL_W);
+            imgText(ctx, '⛳  정모 앱으로 기록', MID, footerY + 46, 22, 'normal', '#888888', 'center');
+
+            canvas.toBlob(function(blob) {
+                if (blob) resolve(blob);
+                else reject(new Error('이미지 생성 실패'));
+            }, 'image/png');
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+function openShareModal() {
+    if (!resultTournamentDoc || resultMembers.length === 0) return;
+    shareResultBlob = null;
+    if (sharePreviewUrl) { URL.revokeObjectURL(sharePreviewUrl); sharePreviewUrl = null; }
+    sharePreviewImg.src = '';
+    sharePreviewImg.classList.add('hidden');
+    shareGeneratingHint.textContent = '이미지 생성 중...';
+    shareGeneratingHint.classList.remove('hidden');
+    shareResultModal.classList.remove('hidden');
+
+    var pars = resultTournamentDoc.pars || new Array(18).fill(4);
+    var isNetMode = resultTournamentDoc.gameMode === 'net';
+    var stats = resultMembers.map(function(m) { return computeMemberStats(m, pars); });
+    stats.sort(function(a, b) {
+        if (a.playedHoles === 0 && b.playedHoles > 0) return 1;
+        if (b.playedHoles === 0 && a.playedHoles > 0) return -1;
+        if (a.playedHoles === 0 && b.playedHoles === 0) return a.name.localeCompare(b.name);
+        var ak = isNetMode ? a.netOverPar : a.grossOverPar;
+        var bk = isNetMode ? b.netOverPar : b.grossOverPar;
+        return ak !== bk ? ak - bk : a.name.localeCompare(b.name);
+    });
+
+    generateResultImage(resultTournamentDoc, stats)
+        .then(function(blob) {
+            shareResultBlob = blob;
+            sharePreviewUrl = URL.createObjectURL(blob);
+            sharePreviewImg.src = sharePreviewUrl;
+            sharePreviewImg.classList.remove('hidden');
+            shareGeneratingHint.classList.add('hidden');
+        })
+        .catch(function(err) {
+            console.error('❌ 이미지 생성 실패:', err);
+            shareGeneratingHint.textContent = '이미지 생성 실패. 다시 시도해주세요.';
+        });
+}
+
+function closeShareModal() {
+    shareResultModal.classList.add('hidden');
+    sharePreviewImg.src = '';
+    sharePreviewImg.classList.add('hidden');
+    if (sharePreviewUrl) { URL.revokeObjectURL(sharePreviewUrl); sharePreviewUrl = null; }
+    shareResultBlob = null;
+}
+
+function handleShareClick() {
+    if (!shareResultBlob) { showToast('이미지를 생성 중입니다.'); return; }
+    var fileName = '정모_' + (resultTournamentDoc && resultTournamentDoc.date ? resultTournamentDoc.date : 'result') + '.png';
+    var file = new File([shareResultBlob], fileName, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: '정모 결과' })
+            .catch(function(err) {
+                if (err.name !== 'AbortError') showToast('공유에 실패했습니다. 다운로드를 이용해주세요.');
+            });
+    } else {
+        showToast('이 기기에서는 파일 공유를 지원하지 않습니다. 다운로드를 이용해주세요.');
+    }
+}
+
+function handleDownloadClick() {
+    if (!shareResultBlob) { showToast('이미지를 생성 중입니다.'); return; }
+    var fileName = '정모_' + (resultTournamentDoc && resultTournamentDoc.date ? resultTournamentDoc.date : 'result') + '.png';
+    var url = URL.createObjectURL(shareResultBlob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+}
+
 // C4-6: 페이지 떠날 때 모든 onSnapshot 정리
 function cleanupAllListenersOnUnload() {
     cleanupTournamentWaitingListeners();
@@ -7978,3 +8501,505 @@ function cleanupAllListenersOnUnload() {
 }
 
 window.addEventListener('beforeunload', cleanupAllListenersOnUnload);
+
+// E7: 결과 공유 이벤트 리스너
+btnShareResult.addEventListener('click', openShareModal);
+btnShareNative.addEventListener('click', handleShareClick);
+btnShareDownload.addEventListener('click', handleDownloadClick);
+btnShareModalClose.addEventListener('click', closeShareModal);
+shareResultModal.addEventListener('click', function(e) {
+    if (e.target === this) closeShareModal();
+});
+
+// =========================================
+// E1: 골프룰 이해 (정적 카드뉴스)
+// =========================================
+
+const GOLF_RULES_CARDS = [
+    {
+        id: 'ob',
+        icon: '🚫',
+        title: 'OB (아웃 오브 바운드)',
+        situation: '볼이 흰색 OB 말뚝 바깥쪽으로 나간 경우',
+        procedure: [
+            '공식 룰: 1벌타 + 이전 타구 지점으로 돌아가 다시 침 (스트로크 앤 디스턴스)',
+            '정모 로컬룰: OB 추정 지점 근처 페어웨이에 드롭 + 2벌타 (다음 타는 4번째 샷)'
+        ],
+        exception: 'OB 라인에 볼이 걸쳐 있으면 인바운드 처리. 경계는 말뚝 안쪽을 연결한 가상의 선 기준.'
+    },
+    {
+        id: 'bunker',
+        icon: '🏖️',
+        title: '벙커 처리',
+        situation: '볼이 모래 벙커 안에 떨어진 경우',
+        procedure: [
+            '벙커 안에서 그대로 침 — 어드레스 전 클럽으로 모래를 건드리면 안 됨',
+            '언플레이어블 선언: 1벌타 + 벙커 안 드롭 또는 2벌타 + 벙커 밖 뒤로 드롭'
+        ],
+        exception: '벙커 안 돌멩이·나뭇잎(루스 임페디먼트)은 제거 가능. 자연적으로 쌓인 모래는 건드리면 벌타.'
+    },
+    {
+        id: 'penalty-area',
+        icon: '💧',
+        title: '페널티 구역 (구 워터해저드)',
+        situation: '볼이 빨간 또는 노란 말뚝(페널티 구역) 안으로 들어간 경우',
+        procedure: [
+            '레드(측면): 1벌타 + 볼이 들어간 지점 기준 2클럽 이내 드롭',
+            '옐로우(정면): 1벌타 + 직전 지점에서 다시 침 또는 홀 방향 뒤로 드롭'
+        ],
+        exception: '2019 USGA 개정으로 "해저드" → "페널티 구역"으로 명칭 변경. 정모에서는 보통 레드 구역 처리로 통일하는 경우가 많음.'
+    },
+    {
+        id: 'preferred-lie',
+        icon: '🌿',
+        title: '프리퍼드 라이 (동네 룰)',
+        situation: '비가 오거나 코스 상태가 나빠 페어웨이 볼 상태가 불량할 때',
+        procedure: [
+            '볼 위치를 마커로 표시한 뒤 집어 올림',
+            '1클럽 이내 페어웨이에 다시 놓음 (벌타 없음)'
+        ],
+        exception: '러프·벙커·그린에는 적용 불가. 반드시 라운드 전 참가자 전원 합의 필요. 공식 대회에서는 사용 불가.'
+    },
+    {
+        id: 'divot',
+        icon: '⛏️',
+        title: '디봇 구제 (로컬룰)',
+        situation: '페어웨이에서 볼이 이미 파인 디봇(선행자가 친 흔적) 안에 있을 때',
+        procedure: [
+            '공식 룰: 구제 없음 — 그 자리에서 그대로 침',
+            '정모 로컬룰: 디봇 안이면 1클럽 이내 페어웨이에 드롭 허용 (벌타 없음)'
+        ],
+        exception: '러프에 있는 디봇은 구제 불가. 라운드 전 합의가 없으면 공식 룰 적용.'
+    },
+    {
+        id: 'cart-path',
+        icon: '🛤️',
+        title: '카트 도로 구제',
+        situation: '볼이 카트 도로 위에 있거나 도로 때문에 스탠스·스윙이 방해될 때',
+        procedure: [
+            '가장 가까운 구제 지점(Nearest Point of Relief)을 정한다',
+            '1클럽 이내에 드롭 (벌타 없음)'
+        ],
+        exception: '구제 지점이 러프나 나무 사이여도 선택 가능. 더 좋은 라이를 찾아 임의로 드롭하면 안 됨.'
+    },
+    {
+        id: 'mulligan',
+        icon: '🔄',
+        title: '멀리건 (정모 로컬룰)',
+        situation: '첫 홀 또는 합의된 상황에서 첫 샷이 마음에 안 들어 다시 치고 싶을 때',
+        procedure: [
+            '1라운드 1회 한정 (또는 정모 시작 전 합의된 횟수)',
+            '기존 볼은 포기하고 같은 지점에서 다시 침 (벌타 없음)'
+        ],
+        exception: '공식 룰에는 멀리건이 존재하지 않음. 핸디캡 계산 시 영향을 줄 수 있어 주의. 반드시 사전 전원 합의.'
+    }
+];
+
+let currentGolfRuleIndex = 0;
+var golfRuleSwipeStartX = 0;
+var golfRuleSwipeStartY = 0;
+var golfRuleSwipeTracking = false;
+
+function enterGolfRulesScreen() {
+    currentGolfRuleIndex = 0;
+    showScreen(screenGolfRules);
+    renderGolfRuleCard(0);
+    buildGolfRuleIndicators();
+    updatePaginationUI(0);
+    setupGolfRuleSwipe();
+}
+
+function renderGolfRuleCard(index) {
+    var card = GOLF_RULES_CARDS[index];
+    var el = document.getElementById('golf-rule-card');
+    el.innerHTML =
+        '<div class="golf-rule-icon">' + card.icon + '</div>' +
+        '<h3 class="golf-rule-title">' + card.title + '</h3>' +
+        '<div class="golf-rule-section">' +
+            '<div class="golf-rule-section-label">📍 상황</div>' +
+            '<p class="golf-rule-section-body">' + card.situation + '</p>' +
+        '</div>' +
+        '<div class="golf-rule-section">' +
+            '<div class="golf-rule-section-label">📋 처리법</div>' +
+            '<ol class="golf-rule-procedure">' +
+                card.procedure.map(function(step) { return '<li>' + step + '</li>'; }).join('') +
+            '</ol>' +
+        '</div>' +
+        '<div class="golf-rule-section golf-rule-exception-section">' +
+            '<div class="golf-rule-section-label">⚠️ 예외 · 주의</div>' +
+            '<p class="golf-rule-section-body">' + card.exception + '</p>' +
+        '</div>';
+    document.getElementById('golf-rule-counter').textContent = (index + 1) + ' / ' + GOLF_RULES_CARDS.length;
+}
+
+function buildGolfRuleIndicators() {
+    var container = document.getElementById('golf-rule-indicators');
+    if (container.children.length === GOLF_RULES_CARDS.length) return;
+    container.innerHTML = '';
+    for (var i = 0; i < GOLF_RULES_CARDS.length; i++) {
+        var dot = document.createElement('button');
+        dot.className = 'golf-rule-dot';
+        dot.setAttribute('data-index', i);
+        dot.setAttribute('aria-label', (i + 1) + '번 카드');
+        dot.addEventListener('click', function() {
+            goToCard(parseInt(this.getAttribute('data-index')));
+        });
+        container.appendChild(dot);
+    }
+}
+
+function updatePaginationUI(index) {
+    var dots = document.querySelectorAll('.golf-rule-dot');
+    for (var i = 0; i < dots.length; i++) {
+        dots[i].classList.toggle('active', i === index);
+    }
+    document.getElementById('golf-rule-prev').disabled = (index === 0);
+    document.getElementById('golf-rule-next').disabled = (index === GOLF_RULES_CARDS.length - 1);
+}
+
+function goToCard(index) {
+    if (index < 0) index = 0;
+    if (index >= GOLF_RULES_CARDS.length) index = GOLF_RULES_CARDS.length - 1;
+    currentGolfRuleIndex = index;
+    renderGolfRuleCard(index);
+    updatePaginationUI(index);
+}
+
+function setupGolfRuleSwipe() {
+    var el = document.getElementById('golf-rule-carousel-wrap');
+    if (!el || el._swipeSetup) return;
+    el._swipeSetup = true;
+    el.addEventListener('touchstart', function(e) {
+        golfRuleSwipeStartX = e.touches[0].clientX;
+        golfRuleSwipeStartY = e.touches[0].clientY;
+        golfRuleSwipeTracking = true;
+    }, { passive: true });
+    el.addEventListener('touchend', function(e) {
+        if (!golfRuleSwipeTracking) return;
+        golfRuleSwipeTracking = false;
+        var dx = e.changedTouches[0].clientX - golfRuleSwipeStartX;
+        var dy = e.changedTouches[0].clientY - golfRuleSwipeStartY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+            goToCard(dx < 0 ? currentGolfRuleIndex + 1 : currentGolfRuleIndex - 1);
+        }
+    }, { passive: true });
+}
+
+// 골프룰 키보드 네비게이션 (← →)
+document.addEventListener('keydown', function(e) {
+    if (!screenGolfRules || screenGolfRules.classList.contains('hidden')) return;
+    if (e.key === 'ArrowLeft') goToCard(currentGolfRuleIndex - 1);
+    else if (e.key === 'ArrowRight') goToCard(currentGolfRuleIndex + 1);
+});
+
+// E1: 골프룰 이벤트 리스너
+document.getElementById('btn-golf-rules').addEventListener('click', enterGolfRulesScreen);
+document.getElementById('btn-golf-rules-back').addEventListener('click', function() { showScreen(screenMain); });
+document.getElementById('golf-rule-prev').addEventListener('click', function() { goToCard(currentGolfRuleIndex - 1); });
+document.getElementById('golf-rule-next').addEventListener('click', function() { goToCard(currentGolfRuleIndex + 1); });
+
+// =========================================
+// E8: 대기방 채팅
+// =========================================
+
+function subscribeChatMessages(tournamentId) {
+    if (chatMessagesUnsub !== null) {
+        chatMessagesUnsub();
+        chatMessagesUnsub = null;
+    }
+    console.log('💬 채팅 구독 시작:', tournamentId);
+
+    chatMessagesUnsub = db.collection('tournaments').doc(tournamentId)
+        .collection('messages')
+        .orderBy('sentAt', 'desc')
+        .limit(50)
+        .onSnapshot(function(snapshot) {
+            var msgs = [];
+            snapshot.forEach(function(doc) {
+                msgs.push({ id: doc.id, ...doc.data() });
+            });
+            msgs.reverse();
+            renderChatMessages(msgs);
+        }, function(error) {
+            console.error('❌ 채팅 구독 오류:', error);
+        });
+}
+
+function unsubscribeChatMessages() {
+    if (chatMessagesUnsub !== null) {
+        chatMessagesUnsub();
+        chatMessagesUnsub = null;
+        console.log('🧹 채팅 구독 해제');
+    }
+}
+
+function formatChatTime(ts) {
+    if (!ts) return '';
+    var d = ts.toDate ? ts.toDate() : new Date(ts);
+    var h = d.getHours();
+    var m = d.getMinutes();
+    return ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2);
+}
+
+function groupConsecutiveMessages(msgs) {
+    // 같은 userId + 1분 이내 = 그룹. 그룹 마지막 메시지에만 시간 표시.
+    return msgs.map(function(msg, i) {
+        var next = msgs[i + 1];
+        var isLastInGroup = !next ||
+            next.userId !== msg.userId ||
+            (next.sentAt && msg.sentAt &&
+                (next.sentAt.toMillis ? next.sentAt.toMillis() : new Date(next.sentAt).getTime()) -
+                (msg.sentAt.toMillis ? msg.sentAt.toMillis() : new Date(msg.sentAt).getTime()) > 60000);
+        var prev = msgs[i - 1];
+        var isFirstInGroup = !prev ||
+            prev.userId !== msg.userId ||
+            (prev.sentAt && msg.sentAt &&
+                (msg.sentAt.toMillis ? msg.sentAt.toMillis() : new Date(msg.sentAt).getTime()) -
+                (prev.sentAt.toMillis ? prev.sentAt.toMillis() : new Date(prev.sentAt).getTime()) > 60000);
+        return { msg: msg, isFirstInGroup: isFirstInGroup, isLastInGroup: isLastInGroup };
+    });
+}
+
+function renderChatMessages(msgs) {
+    var container = document.getElementById('chat-messages');
+    var isNearBottom = isChatNearBottom();
+
+    container.innerHTML = '';
+
+    if (msgs.length === 0) {
+        var emptyEl = document.createElement('p');
+        emptyEl.className = 'chat-empty-msg';
+        emptyEl.textContent = '첫 메시지를 남겨보세요 👋';
+        container.appendChild(emptyEl);
+        return;
+    }
+
+    var grouped = groupConsecutiveMessages(msgs);
+    var isHost = currentUser !== null && currentTournamentHostId !== null && currentTournamentHostId === currentUser.uid;
+
+    // currentTournamentHostId is set when entering waiting room
+    var hostId = currentTournamentHostId;
+
+    grouped.forEach(function(item) {
+        var msg = item.msg;
+        var isOwn = currentUser !== null && msg.userId === currentUser.uid;
+        var isMsgFromHost = msg.userId === hostId;
+
+        var row = document.createElement('div');
+        row.className = 'chat-msg-row ' + (isOwn ? 'own' : 'other');
+        row.setAttribute('data-msg-id', msg.id);
+
+        // 이름 (타인 + 그룹 첫 번째)
+        if (!isOwn && item.isFirstInGroup) {
+            var nameEl = document.createElement('div');
+            nameEl.className = 'chat-msg-name';
+            nameEl.textContent = escapeHtml(msg.userName || '알 수 없음');
+            if (isMsgFromHost) {
+                var crown = document.createElement('span');
+                crown.className = 'chat-host-crown';
+                crown.textContent = ' 👑';
+                nameEl.appendChild(crown);
+            }
+            row.appendChild(nameEl);
+        }
+
+        // 버블 + 시간
+        var wrap = document.createElement('div');
+        wrap.className = 'chat-bubble-wrap';
+
+        var bubble = document.createElement('div');
+        bubble.className = 'chat-bubble ' + (isOwn ? 'own' : 'other');
+        bubble.textContent = msg.text || '';
+
+        // 삭제 이벤트 (본인 or 호스트)
+        var canDelete = isOwn || isHost;
+        if (canDelete) {
+            setupChatDeleteMenu(bubble, msg.id, isOwn, isHost);
+        }
+
+        var timeEl = document.createElement('span');
+        timeEl.className = 'chat-time';
+        timeEl.textContent = item.isLastInGroup ? formatChatTime(msg.sentAt) : '';
+
+        wrap.appendChild(bubble);
+        wrap.appendChild(timeEl);
+        row.appendChild(wrap);
+        container.appendChild(row);
+    });
+
+    if (isNearBottom) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+function isChatNearBottom() {
+    var el = document.getElementById('chat-messages');
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= 100;
+}
+
+function setupChatDeleteMenu(el, messageId, isOwn, isHost) {
+    var longPressDelay = 600;
+
+    // 모바일: 길게 누르기
+    el.addEventListener('touchstart', function(e) {
+        chatLongPressTimer = setTimeout(function() {
+            chatLongPressTimer = null;
+            if (navigator.vibrate) navigator.vibrate(30);
+            showChatContextMenu(e.touches[0].clientX, e.touches[0].clientY, messageId);
+        }, longPressDelay);
+    }, { passive: true });
+
+    el.addEventListener('touchend', function() {
+        if (chatLongPressTimer !== null) {
+            clearTimeout(chatLongPressTimer);
+            chatLongPressTimer = null;
+        }
+    }, { passive: true });
+
+    el.addEventListener('touchmove', function() {
+        if (chatLongPressTimer !== null) {
+            clearTimeout(chatLongPressTimer);
+            chatLongPressTimer = null;
+        }
+    }, { passive: true });
+
+    // PC: 우클릭
+    el.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        showChatContextMenu(e.clientX, e.clientY, messageId);
+    });
+}
+
+function showChatContextMenu(x, y, messageId) {
+    var menu = document.getElementById('chat-context-menu');
+    menu.classList.remove('hidden');
+
+    // 화면 경계 보정
+    var menuW = 160;
+    var menuH = 90;
+    var cx = Math.min(x, window.innerWidth - menuW - 8);
+    var cy = Math.min(y, window.innerHeight - menuH - 8);
+    menu.style.left = cx + 'px';
+    menu.style.top = cy + 'px';
+
+    document.getElementById('chat-context-delete').onclick = function() {
+        hideChatContextMenu();
+        deleteChatMessage(messageId);
+    };
+}
+
+function hideChatContextMenu() {
+    var menu = document.getElementById('chat-context-menu');
+    menu.classList.add('hidden');
+}
+
+function deleteChatMessage(messageId) {
+    if (!currentTournamentId || !messageId) return;
+    if (!confirm('이 메시지를 삭제하시겠습니까?')) return;
+
+    db.collection('tournaments').doc(currentTournamentId)
+        .collection('messages').doc(messageId).delete()
+        .catch(function(error) {
+            console.error('❌ 메시지 삭제 실패:', error);
+            showToast('메시지 삭제에 실패했습니다.');
+        });
+}
+
+function sendChatMessage() {
+    if (!currentTournamentId || !currentUser) return;
+    var input = document.getElementById('chat-input');
+    var text = input.value.trim();
+    if (!text || chatSendCooldown) return;
+
+    var sendBtn = document.getElementById('chat-send-btn');
+    sendBtn.disabled = true;
+    chatSendCooldown = true;
+
+    var profile = loadProfile();
+    db.collection('tournaments').doc(currentTournamentId)
+        .collection('messages').add({
+            userId: currentUser.uid,
+            userName: profile.name || '이름 없음',
+            text: text,
+            sentAt: firebase.firestore.FieldValue.serverTimestamp()
+        })
+        .then(function() {
+            input.value = '';
+            input.style.height = 'auto';
+            updateCharCounter();
+        })
+        .catch(function(error) {
+            console.error('❌ 메시지 전송 실패:', error);
+            showToast('메시지 전송에 실패했습니다.');
+            sendBtn.disabled = false;
+        })
+        .finally(function() {
+            setTimeout(function() {
+                chatSendCooldown = false;
+                var val = document.getElementById('chat-input').value.trim();
+                document.getElementById('chat-send-btn').disabled = !val;
+            }, 1000);
+        });
+}
+
+function updateCharCounter() {
+    var input = document.getElementById('chat-input');
+    var counter = document.getElementById('chat-char-counter');
+    if (!input || !counter) return;
+    var len = input.value.length;
+
+    if (len < 300) {
+        counter.classList.add('hidden');
+        counter.classList.remove('warn', 'danger');
+    } else if (len < 500) {
+        counter.classList.remove('hidden', 'danger');
+        counter.classList.add('warn');
+        counter.textContent = len + ' / 500';
+    } else {
+        counter.classList.remove('hidden', 'warn');
+        counter.classList.add('danger');
+        counter.textContent = '500 / 500';
+    }
+}
+
+function setupChatInputListeners() {
+    var input = document.getElementById('chat-input');
+    var sendBtn = document.getElementById('chat-send-btn');
+
+    if (input._chatSetup) return;
+    input._chatSetup = true;
+
+    input.addEventListener('input', function() {
+        // 자동 높이
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 4 * 1.4 * 14 + 16) + 'px';
+
+        // 500자 초과 차단
+        if (this.value.length > 500) {
+            this.value = this.value.slice(0, 500);
+        }
+
+        updateCharCounter();
+        sendBtn.disabled = !this.value.trim();
+    });
+
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!sendBtn.disabled) sendChatMessage();
+        }
+    });
+
+    sendBtn.addEventListener('click', sendChatMessage);
+}
+
+// 컨텍스트 메뉴 외부 클릭 닫기
+document.addEventListener('click', function(e) {
+    var menu = document.getElementById('chat-context-menu');
+    if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target)) {
+        hideChatContextMenu();
+    }
+});
+
+document.getElementById('chat-context-cancel').addEventListener('click', hideChatContextMenu);

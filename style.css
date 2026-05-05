@@ -1,4 +1,67 @@
-﻿/* ===== 1. 기본 설정 ===== */
+﻿/* ===== F0: 디자인 토큰 ===== */
+:root {
+    /* 컬러 (17개) */
+    --color-bg:              #FFFFFF;
+    --color-bg-card:         #F5F5F5;
+    --color-bg-white:        #FFFFFF;
+    --color-accent:          #1B7340;
+    --color-accent-hover:    #145A32;
+    --color-accent-light:    #E8F5EE;
+    --color-text-primary:    #1A1A1A;
+    --color-text-secondary:  #555555;
+    --color-text-muted:      #888888;
+    --color-border:          #E0E0E0;
+    --color-border-light:    #EFEFEF;
+    --color-border-strong:   #CCCCCC;
+    --color-danger:          #EF4444;
+    --color-danger-hover:    #991B1B;
+    --color-warning:         #F59E0B;
+    --color-warning-light:   #FFF8E1;
+    --color-success:         #22C55E;
+
+    /* 폰트 패밀리 */
+    --font-family-base: 'Pretendard Variable', 'Pretendard', 'Malgun Gothic', '맑은 고딕', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    /* 폰트 크기 (h1~tiny, 6개) */
+    --font-size-h1:    2rem;       /* 32px */
+    --font-size-h2:    1.5rem;     /* 24px */
+    --font-size-h3:    1.25rem;    /* 20px */
+    --font-size-body:  1rem;       /* 16px */
+    --font-size-small: 0.875rem;   /* 14px */
+    --font-size-tiny:  0.75rem;    /* 12px */
+
+    /* 폰트 굵기 (4개) */
+    --font-weight-regular:  400;
+    --font-weight-medium:   500;
+    --font-weight-semibold: 600;
+    --font-weight-bold:     700;
+
+    /* 스페이싱 (xs~2xl, 8px 기반, 6개) */
+    --space-xs:  4px;
+    --space-sm:  8px;
+    --space-md:  16px;
+    --space-lg:  24px;
+    --space-xl:  32px;
+    --space-2xl: 48px;
+
+    /* 라디우스 (sm~pill, 5개) */
+    --radius-sm:   4px;
+    --radius-md:   8px;
+    --radius-lg:   12px;
+    --radius-xl:   16px;
+    --radius-pill: 9999px;
+
+    /* 섀도우 (3개) */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.16);
+
+    /* 트랜지션 (2개) */
+    --transition-fast: 150ms ease;
+    --transition-base: 250ms ease;
+}
+
+/* ===== 1. 기본 설정 ===== */
 * {
     margin: 0;
     padding: 0;
@@ -6,9 +69,9 @@
 }
 
 body {
-    font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
-    background-color: #f0f4f0;
-    color: #333;
+    font-family: var(--font-family-base);
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
     padding: 20px;
     max-width: 480px;
     margin: 0 auto;
@@ -20,20 +83,22 @@ body {
 /* ===== 2. 헤더 ===== */
 header {
     text-align: center;
-    margin-bottom: 30px;
-    padding: 20px 0;
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm) 0;
 }
 
 header h1 {
-    font-size: 48px;
-    color: #2d6a4f;
-    margin-bottom: 8px;
+    font-size: 26px;
+    color: var(--color-accent);
+    margin-bottom: 2px;
 }
 
 header p {
-    font-size: 14px;
-    color: #888;
-    font-style: italic;
+    font-size: var(--font-size-tiny);
+    color: var(--color-text-muted);
+    font-style: normal;
+    letter-spacing: 0.05em;
+    margin-top: 0;
 }
 
 /* ===== 3. 버튼 ===== */
@@ -43,79 +108,79 @@ button {
     font-size: 18px;
     font-weight: bold;
     color: white;
-    background-color: #2d6a4f;
+    background-color: var(--color-accent);
     border: none;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     cursor: pointer;
     margin-bottom: 12px;
 }
 
 button:hover {
-    background-color: #1b4332;
+    background-color: var(--color-accent-hover);
 }
 
 button:disabled {
-    background-color: #ccc;
+    background-color: var(--color-border-strong);
     cursor: not-allowed;
 }
 
 .btn-secondary {
-    background-color: #aaa;
+    background-color: var(--color-text-muted);
 }
 
 .btn-secondary:hover {
-    background-color: #888;
+    background-color: var(--color-text-muted);
 }
 
 .btn-continue {
-    background-color: #f59e0b;
+    background-color: var(--color-warning);
 }
 
 .btn-continue:hover {
-    background-color: #d97706;
+    background-color: var(--color-warning);
 }
 
 /* 위험한 동작 (삭제 등) */
 .btn-danger {
-    background-color: #dc2626;
+    background-color: var(--color-danger);
 }
 
 .btn-danger:hover {
-    background-color: #991b1b;
+    background-color: var(--color-danger-hover);
 }
 
 /* ===== 4. 섹션 카드 ===== */
 section {
     background-color: white;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 20px;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    margin-bottom: var(--space-md);
+    box-shadow: var(--shadow-sm);
 }
 
 section h2 {
     font-size: 18px;
-    color: #2d6a4f;
+    color: var(--color-accent);
     margin-bottom: 12px;
 }
 
 section h3 {
     font-size: 16px;
-    color: #2d6a4f;
-    margin-bottom: 8px;
+    color: var(--color-accent);
+    margin-bottom: var(--space-sm);
     margin-top: 12px;
 }
 
 section h4 {
     font-size: 14px;
-    color: #555;
+    color: var(--color-text-secondary);
     margin-top: 12px;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
 }
 
 section p {
     font-size: 15px;
-    color: #555;
+    color: var(--color-text-secondary);
     line-height: 1.8;
 }
 
@@ -123,7 +188,7 @@ section p {
 label {
     display: block;
     font-size: 14px;
-    color: #555;
+    color: var(--color-text-secondary);
     margin-bottom: 6px;
 }
 
@@ -132,20 +197,20 @@ input[type="number"] {
     width: 100%;
     padding: 12px;
     font-size: 16px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     background-color: white;
 }
 
 input[type="text"]:focus,
 input[type="number"]:focus {
     outline: none;
-    border-color: #2d6a4f;
+    border-color: var(--color-accent);
 }
 
 .hint {
     font-size: 13px;
-    color: #888;
+    color: var(--color-text-muted);
     margin-bottom: 12px;
 }
 
@@ -170,54 +235,54 @@ input[type="number"]:focus {
 
 main > .screen > h2 {
     text-align: center;
-    margin-bottom: 16px;
-    color: #2d6a4f;
+    margin-bottom: var(--space-md);
+    color: var(--color-accent);
 }
 
 /* ===== 7. 메인 화면 - 전체 통계 ===== */
 .overall-stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    gap: var(--space-sm);
     text-align: center;
 }
 
 .stat-item {
-    padding: 12px 8px;
-    background-color: #f0f4f0;
-    border-radius: 8px;
+    padding: 12px var(--space-sm);
+    background-color: var(--color-bg);
+    border-radius: var(--radius-md);
 }
 
 .stat-label {
     font-size: 12px;
-    color: #555;
-    margin-bottom: 4px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-xs);
 }
 
 .stat-value {
     font-size: 24px;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-accent);
 }
 
 /* ===== 8. 메인 화면 - 과거 라운드 목록 ===== */
 #past-rounds-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-sm);
 }
 
 .past-round-item {
     padding: 12px;
-    background-color: #f0f4f0;
-    border-radius: 8px;
+    background-color: var(--color-bg);
+    border-radius: var(--radius-md);
     cursor: pointer;
     border: 2px solid transparent;
     transition: all 0.15s;
 }
 
 .past-round-item:hover {
-    border-color: #2d6a4f;
+    border-color: var(--color-accent);
     background-color: #e8f0e8;
 }
 
@@ -229,18 +294,18 @@ main > .screen > h2 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
 }
 
 .past-round-date {
     font-size: 13px;
-    color: #888;
+    color: var(--color-text-muted);
 }
 
 .past-round-course {
     font-size: 15px;
     font-weight: bold;
-    color: #333;
+    color: var(--color-text-primary);
 }
 
 .past-round-bottom {
@@ -252,27 +317,27 @@ main > .screen > h2 {
 .past-round-score {
     font-size: 22px;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-accent);
 }
 
 .past-round-overunder {
     font-size: 14px;
-    color: #888;
+    color: var(--color-text-muted);
 }
 
 .empty-message {
     text-align: center;
-    color: #888;
+    color: var(--color-text-muted);
     font-style: italic;
     padding: 20px;
 }
 
 /* ===== 9. 홀 입력 화면 ===== */
 .progress-bar {
-    background-color: #2d6a4f;
+    background-color: var(--color-accent);
     color: white;
-    border-radius: 12px;
-    padding: 16px 20px;
+    border-radius: var(--radius-lg);
+    padding: var(--space-md) 20px;
     margin-bottom: 20px;
 }
 
@@ -281,7 +346,7 @@ main > .screen > h2 {
     justify-content: space-between;
     align-items: center;
     font-size: 14px;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
     opacity: 0.9;
 }
 
@@ -303,7 +368,7 @@ main > .screen > h2 {
 .score-display {
     font-size: 96px;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-accent);
     margin: 20px 0;
     line-height: 1;
 }
@@ -318,7 +383,7 @@ main > .screen > h2 {
 .btn-circle {
     width: 70px;
     height: 70px;
-    border-radius: 50%;
+    border-radius: var(--radius-pill);
     font-size: 36px;
     padding: 0;
     margin: 0;
@@ -343,19 +408,19 @@ main > .screen > h2 {
 .result-course-name {
     font-size: 22px;
     font-weight: bold;
-    color: #2d6a4f;
-    margin-bottom: 4px;
+    color: var(--color-accent);
+    margin-bottom: var(--space-xs);
 }
 
 .result-date {
     font-size: 14px;
-    color: #888;
+    color: var(--color-text-muted);
 }
 
 .result-total {
     text-align: center;
     padding: 30px 20px;
-    background: linear-gradient(135deg, #2d6a4f, #1b4332);
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
     color: white;
 }
 
@@ -363,7 +428,7 @@ main > .screen > h2 {
     font-size: 80px;
     font-weight: bold;
     line-height: 1;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
 }
 
 .result-over-under {
@@ -383,45 +448,45 @@ main > .screen > h2 {
 
 .result-half-label {
     font-size: 14px;
-    color: #888;
-    margin-bottom: 4px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-xs);
 }
 
 .result-half-score {
     font-size: 32px;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-accent);
 }
 
 .result-half-divider {
     width: 1px;
-    background-color: #eee;
+    background-color: var(--color-border);
     margin: 0 20px;
 }
 
 .score-distribution {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
+    gap: var(--space-sm);
     text-align: center;
 }
 
 .dist-item {
-    padding: 12px 4px;
-    background-color: #f0f4f0;
-    border-radius: 8px;
+    padding: 12px var(--space-xs);
+    background-color: var(--color-bg);
+    border-radius: var(--radius-md);
 }
 
 .dist-label {
     font-size: 11px;
-    color: #555;
-    margin-bottom: 4px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-xs);
 }
 
 .dist-count {
     font-size: 22px;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-accent);
 }
 
 .scorecard-wrapper {
@@ -437,22 +502,22 @@ main > .screen > h2 {
 
 .scorecard td,
 .scorecard th {
-    border: 1px solid #ddd;
-    padding: 8px 4px;
+    border: 1px solid var(--color-border);
+    padding: var(--space-sm) var(--space-xs);
     text-align: center;
     height: 36px;
 }
 
 .scorecard th {
-    background-color: #f0f4f0;
+    background-color: var(--color-bg);
     font-weight: bold;
-    color: #555;
+    color: var(--color-text-secondary);
 }
 
 .scorecard .row-label {
-    background-color: #f0f4f0;
+    background-color: var(--color-bg);
     font-weight: bold;
-    color: #555;
+    color: var(--color-text-secondary);
     width: 50px;
 }
 
@@ -495,7 +560,7 @@ main > .screen > h2 {
     width: 24px;
     height: 24px;
     border: 2px solid #92400e;
-    border-radius: 50%;
+    border-radius: var(--radius-pill);
     box-shadow: 0 0 0 3px white, 0 0 0 5px #92400e;
 }
 
@@ -508,12 +573,12 @@ main > .screen > h2 {
     width: 26px;
     height: 26px;
     border: 2px solid #1e40af;
-    border-radius: 50%;
+    border-radius: var(--radius-pill);
 }
 
 .score-par {
     background-color: white;
-    color: #333;
+    color: var(--color-text-primary);
 }
 
 .score-bogey {
@@ -543,11 +608,12 @@ main > .screen > h2 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
-    margin-bottom: 16px;
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
     background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
 }
 
 .profile-info {
@@ -557,13 +623,19 @@ main > .screen > h2 {
 .profile-name {
     font-size: 16px;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-text-primary);
     margin-bottom: 2px;
 }
 
 .profile-handicap {
     font-size: 13px;
-    color: #888;
+    color: var(--color-text-muted);
+}
+
+.profile-hcp-block {
+    text-align: right;
+    margin-right: var(--space-md);
+    flex-shrink: 0;
 }
 
 .btn-icon {
@@ -571,32 +643,32 @@ main > .screen > h2 {
     height: 40px;
     padding: 0;
     margin: 0;
-    background-color: #f0f4f0;
-    color: #2d6a4f;
+    background-color: var(--color-bg);
+    color: var(--color-accent);
     font-size: 20px;
-    border-radius: 50%;
+    border-radius: var(--radius-pill);
     flex-shrink: 0;
 }
 
 .btn-icon:hover {
-    background-color: #e0eae0;
+    background-color: var(--color-accent-light);
 }
 /* ===== 12. 게임 모드 선택 (드롭다운) ★ A2 신규 ===== */
 select {
     width: 100%;
     padding: 12px;
     font-size: 16px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     background-color: white;
-    color: #333;
+    color: var(--color-text-primary);
     cursor: pointer;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
 
     /* 화살표 아이콘 (CSS로 만든 삼각형) */
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%232d6a4f' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231B7340' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
     background-position: right 16px center;
     padding-right: 40px;
@@ -604,15 +676,15 @@ select {
 
 select:focus {
     outline: none;
-    border-color: #2d6a4f;
+    border-color: var(--color-accent);
 }
 
 /* ===== 13. 정보 박스 (Net Score 안내 등) ★ A2 신규 ===== */
 .info-box {
-    background-color: #fff8e1;
-    border-left: 4px solid #f59e0b;
-    padding: 12px 16px;
-    border-radius: 6px;
+    background-color: var(--color-warning-light);
+    border-left: 4px solid var(--color-warning);
+    padding: 12px var(--space-md);
+    border-radius: var(--radius-sm);
 }
 
 .info-box-title {
@@ -624,19 +696,19 @@ select:focus {
 
 .info-box-content {
     font-size: 13px;
-    color: #555;
+    color: var(--color-text-secondary);
     line-height: 1.6;
 }
 
 .info-box-content strong {
-    color: #2d6a4f;
+    color: var(--color-accent);
 }
 
 /* ===== 14. 퍼팅 수 입력 ★ A3 신규 ===== */
 .putts-input-row {
-    margin-top: 32px;
+    margin-top: var(--space-xl);
     padding-top: 20px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--color-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -644,7 +716,7 @@ select:focus {
 
 .putts-label {
     font-size: 14px;
-    color: #888;
+    color: var(--color-text-muted);
 }
 
 .putts-buttons {
@@ -656,7 +728,7 @@ select:focus {
 .putts-display {
     font-size: 20px;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-accent);
     min-width: 30px;
     text-align: center;
 }
@@ -664,34 +736,34 @@ select:focus {
 .btn-mini {
     width: 32px;
     height: 32px;
-    border-radius: 50%;
+    border-radius: var(--radius-pill);
     font-size: 18px;
     padding: 0;
     margin: 0;
-    background-color: #f0f4f0;
-    color: #2d6a4f;
+    background-color: var(--color-bg);
+    color: var(--color-accent);
 }
 
 .btn-mini:hover {
-    background-color: #e0eae0;
+    background-color: var(--color-accent-light);
 }
 
 .btn-mini:disabled {
     background-color: #f5f5f5;
-    color: #ccc;
+    color: var(--color-border-strong);
 }
 /* ===== 15. 결과 화면 - Net Score / 퍼팅 통계 ★ A4 신규 ===== */
 
 /* 게임 모드 배지 */
 .game-mode-badge {
     display: inline-block;
-    margin-top: 8px;
-    padding: 4px 12px;
-    background-color: #2d6a4f;
+    margin-top: var(--space-sm);
+    padding: var(--space-xs) 12px;
+    background-color: var(--color-accent);
     color: white;
     font-size: 12px;
     font-weight: bold;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -704,7 +776,7 @@ select:focus {
 .result-label {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.8);
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -730,7 +802,7 @@ select:focus {
     font-size: 80px;
     font-weight: bold;
     line-height: 1;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
 }
 
 .result-net-over-under {
@@ -742,27 +814,27 @@ select:focus {
 .putts-stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+    gap: var(--space-sm);
     text-align: center;
     margin-bottom: 12px;
 }
 
 .putts-stat-item {
-    padding: 12px 4px;
-    background-color: #f0f4f0;
-    border-radius: 8px;
+    padding: 12px var(--space-xs);
+    background-color: var(--color-bg);
+    border-radius: var(--radius-md);
 }
 
 .putts-stat-label {
     font-size: 11px;
-    color: #555;
-    margin-bottom: 4px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-xs);
 }
 
 .putts-stat-value {
     font-size: 22px;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-accent);
 }
 /* =========================================
    라운드 모드 선택 화면 (2단계 B)
@@ -771,16 +843,16 @@ select:focus {
 .mode-cards {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    margin: 24px 0;
+    gap: var(--space-md);
+    margin: var(--space-lg) 0;
 }
 
 .mode-card {
     width: 100%;
-    padding: 24px 20px;
+    padding: var(--space-lg) 20px;
     background: #fff;
-    border: 2px solid #e0e0e0;
-    border-radius: 12px;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
     cursor: pointer;
     text-align: center;
     transition: all 0.2s ease;
@@ -788,7 +860,7 @@ select:focus {
 }
 
 .mode-card:hover {
-    border-color: #2e7d32;
+    border-color: var(--color-accent);
     background: #f1f8e9;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -800,19 +872,19 @@ select:focus {
 
 .mode-icon {
     font-size: 48px;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
 }
 
 .mode-title {
     font-size: 20px;
     font-weight: bold;
-    color: #2e7d32;
+    color: var(--color-accent);
     margin-bottom: 6px;
 }
 
 .mode-desc {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary);
     line-height: 1.5;
 }
 /* =========================================
@@ -823,14 +895,14 @@ select:focus {
     width: 100%;
     padding: 14px;
     font-size: 18px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
     box-sizing: border-box;
     font-family: inherit;
 }
 
 #input-user-name:focus {
-    border-color: #2e7d32;
+    border-color: var(--color-accent);
     outline: none;
 }
 
@@ -840,54 +912,54 @@ select:focus {
 
 .share-info {
     background: #f8f9fa;
-    padding: 16px;
-    border-radius: 12px;
-    margin-bottom: 16px;
+    padding: var(--space-md);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-md);
 }
 
 .share-label {
     font-size: 13px;
-    color: #666;
-    margin-bottom: 8px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-sm);
     font-weight: 600;
 }
 
 .share-code {
     font-size: 36px;
     font-weight: bold;
-    color: #2e7d32;
+    color: var(--color-accent);
     text-align: center;
     letter-spacing: 4px;
     font-family: 'Courier New', monospace;
     background: #fff;
-    padding: 16px;
-    border-radius: 8px;
-    border: 2px dashed #2e7d32;
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    border: 2px dashed var(--color-accent);
 }
 
 .share-link-box {
     display: flex;
-    gap: 8px;
+    gap: var(--space-sm);
 }
 
 .share-link-box input {
     flex: 1;
     padding: 12px;
     font-size: 14px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
     background: #fff;
     font-family: inherit;
-    color: #333;
+    color: var(--color-text-primary);
 }
 
 #btn-copy-link,
 #btn-copy-tournament-link {
-    padding: 12px 16px;
-    background: #2e7d32;
+    padding: 12px var(--space-md);
+    background: var(--color-accent);
     color: #fff;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-weight: 600;
     white-space: nowrap;
@@ -895,12 +967,12 @@ select:focus {
 
 #btn-copy-link:hover,
 #btn-copy-tournament-link:hover {
-    background: #1b5e20;
+    background: var(--color-accent-hover);
 }
 
 .copy-feedback {
-    margin-top: 8px;
-    color: #2e7d32;
+    margin-top: var(--space-sm);
+    color: var(--color-accent);
     font-weight: 600;
     text-align: center;
     font-size: 14px;
@@ -909,11 +981,11 @@ select:focus {
 .share-members {
     background: #fff;
     padding: 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
 }
 
 .share-member {
-    padding: 8px 0;
+    padding: var(--space-sm) 0;
     font-size: 16px;
     border-bottom: 1px solid #f0f0f0;
 }
@@ -927,8 +999,8 @@ select:focus {
 
 .join-info {
     background: #fff;
-    border: 2px solid #2e7d32;
-    border-radius: 12px;
+    border: 2px solid var(--color-accent);
+    border-radius: var(--radius-lg);
     padding: 20px;
     margin-bottom: 20px;
 }
@@ -947,13 +1019,13 @@ select:focus {
 
 .join-label {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary);
     font-weight: 600;
 }
 
 .join-value {
     font-size: 16px;
-    color: #2e7d32;
+    color: var(--color-accent);
     font-weight: bold;
     text-align: right;
 }
@@ -966,14 +1038,14 @@ select:focus {
 .join-loading {
     text-align: center;
     padding: 40px 20px;
-    color: #666;
+    color: var(--color-text-secondary);
     font-size: 16px;
 }
 
 .join-error {
     background: #ffebee;
     border: 2px solid #c62828;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 20px;
     margin-bottom: 20px;
 }
@@ -993,8 +1065,8 @@ select:focus {
 .shared-mode-badge {
     background: linear-gradient(135deg, #3b82f6, #2563eb);
     color: white;
-    padding: 8px 14px;
-    border-radius: 8px;
+    padding: var(--space-sm) 14px;
+    border-radius: var(--radius-md);
     font-size: 13px;
     font-weight: 600;
     text-align: center;
@@ -1011,11 +1083,11 @@ select:focus {
 /* 멤버 미니 스트립 (가로 스크롤) */
 .members-strip {
     display: flex;
-    gap: 8px;
+    gap: var(--space-sm);
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 8px 4px 12px 4px;
-    margin-bottom: 8px;
+    padding: var(--space-sm) var(--space-xs) 12px var(--space-xs);
+    margin-bottom: var(--space-sm);
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
 }
@@ -1040,7 +1112,7 @@ select:focus {
     background: white;
     border: 1.5px solid #e2e8f0;
     border-radius: 10px;
-    padding: 8px 12px;
+    padding: var(--space-sm) 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     transition: transform 0.15s ease;
 }
@@ -1074,7 +1146,7 @@ select:focus {
     font-size: 13px;
     font-weight: 700;
     color: #1e293b;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1141,7 +1213,7 @@ select:focus {
 /* 과거 라운드 목록의 공유 라운드 배지 */
 .shared-badge-mini {
     display: inline-block;
-    margin-right: 4px;
+    margin-right: var(--space-xs);
     font-size: 12px;
     opacity: 0.85;
 }
@@ -1151,10 +1223,10 @@ select:focus {
    ========================================= */
 
 .team-config-section {
-    background: #f8faf8;
-    border-radius: 12px;
-    padding: 16px;
-    margin: 16px 0;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    margin: var(--space-md) 0;
 }
 
 .team-config-row {
@@ -1170,7 +1242,7 @@ select:focus {
 .team-config-col label {
     display: block;
     font-size: 13px;
-    color: #555;
+    color: var(--color-text-secondary);
     margin-bottom: 6px;
     font-weight: 500;
 }
@@ -1179,7 +1251,7 @@ select:focus {
     width: 100%;
     padding: 12px;
     font-size: 16px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--color-border);
     border-radius: 10px;
     background: #fff;
     font-family: inherit;
@@ -1191,10 +1263,10 @@ select:focus {
     justify-content: center;
     gap: 6px;
     padding: 12px;
-    background: #e8f5e9;
+    background: var(--color-accent-light);
     border-radius: 10px;
-    color: #2e7d32;
-    margin-top: 8px;
+    color: var(--color-accent);
+    margin-top: var(--space-sm);
 }
 
 .member-count-preview strong {
@@ -1213,7 +1285,7 @@ select:focus {
 
 #member-count-warning {
     color: #c62828;
-    margin-top: 8px;
+    margin-top: var(--space-sm);
     font-weight: 500;
 }
 
@@ -1224,23 +1296,23 @@ select:focus {
 .tournament-name-display {
     font-size: 22px;
     font-weight: bold;
-    color: #2d6a4f;
-    margin-bottom: 4px;
+    color: var(--color-accent);
+    margin-bottom: var(--space-xs);
 }
 
 .tournament-meta-display {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary);
     line-height: 1.5;
 }
 
 /* 정모 코드 화면 - Net 정모 안내 박스 (C2-1) */
 .net-notice-box {
-    background: #fff8e1;
+    background: var(--color-warning-light);
     border: 2px solid #ffc107;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin: 16px 0;
+    border-radius: var(--radius-lg);
+    padding: 14px var(--space-md);
+    margin: var(--space-md) 0;
 }
 
 .net-notice-title {
@@ -1252,7 +1324,7 @@ select:focus {
 
 .net-notice-body {
     font-size: 14px;
-    color: #555;
+    color: var(--color-text-secondary);
     line-height: 1.6;
 }
 
@@ -1260,15 +1332,15 @@ select:focus {
 .my-profile-preview {
     background: #f1f8e9;
     border: 2px solid #aed581;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin: 16px 0;
+    border-radius: var(--radius-lg);
+    padding: 14px var(--space-md);
+    margin: var(--space-md) 0;
 }
 
 .my-profile-title {
     font-size: 14px;
     font-weight: bold;
-    color: #2e7d32;
+    color: var(--color-accent);
     margin-bottom: 10px;
 }
 
@@ -1276,7 +1348,7 @@ select:focus {
 .share-code-box {
     display: flex;
     align-items: stretch;
-    gap: 8px;
+    gap: var(--space-sm);
 }
 
 .share-code-box .share-code {
@@ -1288,17 +1360,17 @@ select:focus {
     justify-content: center;
     /* 폰트 크기 살짝 줄여서 버튼과 균형 */
     font-size: 28px;
-    padding: 12px 8px;
+    padding: 12px var(--space-sm);
 }
 
 .btn-copy-code {
-    padding: 0 16px;
+    padding: 0 var(--space-md);
     font-size: 13px;
     font-weight: 500;
-    background: #2e7d32;
+    background: var(--color-accent);
     color: #fff;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
@@ -1309,7 +1381,7 @@ select:focus {
 }
 
 .btn-copy-code:hover {
-    background: #1b5e20;
+    background: var(--color-accent-hover);
 }
 
 .btn-copy-code:active {
@@ -1320,7 +1392,7 @@ select:focus {
 @media (max-width: 480px) {
     .share-code-box {
         flex-direction: column;
-        gap: 8px;
+        gap: var(--space-sm);
     }
     .btn-copy-code {
         padding: 12px;
@@ -1339,9 +1411,9 @@ select:focus {
 
 .waiting-members-section {
     margin: 20px 0;
-    background: #f8faf8;
-    border-radius: 12px;
-    padding: 16px;
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
 }
 
 .waiting-members-header {
@@ -1354,22 +1426,22 @@ select:focus {
 .waiting-members-title {
     font-size: 16px;
     font-weight: 600;
-    color: #2d6a4f;
+    color: var(--color-accent);
 }
 
 .waiting-members-count {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary);
     background: #fff;
-    padding: 4px 10px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
+    padding: var(--space-xs) 10px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
 }
 
 .waiting-members-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-sm);
 }
 
 .waiting-member {
@@ -1379,33 +1451,33 @@ select:focus {
     padding: 12px 14px;
     background: #fff;
     border-radius: 10px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--color-border);
     font-size: 15px;
     transition: all 0.2s;
 }
 
 .waiting-member.is-me {
-    background: #e8f5e9;
-    border-color: #2e7d32;
+    background: var(--color-accent-light);
+    border-color: var(--color-accent);
     border-width: 2px;
     font-weight: 500;
 }
 
 .waiting-member.is-host {
-    background: #fff8e1;
+    background: var(--color-warning-light);
     border-color: #ffc107;
 }
 
 .waiting-member.is-host.is-me {
-    background: linear-gradient(135deg, #e8f5e9 0%, #fff8e1 100%);
-    border-color: #2e7d32;
+    background: linear-gradient(135deg, var(--color-accent-light) 0%, var(--color-warning-light) 100%);
+    border-color: var(--color-accent);
     border-width: 2px;
 }
 
 .waiting-member-name {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-sm);
     flex: 1;
     min-width: 0;
 }
@@ -1419,8 +1491,8 @@ select:focus {
 .waiting-member-badge {
     flex-shrink: 0;
     font-size: 11px;
-    color: #2e7d32;
-    background: #e8f5e9;
+    color: var(--color-accent);
+    background: var(--color-accent-light);
     padding: 2px 6px;
     border-radius: 4px;
     font-weight: 500;
@@ -1437,7 +1509,7 @@ select:focus {
     border: none;
     font-size: 15px;
     cursor: pointer;
-    padding: 2px 4px;
+    padding: 2px var(--space-xs);
     opacity: 0.7;
 }
 
@@ -1449,7 +1521,7 @@ select:focus {
 .proxy-targets {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-sm);
     padding: 6px 12px;
     background: #f0f4ff;
     border-bottom: 1px solid #c5cae9;
@@ -1458,7 +1530,7 @@ select:focus {
 
 .proxy-targets-label {
     font-size: 12px;
-    color: #555;
+    color: var(--color-text-secondary);
     flex-shrink: 0;
 }
 
@@ -1470,7 +1542,7 @@ select:focus {
 
 .proxy-target-btn {
     font-size: 13px;
-    padding: 4px 10px;
+    padding: var(--space-xs) 10px;
     border: 1px solid #9fa8da;
     border-radius: 20px;
     background: #fff;
@@ -1487,7 +1559,7 @@ select:focus {
 
 .waiting-member-handicap {
     font-size: 13px;
-    color: #666;
+    color: var(--color-text-secondary);
     flex-shrink: 0;
 }
 
@@ -1503,25 +1575,25 @@ select:focus {
 
 /* 호스트/게스트 안내 박스 */
 .waiting-host-notice {
-    background: #fff8e1;
+    background: var(--color-warning-light);
     border: 2px solid #ffc107;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin: 16px 0;
+    border-radius: var(--radius-lg);
+    padding: 14px var(--space-md);
+    margin: var(--space-md) 0;
 }
 
 .waiting-guest-notice {
     background: #e3f2fd;
     border: 2px solid #2196f3;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin: 16px 0;
+    border-radius: var(--radius-lg);
+    padding: 14px var(--space-md);
+    margin: var(--space-md) 0;
 }
 
 .waiting-notice-title {
     font-size: 15px;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-accent);
     margin-bottom: 6px;
 }
 
@@ -1535,7 +1607,7 @@ select:focus {
 
 .waiting-notice-body {
     font-size: 14px;
-    color: #555;
+    color: var(--color-text-secondary);
     line-height: 1.6;
 }
 
@@ -1554,8 +1626,8 @@ select:focus {
    ========================================= */
 .team-status-msg {
     text-align: center;
-    padding: 16px;
-    color: #555;
+    padding: var(--space-md);
+    color: var(--color-text-secondary);
     font-size: 14px;
 }
 
@@ -1563,7 +1635,7 @@ select:focus {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-    margin: 16px 0;
+    margin: var(--space-md) 0;
 }
 
 @media (max-width: 360px) {
@@ -1573,8 +1645,8 @@ select:focus {
 }
 
 .team-card {
-    border: 2px solid #ccc;
-    border-radius: 12px;
+    border: 2px solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
     padding: 12px;
     min-height: 120px;
     display: flex;
@@ -1585,13 +1657,13 @@ select:focus {
 .team-card-header {
     font-size: 16px;
     font-weight: bold;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
 }
 
 .team-card-meta {
     font-size: 12px;
-    color: #666;
-    margin-bottom: 8px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-sm);
 }
 
 .team-card-members {
@@ -1624,10 +1696,10 @@ select:focus {
     min-height: 60px;
     font-size: 16px;
     font-weight: 600;
-    background-color: #2d6a4f;
+    background-color: var(--color-accent);
     color: white;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     cursor: pointer;
     padding: 12px;
 }
@@ -1650,27 +1722,27 @@ select:focus {
     display: inline-block;
     background: white;
     border: 1px solid rgba(0,0,0,0.1);
-    border-radius: 16px;
-    padding: 4px 10px;
+    border-radius: var(--radius-xl);
+    padding: var(--space-xs) 10px;
     margin: 3px 3px 0 0;
     font-size: 12px;
-    color: #333;
+    color: var(--color-text-primary);
     white-space: nowrap;
 }
 
 .unassigned-members-area {
     background: #fff7ed;
     border: 2px dashed #fdba74;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 12px;
-    margin: 16px 0;
+    margin: var(--space-md) 0;
 }
 
 .unassigned-header {
     font-size: 14px;
     font-weight: bold;
     color: #c2410c;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
 }
 
 .unassigned-chips {
@@ -1692,7 +1764,7 @@ select:focus {
     align-items: center;
     justify-content: space-between;
     background: #fef3c7;
-    border: 2px solid #f59e0b;
+    border: 2px solid var(--color-warning);
     border-radius: 10px;
     padding: 10px 14px;
     margin: 12px 0;
@@ -1709,8 +1781,8 @@ select:focus {
     padding: 6px 14px;
     background: white;
     color: #78350f;
-    border: 1px solid #f59e0b;
-    border-radius: 8px;
+    border: 1px solid var(--color-warning);
+    border-radius: var(--radius-md);
     font-size: 13px;
     cursor: pointer;
 }
@@ -1737,11 +1809,11 @@ select:focus {
     user-select: none;
 }
 .team-member-chip.clickable:hover {
-    border-color: #2d6a4f;
+    border-color: var(--color-accent);
 }
 
 .team-member-chip.chip-selected {
-    border: 2px solid #f59e0b !important;
+    border: 2px solid var(--color-warning) !important;
     background: #fef3c7 !important;
     color: #78350f !important;
     font-weight: 600;
@@ -1788,15 +1860,15 @@ select:focus {
 }
 .round-start-section {
     background: #fff;
-    border: 2px solid #e0e0e0;
-    border-radius: 12px;
-    padding: 16px;
-    margin: 16px 0;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    margin: var(--space-md) 0;
     text-align: center;
 }
 .round-start-status {
     font-size: 14px;
-    color: #555;
+    color: var(--color-text-secondary);
     margin: 0 0 12px 0;
     min-height: 20px;
 }
@@ -1804,7 +1876,7 @@ select:focus {
     min-height: 60px;
     font-size: 18px;
     font-weight: 700;
-    background: #2e7d32;
+    background: var(--color-accent);
     width: 100%;
 }
 #btn-start-round-from-teams:disabled {
@@ -1818,7 +1890,7 @@ select:focus {
    정모 라운드 모드 배지 (C4-1)
    ========================================= */
 .tournament-badge {
-    background: linear-gradient(135deg, #2d6a4f 0%, #15803d 100%);
+    background: linear-gradient(135deg, var(--color-accent) 0%, #15803d 100%);
     color: white;
     border-color: #15803d;
 }
@@ -1829,19 +1901,19 @@ select:focus {
 
 .leaderboard-mode-badge {
     display: inline-block;
-    background: #2d6a4f;
+    background: var(--color-accent);
     color: white;
-    padding: 4px 12px;
-    border-radius: 16px;
+    padding: var(--space-xs) 12px;
+    border-radius: var(--radius-xl);
     font-size: 12px;
     font-weight: 600;
     margin-bottom: 12px;
 }
 
 .leaderboard-list {
-    margin: 16px 0;
+    margin: var(--space-md) 0;
     border: 1px solid #e5e7eb;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     overflow: hidden;
     background: white;
 }
@@ -1850,7 +1922,7 @@ select:focus {
     display: grid;
     grid-template-columns: 40px 1fr 70px 110px;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-sm);
     padding: 12px;
     border-bottom: 1px solid #f1f5f9;
     font-size: 14px;
@@ -1862,7 +1934,7 @@ select:focus {
 
 .leaderboard-row-me {
     background: #fef3c7;
-    border-left: 4px solid #f59e0b;
+    border-left: 4px solid var(--color-warning);
     font-weight: 600;
 }
 
@@ -1874,7 +1946,7 @@ select:focus {
 .lb-rank {
     text-align: center;
     font-weight: bold;
-    color: #2d6a4f;
+    color: var(--color-accent);
     font-size: 16px;
 }
 
@@ -1889,8 +1961,8 @@ select:focus {
     color: #475569;
     font-size: 12px;
     background: #f1f5f9;
-    padding: 4px 6px;
-    border-radius: 6px;
+    padding: var(--space-xs) 6px;
+    border-radius: var(--radius-sm);
 }
 
 .lb-score {
@@ -1902,7 +1974,7 @@ select:focus {
 .btn-leaderboard-link {
     display: block;
     width: 100%;
-    background: #2d6a4f;
+    background: var(--color-accent);
     color: white;
     border: none;
     border-radius: 10px;
@@ -1910,7 +1982,7 @@ select:focus {
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    margin: 8px 0;
+    margin: var(--space-sm) 0;
 }
 
 .btn-leaderboard-link:hover {
@@ -1923,11 +1995,11 @@ select:focus {
 
 .leaderboard-section-title {
     margin-top: 20px;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
     font-size: 14px;
     font-weight: 600;
     color: #475569;
-    padding-left: 4px;
+    padding-left: var(--space-xs);
 }
 
 .leaderboard-section-title:first-of-type {
@@ -1935,7 +2007,7 @@ select:focus {
 }
 
 .leaderboard-team-list {
-    margin-bottom: 16px;
+    margin-bottom: var(--space-md);
 }
 
 .leaderboard-team-row {
@@ -1951,7 +2023,7 @@ select:focus {
     width: 100%;
     padding: 14px;
     margin-bottom: 10px;
-    background: #ef4444;
+    background: var(--color-danger);
     color: #fff;
     border: none;
     border-radius: 10px;
@@ -1959,7 +2031,7 @@ select:focus {
     font-weight: 700;
     cursor: pointer;
 }
-.btn-end-tournament:hover { background: #dc2626; }
+.btn-end-tournament:hover { background: var(--color-danger); }
 .btn-end-tournament:disabled { background: #94a3b8; cursor: not-allowed; }
 .btn-end-tournament.hidden { display: none !important; }
 
@@ -1968,7 +2040,7 @@ select:focus {
    ========================================= */
 
 .result-winner-card {
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    background: linear-gradient(135deg, #fbbf24, var(--color-warning));
     border-radius: 14px;
     padding: 20px;
     text-align: center;
@@ -1986,17 +2058,88 @@ select:focus {
     font-size: 26px;
     font-weight: 800;
     color: #1c1917;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
 }
 .winner-score {
     font-size: 16px;
     font-weight: 600;
     color: #44403c;
 }
+.winner-prize {
+    font-size: 13px;
+    font-weight: 600;
+    color: #78350f;
+    margin-top: var(--space-sm);
+    line-height: 1.5;
+}
+
+/* E6 이벤트 결과 */
+.event-result-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: var(--space-sm);
+}
+.event-result-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 6px;
+}
+.event-result-body {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.event-result-none {
+    font-weight: 500;
+    color: #94a3b8;
+}
+
+/* E6 정산표 */
+.settlement-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+.settlement-row:last-child { border-bottom: none; }
+.settlement-name {
+    font-weight: 600;
+    font-size: 14px;
+    min-width: 60px;
+    flex-shrink: 0;
+}
+.settlement-amount {
+    font-size: 16px;
+    font-weight: 800;
+    min-width: 70px;
+    text-align: right;
+    flex-shrink: 0;
+}
+.settlement-positive .settlement-amount { color: #16a34a; }
+.settlement-negative .settlement-amount { color: var(--color-danger); }
+.settlement-breakdown {
+    font-size: 12px;
+    color: #94a3b8;
+    flex: 1;
+    text-align: right;
+}
+.settlement-disclaimer {
+    font-size: 12px;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 10px;
+    padding: var(--space-sm);
+    background: #f8fafc;
+    border-radius: var(--radius-md);
+}
 
 /* 스코어카드 */
 .result-scorecard {
-    margin: 8px 0 20px;
+    margin: var(--space-sm) 0 20px;
 }
 .scorecard-table {
     border-radius: 10px;
@@ -2030,21 +2173,21 @@ select:focus {
 }
 .score-under  { color: #16a34a; font-weight: 700; }
 .score-bogey  { color: #ea580c; }
-.score-double { color: #dc2626; font-weight: 700; }
+.score-double { color: var(--color-danger); font-weight: 700; }
 
 /* ===== D2: 골프장 등록 ===== */
 .tee-box-card {
     background: #f8f9fa;
     border: 1px solid #dee2e6;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     padding: 12px;
     margin-bottom: 12px;
 }
 
 .tee-box-card label {
     display: block;
-    margin-top: 8px;
-    margin-bottom: 4px;
+    margin-top: var(--space-sm);
+    margin-bottom: var(--space-xs);
     font-size: 0.9em;
     font-weight: 600;
 }
@@ -2058,25 +2201,25 @@ select:focus {
 .tee-box-card small {
     display: block;
     color: #6c757d;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
 }
 
 .yardage-inputs {
     display: grid;
     grid-template-columns: repeat(9, 1fr);
-    gap: 4px;
-    margin-bottom: 8px;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-sm);
 }
 
 .yardage-inputs input {
     width: 100%;
-    padding: 4px;
+    padding: var(--space-xs);
     text-align: center;
     font-size: 0.85em;
 }
 
 .tee-box-remove {
-    margin-top: 8px;
+    margin-top: var(--space-sm);
     width: 100%;
     font-size: 0.9em;
 }
@@ -2088,9 +2231,15 @@ select:focus {
     align-items: center;
     padding: 12px;
     background: #fff;
-    border: 1px solid #e9ecef;
-    border-radius: 6px;
-    margin-bottom: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-sm);
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+}
+
+.my-course-item:hover {
+    border-color: var(--color-accent);
 }
 
 .my-course-info {
@@ -2099,7 +2248,7 @@ select:focus {
 
 .my-course-name {
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
 }
 
 .my-course-meta {
@@ -2127,7 +2276,7 @@ select:focus {
     background: #fff;
     border: 1px solid #dee2e6;
     border-top: none;
-    border-radius: 0 0 6px 6px;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     max-height: 320px;
     overflow-y: auto;
@@ -2144,11 +2293,11 @@ select:focus {
 }
 
 .course-result-empty p {
-    margin: 0 0 8px 0;
+    margin: 0 0 var(--space-sm) 0;
 }
 
 .course-result-empty .hint {
-    margin-top: 8px;
+    margin-top: var(--space-sm);
     font-size: 0.85em;
 }
 
@@ -2181,14 +2330,14 @@ select:focus {
 }
 
 .course-result-select {
-    padding: 4px 12px;
+    padding: var(--space-xs) 12px;
     font-size: 0.85em;
     flex-shrink: 0;
-    margin-left: 8px;
+    margin-left: var(--space-sm);
 }
 
 .course-result-add-more {
-    padding: 8px 12px;
+    padding: var(--space-sm) 12px;
     border-top: 1px solid #dee2e6;
     background: #f8f9fa;
     text-align: center;
@@ -2203,11 +2352,11 @@ select:focus {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
+    padding: var(--space-sm) 12px;
     background: #d1e7dd;
     border: 1px solid #a3cfbb;
-    border-radius: 6px;
-    margin-top: 8px;
+    border-radius: var(--radius-sm);
+    margin-top: var(--space-sm);
     font-size: 0.9em;
 }
 
@@ -2227,7 +2376,7 @@ select:focus {
         font-size: 0.75em;
     }
     .course-result-select {
-        padding: 4px 10px;
+        padding: var(--space-xs) 10px;
         font-size: 0.8em;
     }
 }
@@ -2238,12 +2387,12 @@ select:focus {
     padding: 12px;
     background: #f8f9fa;
     border: 1px solid #dee2e6;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
 }
 
 .tee-box-selector > label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
     font-weight: 600;
     font-size: 0.9em;
 }
@@ -2259,10 +2408,10 @@ select:focus {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 12px;
+    padding: var(--space-sm) 12px;
     background: #fff;
     border: 2px solid #dee2e6;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 0.9em;
     transition: border-color 0.15s, background 0.15s;
@@ -2282,7 +2431,7 @@ select:focus {
     display: inline-block;
     width: 14px;
     height: 14px;
-    border-radius: 50%;
+    border-radius: var(--radius-pill);
     flex-shrink: 0;
 }
 
@@ -2293,7 +2442,7 @@ select:focus {
 .tee-box-option-rating {
     font-size: 0.75em;
     color: #6c757d;
-    margin-left: 4px;
+    margin-left: var(--space-xs);
 }
 
 .tee-box-option.active .tee-box-option-rating {
@@ -2303,7 +2452,7 @@ select:focus {
 .tee-box-info {
     background: #fff;
     border: 1px solid #e9ecef;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 10px 12px;
 }
 
@@ -2311,7 +2460,7 @@ select:focus {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 0;
+    padding: var(--space-xs) 0;
     font-size: 0.9em;
 }
 
@@ -2325,8 +2474,8 @@ select:focus {
 
 .tee-box-info-handicap {
     border-top: 1px solid #e9ecef;
-    margin-top: 4px;
-    padding-top: 8px;
+    margin-top: var(--space-xs);
+    padding-top: var(--space-sm);
 }
 
 .tee-box-info-handicap span:last-child {
@@ -2350,7 +2499,7 @@ select:focus {
 
 .course-detail-info {
     background: #f8f9fa;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     padding: 12px;
 }
 
@@ -2374,7 +2523,7 @@ select:focus {
 .tee-detail-card {
     background: #fff;
     border: 1px solid #dee2e6;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     padding: 12px;
     margin-bottom: 12px;
 }
@@ -2382,9 +2531,9 @@ select:focus {
 .tee-detail-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-sm);
     margin-bottom: 10px;
-    padding-bottom: 8px;
+    padding-bottom: var(--space-sm);
     border-bottom: 1px solid #e9ecef;
 }
 
@@ -2396,19 +2545,19 @@ select:focus {
 .tee-detail-info {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px;
+    gap: var(--space-xs);
     font-size: 0.9em;
     margin-bottom: 10px;
 }
 
 .tee-detail-holes {
-    margin-top: 8px;
+    margin-top: var(--space-sm);
 }
 
 .tee-detail-holes > small {
     display: block;
     color: #6c757d;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
 }
 
 .tee-detail-holes-grid {
@@ -2419,7 +2568,7 @@ select:focus {
 
 .tee-detail-hole-cell {
     background: #f8f9fa;
-    padding: 4px 2px;
+    padding: var(--space-xs) 2px;
     text-align: center;
     border-radius: 3px;
     font-size: 0.7em;
@@ -2432,9 +2581,9 @@ select:focus {
 }
 
 .course-result-detail {
-    padding: 4px 8px;
+    padding: var(--space-xs) var(--space-sm);
     font-size: 0.8em;
-    margin-left: 4px;
+    margin-left: var(--space-xs);
 }
 
 @media (max-width: 480px) {
@@ -2446,7 +2595,7 @@ select:focus {
         padding: 3px 1px;
     }
     .course-result-detail {
-        padding: 4px 6px;
+        padding: var(--space-xs) 6px;
         font-size: 0.75em;
     }
 }
@@ -2465,7 +2614,7 @@ select:focus {
 .events-section-header label {
     font-size: 15px;
     font-weight: 600;
-    color: #333;
+    color: var(--color-text-primary);
     margin: 0;
 }
 
@@ -2477,12 +2626,12 @@ select:focus {
 
 .events-count {
     font-size: 13px;
-    color: #888;
+    color: var(--color-text-muted);
     font-weight: 600;
 }
 
 .tournament-events-list {
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
 }
 
 .event-card {
@@ -2491,18 +2640,18 @@ select:focus {
     justify-content: space-between;
     background: #f1f8e9;
     border: 1px solid #aed581;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     padding: 10px 12px;
     margin-bottom: 6px;
     font-size: 14px;
-    color: #2e7d32;
+    color: var(--color-accent);
     font-weight: 600;
 }
 
 .btn-remove-event {
     background: none;
     border: none;
-    color: #aaa;
+    color: var(--color-text-muted);
     font-size: 15px;
     width: auto;
     padding: 2px 6px;
@@ -2521,28 +2670,28 @@ select:focus {
     font-size: 14px;
     padding: 10px;
     margin-bottom: 0;
-    margin-top: 4px;
+    margin-top: var(--space-xs);
 }
 
 .add-event-form {
     background: #f8f9fa;
     border: 1px solid #dee2e6;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     padding: 12px;
-    margin-top: 8px;
+    margin-top: var(--space-sm);
 }
 
 .add-event-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
 }
 
 .add-event-row label {
     width: 48px;
     font-size: 13px;
-    color: #666;
+    color: var(--color-text-secondary);
     font-weight: 600;
     flex-shrink: 0;
     margin: 0;
@@ -2551,17 +2700,17 @@ select:focus {
 .add-event-row select,
 .add-event-row input {
     flex: 1;
-    padding: 8px;
+    padding: var(--space-sm);
     font-size: 14px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
     background: white;
 }
 
 .add-event-buttons {
     display: flex;
-    gap: 8px;
-    margin-top: 4px;
+    gap: var(--space-sm);
+    margin-top: var(--space-xs);
 }
 
 .add-event-buttons button {
@@ -2575,55 +2724,55 @@ select:focus {
 .events-display-box {
     background: #f1f8e9;
     border: 1px solid #aed581;
-    border-radius: 12px;
-    padding: 12px 16px;
+    border-radius: var(--radius-lg);
+    padding: 12px var(--space-md);
     margin: 12px 0;
 }
 
 .events-display-header {
     font-size: 14px;
     font-weight: bold;
-    color: #2e7d32;
-    margin-bottom: 8px;
+    color: var(--color-accent);
+    margin-bottom: var(--space-sm);
 }
 
 .events-display-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-xs);
 }
 
 .events-display-item {
     font-size: 14px;
-    color: #333;
-    padding: 4px 0;
+    color: var(--color-text-primary);
+    padding: var(--space-xs) 0;
 }
 
 /* 화면 12: 이벤트 조인 섹션 */
 .events-join-section {
     background: #f1f8e9;
     border: 1px solid #aed581;
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin: 8px 0 12px;
+    border-radius: var(--radius-lg);
+    padding: 12px var(--space-md);
+    margin: var(--space-sm) 0 12px;
 }
 
 .events-join-header {
     font-size: 14px;
     font-weight: bold;
-    color: #2e7d32;
-    margin-bottom: 8px;
+    color: var(--color-accent);
+    margin-bottom: var(--space-sm);
 }
 
 .events-join-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-xs);
 }
 
 .events-join-item {
     font-size: 14px;
-    color: #333;
+    color: var(--color-text-primary);
     padding: 3px 0;
 }
 
@@ -2698,7 +2847,7 @@ select:focus {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 16px;
+    padding: var(--space-md);
 }
 
 .event-winner-modal-overlay.hidden {
@@ -2707,7 +2856,7 @@ select:focus {
 
 .event-winner-modal-box {
     background: white;
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
     width: 100%;
     max-width: 360px;
     padding: 20px 18px;
@@ -2727,7 +2876,7 @@ select:focus {
     border-radius: 10px;
     padding: 12px;
     text-align: center;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
     min-height: 48px;
     display: flex;
     flex-direction: column;
@@ -2766,7 +2915,7 @@ select:focus {
 .event-winner-modal-actions {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-sm);
 }
 
 .btn-event-winner-me {
@@ -2788,15 +2937,15 @@ select:focus {
 
 .event-winner-others-row {
     display: flex;
-    gap: 8px;
+    gap: var(--space-sm);
     align-items: center;
 }
 
 .event-winner-select {
     flex: 1;
-    padding: 10px 8px;
+    padding: 10px var(--space-sm);
     border: 1px solid #d1d5db;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     font-size: 14px;
     background: white;
     color: #374151;
@@ -2818,7 +2967,7 @@ select:focus {
     font-size: 18px;
     font-weight: 700;
     color: #92400e;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-xs);
 }
 
 /* =========================================
@@ -2832,7 +2981,7 @@ select:focus {
     right: 0;
     background: linear-gradient(135deg, #1e3a5f 0%, #0f2340 100%);
     color: #fff;
-    padding: 10px 16px;
+    padding: 10px var(--space-md);
     z-index: 900;
     text-align: center;
     font-size: 14px;
@@ -2879,8 +3028,8 @@ select:focus {
     font-weight: 900;
     color: #fbbf24;
     text-align: center;
-    padding: 20px 24px;
-    border-radius: 16px;
+    padding: 20px var(--space-lg);
+    border-radius: var(--radius-xl);
     background: rgba(255, 255, 255, 0.07);
     line-height: 1.4;
     z-index: 1;
@@ -2926,3 +3075,567 @@ select:focus {
     0%   { transform: translateY(0)     rotate(0deg);   opacity: 1; }
     100% { transform: translateY(105vh) rotate(380deg); opacity: 0.2; }
 }
+
+/* =========================================
+   E7: 결과 공유 모달
+   ========================================= */
+
+.share-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--space-lg) var(--space-md) 40px;
+    overflow-y: auto;
+}
+
+.share-modal-overlay.hidden {
+    display: none !important;
+}
+
+.share-modal-box {
+    background: white;
+    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    margin: auto 0;
+}
+
+.share-modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: var(--space-md);
+    color: var(--color-text-primary);
+}
+
+.share-preview-wrap {
+    background: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 14px;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.share-preview-img {
+    width: 100%;
+    display: block;
+}
+
+.share-generating-hint {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    font-weight: normal;
+    padding: 12px 0;
+    margin: 0;
+}
+
+.share-modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.share-modal-actions button {
+    margin-bottom: 0;
+}
+
+/* =========================================
+   E1: 골프룰 이해 화면
+   ========================================= */
+
+.golf-rules-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: var(--space-md);
+}
+
+.golf-rules-header .btn-sm {
+    flex-shrink: 0;
+    width: auto !important;
+    padding: var(--space-sm) 14px;
+    font-size: 14px;
+    margin-bottom: 0;
+}
+
+.golf-rules-title {
+    flex: 1;
+    text-align: center;
+    font-size: 18px;
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.golf-rule-counter {
+    flex-shrink: 0;
+    font-size: 14px;
+    color: var(--color-text-muted);
+    font-weight: normal;
+    min-width: 40px;
+    text-align: right;
+}
+
+.golf-rule-carousel-wrap {
+    touch-action: pan-y;
+    margin-bottom: 20px;
+}
+
+.golf-rule-card {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: 28px var(--space-lg) var(--space-lg);
+    box-shadow: var(--shadow-md);
+    min-height: 320px;
+}
+
+.golf-rule-icon {
+    font-size: 52px;
+    text-align: center;
+    margin-bottom: 12px;
+    line-height: 1;
+}
+
+.golf-rule-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.golf-rule-section {
+    margin-bottom: var(--space-md);
+}
+
+.golf-rule-section-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 6px;
+}
+
+.golf-rule-section-body {
+    font-size: 15px;
+    color: var(--color-text-primary);
+    line-height: 1.6;
+    margin: 0;
+    font-weight: normal;
+}
+
+.golf-rule-procedure {
+    padding-left: 20px;
+    margin: 0;
+}
+
+.golf-rule-procedure li {
+    font-size: 15px;
+    color: var(--color-text-primary);
+    line-height: 1.6;
+    margin-bottom: 6px;
+}
+
+.golf-rule-procedure li:last-child {
+    margin-bottom: 0;
+}
+
+.golf-rule-exception-section {
+    background: #fffbf0;
+    border-left: 3px solid var(--color-warning);
+    padding: 10px 12px;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    margin-bottom: 0;
+}
+
+.golf-rule-exception-section .golf-rule-section-label {
+    color: #b45309;
+}
+
+.golf-rule-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.golf-rule-arrow {
+    width: auto !important;
+    padding: 10px 18px !important;
+    font-size: 16px !important;
+    font-weight: bold;
+    margin-bottom: 0;
+    flex-shrink: 0;
+    background-color: transparent !important;
+    color: var(--color-accent) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    transition: var(--transition-fast) !important;
+}
+
+.golf-rule-arrow:hover:not(:disabled) {
+    background-color: var(--color-accent-light) !important;
+    border-color: var(--color-accent) !important;
+}
+
+.golf-rule-arrow:disabled {
+    background-color: transparent !important;
+    color: var(--color-border-strong) !important;
+    border-color: var(--color-border-light) !important;
+    cursor: not-allowed;
+}
+
+.golf-rule-indicators {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    flex: 1;
+}
+
+.golf-rule-dot {
+    width: 10px !important;
+    height: 10px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background-color: var(--color-border-strong) !important;
+    margin-bottom: 0;
+    transition: background-color 0.2s, transform 0.2s;
+    flex-shrink: 0;
+    transform: scale(0.6);
+}
+
+.golf-rule-dot.active {
+    background-color: var(--color-accent) !important;
+    transform: scale(1.0);
+}
+
+.golf-rule-dot:hover:not(:disabled) {
+    background-color: var(--color-text-muted) !important;
+    transform: scale(0.8);
+}
+
+/* =========================================
+   E8: 대기방 채팅
+   ========================================= */
+
+.chat-section {
+    margin-top: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: #f9fafb;
+}
+
+.chat-header {
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #374151;
+    background: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.chat-messages {
+    height: min(50vh, 300px);
+    overflow-y: auto;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: #fff;
+}
+
+.chat-empty-msg {
+    color: #9ca3af;
+    font-size: 13px;
+    text-align: center;
+    margin: auto;
+    padding: 20px 0;
+}
+
+/* 메시지 행 */
+.chat-msg-row {
+    display: flex;
+    flex-direction: column;
+    max-width: 75%;
+    gap: 2px;
+}
+
+.chat-msg-row.own {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.chat-msg-row.other {
+    align-self: flex-start;
+    align-items: flex-start;
+}
+
+.chat-msg-name {
+    font-size: 11px;
+    color: #6b7280;
+    padding: 0 var(--space-xs);
+    margin-bottom: 1px;
+}
+
+.chat-msg-name .chat-host-crown {
+    font-size: 11px;
+    margin-left: 2px;
+}
+
+/* 버블 + 시간 묶음 */
+.chat-bubble-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-xs);
+}
+
+.chat-msg-row.own .chat-bubble-wrap {
+    flex-direction: row-reverse;
+}
+
+.chat-bubble {
+    padding: var(--space-sm) 12px;
+    border-radius: var(--radius-xl);
+    font-size: 14px;
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.chat-bubble.own {
+    background: #FEE500;
+    color: #000;
+    border-bottom-right-radius: 4px;
+}
+
+.chat-bubble.other {
+    background: #fff;
+    color: #111;
+    border: 1px solid #e5e7eb;
+    border-bottom-left-radius: 4px;
+}
+
+.chat-time {
+    font-size: 10px;
+    color: #9ca3af;
+    flex-shrink: 0;
+    margin-bottom: 2px;
+}
+
+/* 입력창 영역 */
+.chat-input-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    padding: var(--space-sm) 10px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+}
+
+.chat-input {
+    flex: 1;
+    resize: none;
+    border: 1px solid #d1d5db;
+    border-radius: 20px;
+    padding: var(--space-sm) 14px;
+    font-size: 14px;
+    line-height: 1.4;
+    max-height: calc(4 * 1.4 * 14px + 16px);
+    overflow-y: auto;
+    background: #fff;
+    outline: none;
+    font-family: inherit;
+}
+
+.chat-input:focus {
+    border-color: var(--color-accent);
+}
+
+.chat-send-btn {
+    width: auto !important;
+    padding: var(--space-sm) 14px !important;
+    margin-bottom: 0;
+    border-radius: 20px !important;
+    font-size: 13px !important;
+    font-weight: 600;
+    background: var(--color-accent);
+    color: #fff;
+    flex-shrink: 0;
+    line-height: 1.4;
+    transition: opacity 0.15s;
+}
+
+.chat-send-btn:disabled {
+    background: #9ca3af !important;
+    cursor: not-allowed;
+}
+
+.chat-char-counter {
+    font-size: 11px;
+    color: #6b7280;
+    text-align: right;
+    padding: 0 12px 6px;
+}
+
+.chat-char-counter.warn {
+    color: #6b7280;
+}
+
+.chat-char-counter.danger {
+    color: var(--color-danger);
+    font-weight: 600;
+}
+
+/* 컨텍스트 메뉴 */
+.chat-context-menu {
+    position: fixed;
+    z-index: 9990;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+    min-width: 140px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+}
+
+.chat-context-item {
+    width: 100% !important;
+    padding: 13px 18px !important;
+    text-align: left;
+    background: none;
+    border: none;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 14px;
+    color: #374151;
+    cursor: pointer;
+    margin-bottom: 0;
+    border-radius: 0 !important;
+}
+
+.chat-context-item:last-child {
+    border-bottom: none;
+}
+
+.chat-context-item:hover {
+    background: #f3f4f6;
+}
+
+.chat-context-delete {
+    color: var(--color-danger) !important;
+    font-weight: 600;
+}
+
+/* =========================================
+   F2: 컴포넌트 클래스 (공통 카드 + 버튼)
+   ========================================= */
+
+.card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.card-elevated { box-shadow: var(--shadow-lg); }
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+}
+
+.card-title {
+    font-size: var(--font-size-h3);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.card-meta {
+    font-size: var(--font-size-small);
+    color: var(--color-text-secondary);
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 12px 24px;
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-bg);
+    background: var(--color-accent);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    margin-bottom: 0;
+    transition: var(--transition-base);
+}
+
+.btn-primary:hover { background: var(--color-accent-hover); transform: scale(1.02); }
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-outline {
+    width: 100%;
+    padding: 12px 24px;
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-accent);
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-accent);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    margin-bottom: 0;
+    transition: var(--transition-base);
+}
+
+.btn-outline:hover { background: var(--color-accent-light); transform: scale(1.02); }
+.btn-outline:active { transform: scale(0.98); }
+
+.btn-ghost {
+    width: 100%;
+    padding: 12px 24px;
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    margin-bottom: 0;
+    transition: var(--transition-base);
+}
+
+.btn-ghost:hover { border-color: var(--color-border-strong); }
+
+.metric-large {
+    font-size: var(--font-size-h1);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-accent);
+    line-height: 1;
+}
+
+.label-muted {
+    font-size: var(--font-size-tiny);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.card > button {
+    margin-bottom: 0;
+}
+

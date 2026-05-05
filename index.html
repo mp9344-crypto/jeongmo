@@ -4,14 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>정모 - Live Golf Scoring for Friends</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=e5">
+    <link rel="stylesheet" href="style.css?v=f2_1">
 </head>
 <body>
 
     <header>
         <h1>정모</h1>
-        <p>Live Golf Scoring for Friends</p>
+        <p class="label-muted">Live Golf Scoring for Friends</p>
     </header>
 
     <main>
@@ -23,17 +25,29 @@
             <section class="profile-card" id="profile-card">
                 <div class="profile-info">
                     <div class="profile-name" id="profile-name-display">이름을 설정해주세요</div>
-                    <div class="profile-handicap" id="profile-handicap-display">Handicap: --</div>
+                </div>
+                <div class="profile-hcp-block">
+                    <div class="label-muted">HCP</div>
+                    <div class="metric-large" id="profile-handicap-display">--</div>
                 </div>
                 <button id="btn-edit-profile" class="btn-icon">⚙️</button>
             </section>
 
-            <button id="btn-new-round">새 라운드 시작</button>
+            <div class="card">
+                <button id="btn-new-round" class="btn-outline">🏌️ 새 라운드 시작</button>
+            </div>
             <button id="btn-continue-round" class="btn-continue hidden">▶ 진행 중 라운드 이어하기</button>
-            <button id="btn-join-by-code" class="btn-secondary">🎯 정모/공유 코드로 참여</button>
-            <button id="btn-register-course" class="btn-secondary">⛳ 골프장 등록</button>
+            <div class="card">
+                <button id="btn-join-by-code" class="btn-primary">🎯 정모/공유 코드로 참여</button>
+            </div>
+            <div class="card">
+                <button id="btn-register-course" class="btn-outline">⛳ 골프장 등록</button>
+            </div>
+            <div class="card">
+                <button id="btn-golf-rules" class="btn-ghost">📖 골프룰 이해</button>
+            </div>
 
-            <section id="my-courses-section" class="hidden">
+            <section id="my-courses-section" class="card hidden">
                 <h2>⛳ 내가 등록한 골프장</h2>
                 <div id="my-courses-list">
                     <p class="empty-message">아직 등록한 골프장이 없습니다.</p>
@@ -326,13 +340,29 @@
                         <select id="select-event-hole"></select>
                     </div>
                     <div class="add-event-row">
-                        <label for="input-event-prize">금액</label>
-                        <input type="number" id="input-event-prize" placeholder="0 (없음)" min="0" step="1">
+                        <label for="input-event-prize-text">상품/상금</label>
+                        <input type="text" id="input-event-prize-text" placeholder="예: 공 한박스, 백화점 상품권" maxlength="50">
+                    </div>
+                    <div class="add-event-row">
+                        <label for="input-event-prize-amount">금액</label>
+                        <input type="number" id="input-event-prize-amount" placeholder="0" min="0" step="1">
                     </div>
                     <div class="add-event-buttons">
                         <button type="button" id="btn-confirm-add-event">등록</button>
                         <button type="button" id="btn-cancel-add-event" class="btn-secondary">취소</button>
                     </div>
+                </div>
+            </section>
+
+            <section id="tournament-game-prize-section">
+                <label>게임 우승 상금 <span class="hint-inline">(선택)</span></label>
+                <div class="add-event-row">
+                    <label for="input-game-winner-prize-text">상품/상금</label>
+                    <input type="text" id="input-game-winner-prize-text" placeholder="예: 공 한박스, 백화점 상품권" maxlength="50">
+                </div>
+                <div class="add-event-row">
+                    <label for="input-game-winner-prize-amount">금액</label>
+                    <input type="number" id="input-game-winner-prize-amount" placeholder="0" min="0" step="1">
                 </div>
             </section>
 
@@ -622,6 +652,19 @@
                 </div>
             </div>
 
+            <!-- E8: 대기방 채팅 -->
+            <section id="chat-section" class="chat-section hidden">
+                <div class="chat-header">💬 채팅</div>
+                <div id="chat-messages" class="chat-messages">
+                    <!-- E8: 빈 상태 메시지는 renderChatMessages에서 동적 생성 -->
+                </div>
+                <div class="chat-input-area">
+                    <textarea id="chat-input" class="chat-input" rows="1" placeholder="메시지 입력..." maxlength="500"></textarea>
+                    <button id="chat-send-btn" class="chat-send-btn" disabled>전송</button>
+                </div>
+                <div id="chat-char-counter" class="chat-char-counter hidden">0 / 500</div>
+            </section>
+
             <!-- 호스트만 보이는 팀 배정 버튼 (C3에서 활성화) -->
             <button id="btn-go-to-team-assignment" class="hidden">🎯 팀 배정 → (C3 단계)</button>
 
@@ -740,7 +783,22 @@
                 <div class="winner-label">🥇 우승자</div>
                 <div class="winner-name" id="result-winner-name">-</div>
                 <div class="winner-score" id="result-winner-score">-</div>
+                <div id="result-winner-prize" class="winner-prize hidden"></div>
             </div>
+
+            <div id="result-event-results-section" class="hidden">
+                <h3 class="leaderboard-section-title">🏆 이벤트 결과</h3>
+                <div id="result-event-results-list"></div>
+            </div>
+
+            <div id="result-settlement-section" class="hidden">
+                <h3 class="leaderboard-section-title">💰 정산</h3>
+                <div id="result-settlement-list"></div>
+                <p class="settlement-disclaimer">⚠️ 앱은 기록만 합니다. 정산은 서로 직접 처리해 주세요.</p>
+            </div>
+
+            <!-- E7: 결과 공유 버튼 -->
+            <button id="btn-share-result">📤 결과 공유</button>
 
             <h3 class="leaderboard-section-title">🏌️ 최종 개인 순위</h3>
             <div id="result-rankings-list" class="leaderboard-list">
@@ -1025,6 +1083,27 @@
 
         </div>
 
+        <!-- ===== 화면 25: 골프룰 이해 ===== -->
+        <div id="screen-golf-rules" class="screen hidden">
+
+            <div class="golf-rules-header">
+                <button id="btn-golf-rules-back" class="btn-sm btn-secondary">← 뒤로</button>
+                <h2 class="golf-rules-title">골프룰 이해</h2>
+                <span id="golf-rule-counter" class="golf-rule-counter">1 / 7</span>
+            </div>
+
+            <div id="golf-rule-carousel-wrap" class="golf-rule-carousel-wrap">
+                <div id="golf-rule-card" class="golf-rule-card"></div>
+            </div>
+
+            <div class="golf-rule-nav">
+                <button id="golf-rule-prev" class="golf-rule-arrow">◀</button>
+                <div id="golf-rule-indicators" class="golf-rule-indicators"></div>
+                <button id="golf-rule-next" class="golf-rule-arrow">▶</button>
+            </div>
+
+        </div>
+
         <!-- E4: 이벤트 위너 입력 모달 (overlay) -->
         <div id="event-winner-modal" class="event-winner-modal-overlay hidden">
             <div class="event-winner-modal-box">
@@ -1032,6 +1111,22 @@
                 <div id="event-modal-current-winner" class="event-modal-current-winner"></div>
                 <div id="event-modal-prev-winners" class="event-modal-prev-winners"></div>
                 <div id="event-modal-actions" class="event-winner-modal-actions"></div>
+            </div>
+        </div>
+
+        <!-- E7: 결과 공유 모달 -->
+        <div id="share-result-modal" class="share-modal-overlay hidden">
+            <div class="share-modal-box">
+                <h3 class="share-modal-title">📤 결과 공유</h3>
+                <div class="share-preview-wrap">
+                    <img id="share-preview-img" src="" alt="결과 이미지" class="share-preview-img hidden">
+                    <p id="share-generating-hint" class="share-generating-hint">이미지 생성 중...</p>
+                </div>
+                <div class="share-modal-actions">
+                    <button id="btn-share-native">🔗 공유하기</button>
+                    <button id="btn-share-download" class="btn-secondary">💾 다운로드</button>
+                    <button id="btn-share-modal-close" class="btn-secondary">닫기</button>
+                </div>
             </div>
         </div>
 
@@ -1047,6 +1142,12 @@
 
     </main>
 
+    <!-- E8: 채팅 컨텍스트 메뉴 (전역, 길게 누르기/우클릭) -->
+    <div id="chat-context-menu" class="chat-context-menu hidden">
+        <button id="chat-context-delete" class="chat-context-item chat-context-delete">삭제</button>
+        <button id="chat-context-cancel" class="chat-context-item">취소</button>
+    </div>
+
     <!-- E5: 라이브 알림 티커 (fixed, 모든 화면 위) -->
     <div id="live-ticker-bar" class="live-ticker-bar hidden">
         <span id="live-ticker-text" class="live-ticker-text"></span>
@@ -1059,7 +1160,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=e5"></script>
+    <script src="app.js?v=f1"></script>
 
 </body>
 </html>
