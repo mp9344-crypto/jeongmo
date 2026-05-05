@@ -212,6 +212,12 @@
 - Playwright: 3초 CSS animation → screenshot 타이밍에 따라 미표시. evaluate로 DOM 상태 직접 확인.
 - `card > button { margin-bottom: 0 }` 필수: 전역 `button { margin-bottom: 12px }`가 카드 내부 버튼에 적용되어 하단 여백 이중 발생.
 - `.golf-rule-arrow` 투명 배경 적용 시 `!important` 필수: 전역 `button { background-color: accent }`가 이길 수 있음.
+- **카드 안 grid/flex**: 항상 `minmax(0, 1fr)` + `min-width: 0` 안전 패턴. 카드 padding이 사용 가능 폭을 줄여 9칸/10칸 그리드가 줄바꿈되는 함정 (F3.1 18홀 파/거리 입력).
+- **flex 자식 텍스트 ellipsis**: `min-width: 0` 명시 필수. flex 기본값 `min-width: auto`가 콘텐츠 길이를 따라가서 ellipsis 무효화 (F3.1 자동완성 결과 카드).
+- **전역 `button { width: 100% }` grid/flex 함정**: 카드 안 작은 버튼은 `width: auto !important` 명시. 누적 셀렉터 (`.btn-sm`, `.chat-send-btn`, `.golf-rule-arrow`, `.golf-rule-dot`, `.course-result-select` 등).
+- **카드 padding 계산**: 모바일 480px − 카드 padding(16px×2) = 448px. 9칸 + 8gap이 들어가야 함. 비표준 padding 도입 시 수동 검증 필수.
+- **grid 안에 라벨 두지 말 것**: 라벨 + 9칸 input을 같은 grid에 넣으면 10칸이 되어 줄바꿈. 라벨은 grid 밖 wrapper(`.par-row`)에, grid는 input만 (F3.1).
+- **OS 네이티브 컴포넌트 한계**: `input[type="date"]` 팝업, `<select>` 펼침, `prompt/alert/confirm`은 CSS 제어 불가. 필요 시 G에서 라이브러리 도입 검토 (Flatpickr 등). PRD 4.6 정책 재검토 필요.
 
 ---
 
