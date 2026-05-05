@@ -1,5 +1,16 @@
 ## 현재 상태
 
+- **E4 완료** (2026-05-05) — 이벤트 홀 진행 UI (배너 + 위너 입력 모달)
+  - 화면 3 상단: 이벤트 배너 (현재 홀 이벤트 있을 때, 여러 개 stack)
+  - 배너 탭 → 위너 입력 모달 (KP/롱기스트 배열, 홀인원 단일 객체 분기)
+  - [내가 위너] + [다른 사람 선택 ▼] (본인 팀 멤버만, 본인 제외) + [마지막 입력 취소] (호스트/inputBy)
+  - 홀인원: 달성 시 등록 버튼 hidden + "X님이 홀인원! 🎉" 표시
+  - arrayUnion (동시 입력 안전) + read-modify-write (pop) + deleteField (홀인원 취소)
+  - 진입 토스트: 이벤트 홀 최초 진입 시 1회 (eventHoleArrivalShown Set으로 중복 방지)
+  - tournament 본 문서 onSnapshot 통합 — 위너 변경 시 배너/모달 자동 갱신
+  - cleanup: leaveTournament 모든 경로 (eventHoleArrivalShown, openEventModalId, 모달 닫기)
+  - 보안 규칙 변경 0건 (E0 사전 정비 활용), Node.js 29/29, Playwright 통과
+  - 회귀 0: 이벤트 0개/undefined, 비정모 라운드, E2/E3 모두 정상
 - **E3 완료** (2026-05-05) — 이벤트 홀 설정 UI
   - 화면 8: 이벤트 홀 섹션 (KP/롱기스트/홀인원, 최대 5개, 종류별 홀 자동 필터)
   - 골프장/티박스 변경 시 검증 실패 이벤트 자동 삭제 + 토스트
@@ -42,7 +53,8 @@
 - E0 ✅ 보안 규칙 사전 정비 — eventWinners 멤버 update + notifications/messages 서브컬렉션
 - E2 ✅ 게임 방식 선택 UI — gameType 필드 + 드롭다운 + 화면 11/join/16 라벨
 - E3 ✅ 이벤트 홀 설정 UI — events[] 배열 저장 + 화면 8/11/join 표시
-- E4 실시간 알림 (birdie/eagle 등) + 이벤트 위너 기록
+- E4 ✅ 이벤트 홀 진행 UI — 배너 + 위너 입력 모달 + onSnapshot 자동 갱신
+- E5 ~
 - E5 ~
 - E6 정산
 - E7 ~
@@ -135,6 +147,7 @@
 - **E0: tournaments update 케이스 B 추가** — 멤버가 `eventWinners` 필드만 update 허용. `exists()` 멤버십 검증 + `diff().affectedKeys().hasOnly(['eventWinners'])` 패턴. status=="completed" 시 차단.
 - **E0: notifications 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + type 6종 enum(birdie/eagle/albatross/ace/skin_win/event_win) + holeNumber 1~18. update 금지, 삭제 호스트만.
 - **E0: messages 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + text 1~500자. update 금지, 삭제 호스트 또는 본인.
+- **E4**: 보안 규칙 변경 0건. eventWinners 필드는 E0에서 이미 멤버 update 허용 (diff().affectedKeys().hasOnly(['eventWinners'])). arrayUnion/deleteField 모두 동일 경로. status=="completed" 시 자동 차단.
 - **E3**: 보안 규칙 변경 0건. events[] 배열은 Firestore 스키마 자유 — E0에서 이미 tournaments update 허용 범위에 포함됨. 클라이언트 UI + 검증 + 저장만.
 - **E2**: 보안 규칙 변경 0건. gameType 필드는 Firestore 스키마 자유 — E0에서 이미 tournaments update 허용 범위에 포함됨. 클라이언트 UI + 저장만.
 
@@ -275,7 +288,36 @@
 
 ---
 
+## E4 회고 (2026-05-05)
+
+**작업 범위**: 화면 3 이벤트 배너 + 위너 입력 모달 + Firestore 저장/취소 + onSnapshot 자동 갱신. 보안 규칙 변경 0건.
+
+**설계 포인트**:
+- `arrayUnion` 사용으로 동시 입력 충돌 방지. 단, arrayUnion 내부에서 serverTimestamp() 미지원 → `inputAt: Date.now()` (number).
+- KP/롱기스트 취소(pop): read-modify-write 패턴. get() 후 배열 마지막 제거 + update(). 빈 배열이 되면 `deleteField()`.
+- 홀인원 취소: `deleteField()` 단순 호출.
+- `updateEventWinnersDisplay()` — 대기실 onSnapshot과 `subscribeTournamentStatusForRound` onSnapshot 두 경로 모두에서 호출. 홀 입력 화면 표시 중일 때만 작동 (가드 있음).
+- `eventHoleArrivalShown` Set — 홀번호로 dedupe. `cleanupTournamentRoundListeners()` + `enterTournamentRound()` 진입 시 초기화.
+- `escapeHtml()` 신규 도입 — 위너 이름을 innerHTML에 출력할 때 XSS 방지.
+- `btn-sm { width: auto !important; flex-shrink: 0; }` — 전역 `button { width: 100% }` 오버라이드 필요 (flex row 내 확인 버튼).
+
+**검증 결과**:
+- Node.js 단위 테스트 29/29 통과 (getEventsForHole 5, getCurrentEventWinner 7, getPreviousEventWinners 4, canCancelLastEventWinner 7, pop 로직 3, Array.isArray 분기 2, 기타)
+- Playwright: 배너 2개 렌더 (위너 있음/없음), KP 모달 레이아웃, 홀인원 achieved 표시
+- 회귀 7/7: 이벤트 0개, events undefined, eventWinners undefined, 모달 open/close, teamId=null, XSS 방지, holeInOne getPrev
+
+**트러블슈팅**:
+- `btn-secondary` 전역 `width: 100%` → flex row에서 "확인" 버튼이 full-width로 select 압박. `btn-sm { width: auto !important }` 추가로 해결.
+- module-scoped `let` 변수(`currentTournamentDoc` 등)는 window에서 접근 불가 → Playwright 테스트에서 DOM 직접 조작 + 순수 함수 분리 전략 (E3 패턴 답습).
+
+---
+
 ## 코드 패턴 메모
+
+- **E4 이벤트 위너**: `eventWinners` map — `{ eventId: array | object }`. KP/롱기스트=배열, 홀인원=단일 객체 `{achieved, userId, userName, inputBy, inputByName, inputAt}`. `inputAt: Date.now()` (arrayUnion 내 serverTimestamp 미지원). 배너: `#event-banners` .event-banner-item (탭 가능). 모달: `#event-winner-modal` .event-winner-modal-overlay. 액션 동적 렌더: `renderKpLongestModalActions` / `renderHoleInOneModalActions`. 취소 권한: `canCancelLastEventWinner(event, map, uid, isHost)`. 진입 토스트: `triggerEventHoleArrivalToast(holeNumber)` — `eventHoleArrivalShown` Set dedupe.
+- **E4 onSnapshot 통합**: 대기실 `tournamentWaitingTournamentUnsub` + 재진입 `roundTournamentStatusUnsub` 둘 다 `updateEventWinnersDisplay()` 호출. 대기실 경로에서는 "이미 라운드 화면" 조기 반환 직전에 추가.
+- **E4 arrayUnion**: `firebase.firestore.FieldValue.arrayUnion(entry)` — inputAt은 `Date.now()`. 취소(pop)는 read-modify-write: get → slice(0, -1) → update 또는 deleteField(빈 배열).
+- **E4 btn-sm**: flex row 내 버튼은 `width: auto !important; flex-shrink: 0` 필수 (전역 `button { width: 100% }` 오버라이드).
 
 - **E3 이벤트 홀**: `events[]` 배열 — `{id, type, holeNumber, prize}`. type: "kp"|"longest"|"holeInOne". 최대 5개 (`MAX_EVENTS`). KP/홀인원=파3, 롱기스트=파4/5. 자유 입력(pars=[]) → 검증 스킵(모든 홀 허용). `pendingTournamentEvents` in-memory 상태, `openTournamentCreateScreen()`에서 초기화. 골프장/티박스 변경 시 `validateAndCleanEventsOnParsChange(newPars)` 호출 → 삭제된 이벤트 `showToast(msg)`. `getCurrentFormPars()` — DB 골프장 선택 시 `autoSelectedTeeBox.pars`, 자유입력 시 DOM input 직접 읽기. 화면 8 이벤트 섹션 ID: `tournament-events-section`. 화면 11 ID: `tournament-link-events`. 화면 join ID: `tournament-join-events-section`.
 - **E3 showToast**: `#toast-notification` 동적 생성 (없으면 append), `toast-show` CSS class로 opacity 1. 3초 후 class 제거. `_timer` 프로퍼티로 연속 호출 시 이전 타이머 취소.

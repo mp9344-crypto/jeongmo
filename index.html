@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>정모 - Live Golf Scoring for Friends</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=e3">
+    <link rel="stylesheet" href="style.css?v=e4">
 </head>
 <body>
 
@@ -668,6 +668,11 @@
                 <div id="proxy-targets-list" class="proxy-targets-list"></div>
             </div>
 
+            <!-- E4: 이벤트 배너 (현재 홀에 이벤트 있을 때) -->
+            <div id="event-banners" class="event-banners hidden">
+                <!-- 동적 생성 -->
+            </div>
+
             <section class="hole-input-section">
                 <h2 id="hole-info">1번 홀 (Par 4)</h2>
 
@@ -1020,6 +1025,16 @@
 
         </div>
 
+        <!-- E4: 이벤트 위너 입력 모달 (overlay) -->
+        <div id="event-winner-modal" class="event-winner-modal-overlay hidden">
+            <div class="event-winner-modal-box">
+                <div id="event-modal-title" class="event-winner-modal-header"></div>
+                <div id="event-modal-current-winner" class="event-modal-current-winner"></div>
+                <div id="event-modal-prev-winners" class="event-modal-prev-winners"></div>
+                <div id="event-modal-actions" class="event-winner-modal-actions"></div>
+            </div>
+        </div>
+
     </main>
 
     <!-- ===== Firebase SDK (CDN) ===== -->
@@ -1029,7 +1044,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=e3"></script>
+    <script src="app.js?v=e4"></script>
 
 </body>
 </html>

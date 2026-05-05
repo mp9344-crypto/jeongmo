@@ -420,6 +420,10 @@ let proxyInputTargetId = null;     // null = 본인, string = 프록시 id
 let proxyScoreCache = {};          // { proxyId: { scores, putts, currentHole, completed } }
 let proxySyncTimers = {};          // { proxyId: timerId }
 
+// E4: 이벤트 위너 상태
+let eventHoleArrivalShown = new Set(); // 진입 토스트 중복 방지 (holeNumber)
+let openEventModalId = null;           // 현재 열린 모달의 eventId
+
 // C4-6: 렌더링 throttle 유틸리티
 // 첫 호출 즉시 실행 + delayMs 동안 무시 + 무시 기간 끝나면 마지막 args로 1번 더
 function createThrottle(fn, delayMs) {
@@ -1584,6 +1588,55 @@ function showToast(message) {
     toastEl._timer = setTimeout(function() {
         toastEl.classList.remove('toast-show');
     }, 3000);
+}
+
+// E4: 이벤트 위너 헬퍼
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function getEventsForHole(events, holeNumber) {
+    if (!Array.isArray(events)) return [];
+    return events.filter(function(e) { return e.holeNumber === holeNumber; });
+}
+
+function getCurrentEventWinner(event, eventWinnersMap) {
+    var val = (eventWinnersMap || {})[event.id];
+    if (!val) return null;
+    if (event.type === 'holeInOne') return val.achieved ? val : null;
+    if (Array.isArray(val) && val.length > 0) return val[val.length - 1];
+    return null;
+}
+
+function getPreviousEventWinners(event, eventWinnersMap) {
+    var val = (eventWinnersMap || {})[event.id];
+    if (!val || event.type === 'holeInOne' || !Array.isArray(val)) return [];
+    return val.length > 1 ? val.slice(0, -1) : [];
+}
+
+function canCancelLastEventWinner(event, eventWinnersMap, currentUserId, isHost) {
+    if (isHost) return true;
+    var val = (eventWinnersMap || {})[event.id];
+    if (!val) return false;
+    if (event.type === 'holeInOne') return !!(val.achieved && val.inputBy === currentUserId);
+    if (Array.isArray(val) && val.length > 0) return val[val.length - 1].inputBy === currentUserId;
+    return false;
+}
+
+function getTeamMembersForEventInput(includeSelf) {
+    var myUid = currentUser ? currentUser.uid : null;
+    var myTeamId = myTournamentTeamId;
+    if (!myTeamId) return [];
+    return leaderboardAllMembers
+        .filter(function(m) {
+            if (!includeSelf && m.id === myUid) return false;
+            return m.teamId === myTeamId;
+        })
+        .map(function(m) { return { id: m.id, name: m.name }; });
 }
 
 // D6: rounds 본 문서 기반 핸디 계산 (B6 게스트용)
@@ -3040,6 +3093,342 @@ function loadPreviousRound() {
 }
 
 // =========================================
+// E4: 이벤트 배너 + 위너 입력 모달
+// =========================================
+
+function renderEventBanners(holeNumber) {
+    var bannersEl = document.getElementById('event-banners');
+    if (!bannersEl) return;
+    var events = (currentTournamentDoc && currentTournamentDoc.events) ? currentTournamentDoc.events : [];
+    var holeEvents = getEventsForHole(events, holeNumber);
+    if (holeEvents.length === 0) {
+        bannersEl.classList.add('hidden');
+        bannersEl.innerHTML = '';
+        return;
+    }
+    var winnersMap = (currentTournamentDoc && currentTournamentDoc.eventWinners) || {};
+    bannersEl.classList.remove('hidden');
+    bannersEl.innerHTML = '';
+    holeEvents.forEach(function(event) {
+        var item = document.createElement('div');
+        item.className = 'event-banner-item';
+        var winner = getCurrentEventWinner(event, winnersMap);
+        var prizeText = (event.prize && event.prize > 0) ? ' · $' + event.prize : '';
+        var winnerText = winner ? ('현재 위너: ' + winner.userName + ' ✨') : '아직 입력 안 됨';
+        item.innerHTML =
+            '<div class="event-banner-top">🏆 ' + event.holeNumber + '번홀: ' + getEventTypeLabel(event.type) + prizeText + '</div>' +
+            '<div class="event-banner-winner">' + escapeHtml(winnerText) + '</div>';
+        item.addEventListener('click', (function(eid) {
+            return function() { openEventWinnerModal(eid); };
+        })(event.id));
+        bannersEl.appendChild(item);
+    });
+}
+
+function triggerEventHoleArrivalToast(holeNumber) {
+    if (!currentRound || !currentRound.tournamentId) return;
+    if (eventHoleArrivalShown.has(holeNumber)) return;
+    var events = (currentTournamentDoc && currentTournamentDoc.events) ? currentTournamentDoc.events : [];
+    var holeEvents = getEventsForHole(events, holeNumber);
+    if (holeEvents.length === 0) return;
+    eventHoleArrivalShown.add(holeNumber);
+    var types = holeEvents.map(function(e) { return getEventTypeLabel(e.type); }).join(', ');
+    showToast(holeNumber + '번 홀 이벤트: ' + types + '!');
+}
+
+function updateEventWinnersDisplay() {
+    if (screenHoleInput.classList.contains('hidden') || currentRound === null) return;
+    var holeNum = getActiveInputData().currentHole || 1;
+    renderEventBanners(holeNum);
+    if (openEventModalId !== null) {
+        var events = (currentTournamentDoc && currentTournamentDoc.events) || [];
+        var openEv = events.find(function(e) { return e.id === openEventModalId; });
+        if (openEv) renderEventWinnerModalContent(openEv);
+    }
+}
+
+function openEventWinnerModal(eventId) {
+    var events = (currentTournamentDoc && currentTournamentDoc.events) ? currentTournamentDoc.events : [];
+    var event = events.find(function(e) { return e.id === eventId; });
+    if (!event) return;
+    openEventModalId = eventId;
+    renderEventWinnerModalContent(event);
+    document.getElementById('event-winner-modal').classList.remove('hidden');
+}
+
+function closeEventWinnerModal() {
+    openEventModalId = null;
+    document.getElementById('event-winner-modal').classList.add('hidden');
+}
+
+function renderEventWinnerModalContent(event) {
+    var myUid = currentUser ? currentUser.uid : null;
+    var isHost = !!(currentUser && currentTournamentDoc && myUid === currentTournamentDoc.hostId);
+    var winnersMap = (currentTournamentDoc && currentTournamentDoc.eventWinners) || {};
+    var currentWinner = getCurrentEventWinner(event, winnersMap);
+    var prevWinners = getPreviousEventWinners(event, winnersMap);
+    var canCancel = !!(myUid && canCancelLastEventWinner(event, winnersMap, myUid, isHost));
+
+    // 제목
+    var prizeText = (event.prize && event.prize > 0) ? ' · $' + event.prize : '';
+    document.getElementById('event-modal-title').textContent =
+        event.holeNumber + '번홀 · ' + getEventTypeLabel(event.type) + prizeText;
+
+    // 현재 위너 표시
+    var cwEl = document.getElementById('event-modal-current-winner');
+    if (currentWinner) {
+        cwEl.innerHTML =
+            '<div class="event-modal-current-winner-name">' + escapeHtml(currentWinner.userName) + '</div>' +
+            '<div class="event-modal-current-winner-label">현재 위너</div>';
+    } else {
+        cwEl.innerHTML = '<div class="event-modal-current-winner-none">아직 입력 안 됨</div>';
+    }
+
+    // 이전 위너 목록
+    var pwEl = document.getElementById('event-modal-prev-winners');
+    pwEl.innerHTML = '';
+    if (prevWinners.length > 0) {
+        prevWinners.slice().reverse().forEach(function(w) {
+            var el = document.createElement('div');
+            el.className = 'event-modal-prev-item';
+            el.textContent = '이전: ' + w.userName;
+            pwEl.appendChild(el);
+        });
+    }
+
+    // 액션 버튼 영역
+    var actionsEl = document.getElementById('event-modal-actions');
+    actionsEl.innerHTML = '';
+
+    if (event.type === 'holeInOne') {
+        renderHoleInOneModalActions(actionsEl, event, currentWinner, canCancel);
+    } else {
+        renderKpLongestModalActions(actionsEl, event, currentWinner, canCancel);
+    }
+
+    // 닫기 버튼 (항상 마지막)
+    var btnClose = document.createElement('button');
+    btnClose.className = 'btn-secondary';
+    btnClose.textContent = '닫기';
+    btnClose.addEventListener('click', closeEventWinnerModal);
+    actionsEl.appendChild(btnClose);
+}
+
+function renderKpLongestModalActions(actionsEl, event, currentWinner, canCancel) {
+    var myUid = currentUser ? currentUser.uid : null;
+    var myName = (loadUserProfile() || {}).name || '나';
+
+    // [내가 위너]
+    var btnMe = document.createElement('button');
+    btnMe.className = 'btn-event-winner-me';
+    btnMe.textContent = '🏆 내가 위너';
+    btnMe.addEventListener('click', function() {
+        submitEventWinner(event.id, myUid, myName);
+    });
+    actionsEl.appendChild(btnMe);
+
+    // [다른 사람 입력] — 본인 팀 멤버만, 본인 제외
+    var teamMembers = getTeamMembersForEventInput(false);
+    if (teamMembers.length > 0) {
+        var othersRow = document.createElement('div');
+        othersRow.className = 'event-winner-others-row';
+
+        var select = document.createElement('select');
+        select.className = 'event-winner-select';
+        var defOpt = document.createElement('option');
+        defOpt.value = '';
+        defOpt.textContent = '다른 사람 선택 ▼';
+        select.appendChild(defOpt);
+        teamMembers.forEach(function(m) {
+            var opt = document.createElement('option');
+            opt.value = JSON.stringify({ id: m.id, name: m.name });
+            opt.textContent = m.name;
+            select.appendChild(opt);
+        });
+
+        var btnOther = document.createElement('button');
+        btnOther.className = 'btn-secondary btn-sm';
+        btnOther.textContent = '확인';
+        btnOther.addEventListener('click', function() {
+            if (!select.value) { alert('사람을 선택해주세요.'); return; }
+            var parsed = JSON.parse(select.value);
+            submitEventWinner(event.id, parsed.id, parsed.name);
+        });
+
+        othersRow.appendChild(select);
+        othersRow.appendChild(btnOther);
+        actionsEl.appendChild(othersRow);
+    }
+
+    // [마지막 입력 취소]
+    if (canCancel && currentWinner) {
+        var btnCancel = document.createElement('button');
+        btnCancel.className = 'btn-danger';
+        btnCancel.textContent = '마지막 입력 취소';
+        btnCancel.addEventListener('click', function() {
+            cancelLastEventWinner(event.id, event.type, currentWinner);
+        });
+        actionsEl.appendChild(btnCancel);
+    }
+}
+
+function renderHoleInOneModalActions(actionsEl, event, currentWinner, canCancel) {
+    if (currentWinner) {
+        var achievedEl = document.createElement('div');
+        achievedEl.className = 'event-modal-holeinone-achieved';
+        achievedEl.textContent = '🎉 ' + currentWinner.userName + '님이 홀인원!';
+        actionsEl.appendChild(achievedEl);
+    } else {
+        // 드롭다운 + 등록 버튼 (본인 팀, 본인 포함)
+        var myUid = currentUser ? currentUser.uid : null;
+        var myName = (loadUserProfile() || {}).name || '나';
+        var teamMembers = getTeamMembersForEventInput(true);
+        // 본인이 목록에 없으면 맨 앞에 추가
+        if (!teamMembers.some(function(m) { return m.id === myUid; })) {
+            teamMembers = [{ id: myUid, name: myName }].concat(teamMembers);
+        }
+
+        var select = document.createElement('select');
+        select.className = 'event-winner-select';
+        var defOpt = document.createElement('option');
+        defOpt.value = '';
+        defOpt.textContent = '누가 홀인원? ▼';
+        select.appendChild(defOpt);
+        teamMembers.forEach(function(m) {
+            var opt = document.createElement('option');
+            opt.value = JSON.stringify({ id: m.id, name: m.name });
+            opt.textContent = m.name;
+            select.appendChild(opt);
+        });
+
+        var btnHio = document.createElement('button');
+        btnHio.className = 'btn-event-winner-me';
+        btnHio.textContent = '🎯 홀인원 등록';
+        btnHio.addEventListener('click', function() {
+            if (!select.value) { alert('누가 홀인원을 했는지 선택해주세요.'); return; }
+            var parsed = JSON.parse(select.value);
+            submitHoleInOne(event.id, parsed.id, parsed.name);
+        });
+
+        actionsEl.appendChild(select);
+        actionsEl.appendChild(btnHio);
+    }
+
+    // [마지막 입력 취소]
+    if (canCancel && currentWinner) {
+        var btnCancel = document.createElement('button');
+        btnCancel.className = 'btn-danger';
+        btnCancel.textContent = '홀인원 취소';
+        btnCancel.addEventListener('click', function() {
+            cancelLastEventWinner(event.id, event.type, currentWinner);
+        });
+        actionsEl.appendChild(btnCancel);
+    }
+}
+
+// E4: Firestore 이벤트 위너 저장/취소
+
+function submitEventWinner(eventId, winnerUserId, winnerUserName) {
+    if (!currentRound || !currentRound.tournamentId || !currentUser) return;
+    var myName = (loadUserProfile() || {}).name || '나';
+    var entry = {
+        userId: winnerUserId,
+        userName: winnerUserName,
+        inputBy: currentUser.uid,
+        inputByName: myName,
+        inputAt: Date.now()   // arrayUnion 안에서 serverTimestamp 미지원
+    };
+    var update = {};
+    update['eventWinners.' + eventId] = firebase.firestore.FieldValue.arrayUnion(entry);
+    db.collection('tournaments').doc(currentRound.tournamentId)
+        .update(update)
+        .then(function() {
+            console.log('✅ 이벤트 위너 저장:', eventId, winnerUserName);
+            closeEventWinnerModal();
+        })
+        .catch(function(error) {
+            console.error('❌ 이벤트 위너 저장 실패:', error);
+            alert('저장 실패: ' + error.message);
+        });
+}
+
+function submitHoleInOne(eventId, winnerUserId, winnerUserName) {
+    if (!currentRound || !currentRound.tournamentId || !currentUser) return;
+    var myName = (loadUserProfile() || {}).name || '나';
+    var entry = {
+        achieved: true,
+        userId: winnerUserId,
+        userName: winnerUserName,
+        inputBy: currentUser.uid,
+        inputByName: myName,
+        inputAt: Date.now()
+    };
+    var update = {};
+    update['eventWinners.' + eventId] = entry;
+    db.collection('tournaments').doc(currentRound.tournamentId)
+        .update(update)
+        .then(function() {
+            console.log('✅ 홀인원 저장:', eventId, winnerUserName);
+            closeEventWinnerModal();
+        })
+        .catch(function(error) {
+            console.error('❌ 홀인원 저장 실패:', error);
+            alert('저장 실패: ' + error.message);
+        });
+}
+
+function cancelLastEventWinner(eventId, eventType, lastWinner) {
+    if (!currentRound || !currentRound.tournamentId || !currentUser) return;
+    var tournamentId = currentRound.tournamentId;
+    var myName = (loadUserProfile() || {}).name || '나';
+    var isHost = !!(currentTournamentDoc && currentUser.uid === currentTournamentDoc.hostId);
+    var cancellerLabel = (isHost && lastWinner && lastWinner.inputBy !== currentUser.uid) ? '호스트' : '본인';
+
+    if (eventType === 'holeInOne') {
+        var update = {};
+        update['eventWinners.' + eventId] = firebase.firestore.FieldValue.delete();
+        db.collection('tournaments').doc(tournamentId).update(update)
+            .then(function() {
+                showToast((lastWinner ? lastWinner.userName : '') + '님의 홀인원 입력이 취소됐습니다');
+                console.log('✅ 홀인원 취소:', eventId);
+                closeEventWinnerModal();
+            })
+            .catch(function(error) {
+                console.error('❌ 홀인원 취소 실패:', error);
+                alert('취소 실패: ' + error.message);
+            });
+        return;
+    }
+
+    // KP/롱기스트: read-modify-write (배열 마지막 제거)
+    db.collection('tournaments').doc(tournamentId).get()
+        .then(function(doc) {
+            if (!doc.exists) return;
+            var data = doc.data();
+            var winners = (data.eventWinners || {})[eventId];
+            if (!Array.isArray(winners) || winners.length === 0) return;
+            var removed = winners[winners.length - 1];
+            var newWinners = winners.slice(0, -1);
+            var update = {};
+            if (newWinners.length === 0) {
+                update['eventWinners.' + eventId] = firebase.firestore.FieldValue.delete();
+            } else {
+                update['eventWinners.' + eventId] = newWinners;
+            }
+            return db.collection('tournaments').doc(tournamentId).update(update)
+                .then(function() {
+                    showToast(removed.userName + '님의 ' + getEventTypeLabel(eventType) + ' 입력이 취소됐습니다 (취소: ' + cancellerLabel + ')');
+                    console.log('✅ 이벤트 위너 취소:', eventId, removed.userName);
+                    closeEventWinnerModal();
+                });
+        })
+        .catch(function(error) {
+            console.error('❌ 이벤트 위너 취소 실패:', error);
+            alert('취소 실패: ' + error.message);
+        });
+}
+
+// =========================================
 // 홀 입력 화면
 // =========================================
 function renderHoleInputScreen() {
@@ -3095,6 +3484,12 @@ function renderHoleInputScreen() {
 
     // D8: 프록시 토글 스트립
     renderProxyInputTargets();
+
+    // E4: 이벤트 배너 + 진입 토스트 (정모 라운드일 때만)
+    if (currentRound.tournamentId) {
+        renderEventBanners(data.currentHole);
+        triggerEventHoleArrivalToast(data.currentHole);
+    }
 }
 
 function renderPuttsDisplay() {
@@ -4098,6 +4493,9 @@ function enterTournamentWaitingRoom(tournamentId) {
                 currentRound !== null &&
                 currentRound.tournamentId === currentTournamentId) {
                 console.log('이미 라운드 화면 — 중복 진입 방지');
+                // E4: 이벤트 위너 변경 감지 → 배너/모달 갱신
+                currentTournamentDoc = tData;
+                updateEventWinnersDisplay();
                 return;
             }
             currentTournamentDoc = tData;
@@ -4182,6 +4580,9 @@ function enterTournamentRound(tournamentId, tournamentDoc) {
                 teamId: myTournamentTeamId
             };
 
+            // E4: 진입 토스트 플래그 초기화
+            eventHoleArrivalShown = new Set();
+
             showScreen(screenHoleInput);
             renderTournamentModeBadge(tournamentDoc);
             renderHoleInputScreen();
@@ -4260,6 +4661,10 @@ function cleanupTournamentRoundListeners() {
     myTournamentTeamId = null;
     allMembersData = {};
     cleanupLeaderboardListener();
+    // E4: 이벤트 상태 초기화
+    eventHoleArrivalShown = new Set();
+    openEventModalId = null;
+    closeEventWinnerModal();
     try {
         if (window.location.search) {
             window.history.replaceState({}, '', window.location.pathname);
@@ -6413,6 +6818,8 @@ function subscribeTournamentStatusForRound(tournamentId) {
             const data = doc.data();
             data.id = doc.id;
             currentTournamentDoc = data;
+            // E4: 이벤트 위너 변경 감지 → 배너/모달 갱신
+            updateEventWinnersDisplay();
             if (data.status === 'completed') {
                 console.log('🏁 정모 종료 감지 (라운드 중)');
                 enterTournamentResultScreen(data);
@@ -7286,6 +7693,13 @@ btnCancelJoin.addEventListener('click', function() {
         pendingJoinData = null;
         showScreen(screenMain);
     }
+});
+
+// =========================================
+// E4: 이벤트 위너 모달 — 바깥 클릭 시 닫기
+// =========================================
+document.getElementById('event-winner-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEventWinnerModal();
 });
 
 // =========================================
