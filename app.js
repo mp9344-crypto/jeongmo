@@ -3025,6 +3025,14 @@ btnClearSelectedCourse.addEventListener('click', function() {
     inputTournamentCourse.value = '';
     inputTournamentCourse.focus();
 });
+// F3.2: 날짜 박스 클릭 시 달력 자동 오픈
+if (inputTournamentDate) {
+    inputTournamentDate.addEventListener('click', function() {
+        if (typeof inputTournamentDate.showPicker === 'function') {
+            try { inputTournamentDate.showPicker(); } catch (e) { /* 사용자 제스처 외 호출 무시 */ }
+        }
+    });
+}
 document.addEventListener('click', function(e) {
     if (!courseAutocompleteWrap) return;
     if (courseAutocompleteWrap.contains(e.target)) return;
