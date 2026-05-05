@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>정모 - Live Golf Scoring for Friends</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=d4a">
+    <link rel="stylesheet" href="style.css?v=d5a">
 </head>
 <body>
 
@@ -449,6 +449,10 @@
                     <span class="join-label">현재 인원</span>
                     <span class="join-value" id="tournament-join-member-count">-</span>
                 </div>
+                <div class="join-row hidden" id="tournament-join-tee-info">
+                    <span class="join-label">티박스</span>
+                    <span class="join-value"><span id="tournament-join-tee-label">--</span><span id="tournament-join-tee-rating" style="font-size:0.8em;color:#888;font-weight:normal;"></span></span>
+                </div>
             </section>
 
             <!-- 본인 정보 미리보기 -->
@@ -873,7 +877,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=d4a"></script>
+    <script src="app.js?v=d5a"></script>
 
 </body>
 </html>

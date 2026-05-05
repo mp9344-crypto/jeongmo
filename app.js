@@ -147,6 +147,9 @@ const tournamentJoinMyHandicapRow = document.getElementById('tournament-join-my-
 const tournamentJoinMyHandicap = document.getElementById('tournament-join-my-handicap');
 const tournamentJoinMyCourseHandicapRow = document.getElementById('tournament-join-my-course-handicap-row');
 const tournamentJoinMyCourseHandicap = document.getElementById('tournament-join-my-course-handicap');
+const tournamentJoinTeeInfo = document.getElementById('tournament-join-tee-info');
+const tournamentJoinTeeLabel = document.getElementById('tournament-join-tee-label');
+const tournamentJoinTeeRating = document.getElementById('tournament-join-tee-rating');
 const tournamentJoinError = document.getElementById('tournament-join-error');
 const tournamentJoinErrorMessage = document.getElementById('tournament-join-error-message');
 const btnConfirmTournamentJoin = document.getElementById('btn-confirm-tournament-join');
@@ -640,7 +643,8 @@ function confirmAddProxyMember() {
             }
 
             const proxyId = generateProxyMemberId();
-            const courseHandicap = calculateCourseHandicap(handicapIndex);
+            // D5: 정모 본 문서(currentTournamentDoc) 기반 정확한 핸디 계산. null이면 자동 fallback.
+            const courseHandicap = calculateMemberCourseHandicapFromTournament(handicapIndex, currentTournamentDoc);
 
             const memberData = {
                 name: name,
@@ -1215,6 +1219,33 @@ function calculateCourseHandicap(handicapIndex, teeBox, totalPar) {
 
     // 하위 호환: 인자 1개만 넘긴 기존 호출처는 임시 공식 그대로
     return Math.round(handicapIndex);
+}
+
+// D5: 정모 본 문서 기반 핸디 계산 헬퍼 (게스트/프록시 진입점)
+// 호스트는 D4 createTournament 인라인 분기 그대로 (회귀 위험 회피)
+function calculateMemberCourseHandicapFromTournament(handicapIndex, tournamentData) {
+    if (handicapIndex === null || handicapIndex === undefined) return null;
+    if (tournamentData
+        && tournamentData.courseId
+        && tournamentData.slopeRating
+        && tournamentData.courseRating
+        && Array.isArray(tournamentData.pars)
+        && tournamentData.pars.length === 18) {
+        const tee = { slopeRating: tournamentData.slopeRating, courseRating: tournamentData.courseRating };
+        const totalPar = tournamentData.pars.reduce(function(s, p) { return s + p; }, 0);
+        return calculateCourseHandicap(handicapIndex, tee, totalPar);
+    }
+    return calculateCourseHandicap(handicapIndex);
+}
+
+// D5: 정모 본 문서가 USGA 정확 계산에 필요한 정보를 갖고 있는지 (UI 배지용)
+function tournamentHasAccurateHandicapInfo(tournamentData) {
+    return !!(tournamentData
+        && tournamentData.courseId
+        && tournamentData.slopeRating
+        && tournamentData.courseRating
+        && Array.isArray(tournamentData.pars)
+        && tournamentData.pars.length === 18);
 }
 
 // =========================================
@@ -2982,16 +3013,34 @@ function showTournamentJoinScreen(tournamentId, tournamentData, hostName, member
     // 본인 정보 채우기
     tournamentJoinMyName.textContent = profile.name;
 
+    // D5: 티박스 정보 표시 (정모 정보 카드)
+    if (tournamentData.teeBoxLabel) {
+        tournamentJoinTeeLabel.textContent = tournamentData.teeBoxLabel;
+        if (tournamentData.courseRating && tournamentData.slopeRating) {
+            tournamentJoinTeeRating.textContent = ' (Rating ' + tournamentData.courseRating + ' / Slope ' + tournamentData.slopeRating + ')';
+        } else {
+            tournamentJoinTeeRating.textContent = '';
+        }
+        tournamentJoinTeeInfo.classList.remove('hidden');
+    } else {
+        tournamentJoinTeeInfo.classList.add('hidden');
+    }
+
     // Net 모드면 핸디 표시 (Gross는 핸디 행 숨김)
     let courseHandicap = 0;
+    const isAccurate = tournamentHasAccurateHandicapInfo(tournamentData);
     if (tournamentData.gameMode === 'net') {
-        courseHandicap = (profile.handicapIndex !== null && profile.handicapIndex !== undefined)
-            ? calculateCourseHandicap(profile.handicapIndex)
-            : 0;
+        const hasHandicap = profile.handicapIndex !== null && profile.handicapIndex !== undefined;
+        if (hasHandicap) {
+            courseHandicap = calculateMemberCourseHandicapFromTournament(profile.handicapIndex, tournamentData);
+            const accuracyBadge = isAccurate ? ' ✨ (정확 계산)' : ' ⚠️ (임시 공식)';
+            tournamentJoinMyCourseHandicap.textContent = courseHandicap + accuracyBadge;
+        } else {
+            courseHandicap = 0;
+            tournamentJoinMyCourseHandicap.textContent = '0 (핸디 미설정 — 프로필에서 입력 후 재진입)';
+        }
 
-        tournamentJoinMyHandicap.textContent = profile.handicapIndex !== null ? profile.handicapIndex : '-';
-        tournamentJoinMyCourseHandicap.textContent = courseHandicap;
-
+        tournamentJoinMyHandicap.textContent = hasHandicap ? profile.handicapIndex : '-';
         tournamentJoinMyHandicapRow.classList.remove('hidden');
         tournamentJoinMyCourseHandicapRow.classList.remove('hidden');
     } else {

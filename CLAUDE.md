@@ -1,8 +1,8 @@
 ## 현재 상태
 
-- **D4 완료** (2026-05-04) — 티박스 선택 UI + 호스트 정확한 Course Handicap
-- **배포 상태**: GitHub Pages (app.js?v=d4a, style.css?v=d4a), Firestore rules 변경 없음
-- 다음: D5 (게스트/프록시 join 시 정확한 Course Handicap 계산)
+- **D5 완료** (2026-05-05) — 게스트/프록시 join 시 정확한 USGA Course Handicap + 배지 UI
+- **배포 상태**: GitHub Pages (app.js?v=d5a, style.css?v=d5a), Firestore rules 변경 없음
+- 다음: D6 (개인 라운드도 골프장 검색 + 티박스 적용 → 정확 핸디)
 
 ---
 
@@ -99,6 +99,7 @@
 - **D8 members create 프록시 분기**: `userId.matches("proxy_.+")` + `proxyMember==true` + `proxyHostId==request.auth.uid` + `status != "completed"`. update/delete는 기존 호스트 권한 그대로 사용 (변경 없음).
 - **D1: courses + teeBoxes 신규 블록** — 옵션 B + addedBy 잠금 + `tier=="free"` + `holes∈{9,18,27}` 강제. update 시 addedBy 변경 불가 + usageCount 변경 불가 (D7에서 increment-only 패스 별도 추가 예정). teeBoxes는 골프장 등록자(addedBy)만 write.
 - **D4**: tournaments에 teeBoxId, teeBoxLabel, courseRating, slopeRating 필드 추가 (스키마 자유). 보안 규칙 변경 없음. 캐시 패턴: 게스트가 courses/{id}/teeBoxes/{tid} 추가 fetch 없이 핸디 계산 가능. 정모 시작 후 골프장 정보 변경돼도 정모에 영향 없음 (의도된 동작).
+- **D5**: 보안 규칙 변경 0건. 모든 변경은 클라이언트 계산 로직 (헬퍼 함수 + UI 배지).
 
 ---
 
@@ -158,6 +159,12 @@
 - **D4 호스트 핸디 계산 분기**: `formData.courseId && formData.slopeRating && formData.courseRating` 전부 있으면 USGA 공식, 하나라도 빠지면 `Math.round(HI)` fallback.
 - **D4 자유 입력 fallback**: 티박스 UI hidden + courseId/teeBoxId/rating 모두 null. 게스트도 임시 공식 fallback 그대로 (D5 전).
 - **D4 티박스 색상 매핑**: `TEE_BOX_COLOR_HEX` 상수. white는 흰색이라 1px 회색 border 추가.
+- **D5 핸디 계산 단일 헬퍼**: `calculateMemberCourseHandicapFromTournament(handicapIndex, tournamentData)` — 게스트/프록시 진입점. 호스트는 D4 createTournament 인라인 분기 그대로 (회귀 위험 회피. D6에서 통합 검토).
+- **D5 isAccurate 체크**: `tournamentHasAccurateHandicapInfo(tournamentData)` — courseId + slopeRating + courseRating + pars[18] 모두 있어야 true. UI 배지(✨/⚠️) 표시 기준.
+- **D5 정확/임시 배지**: Course Handicap 표시값에 ` ✨ (정확 계산)` / ` ⚠️ (임시 공식)` suffix. 게스트가 join 전에 핸디 계산 방식 인지 가능.
+- **D5 티박스 정보 행**: join 화면 정모 정보 카드에 `#tournament-join-tee-info` — `teeBoxLabel` 있을 때만 표시 (Rating/Slope 포함). 자유 입력 정모는 hidden.
+- **D5 프록시 정확 핸디**: `confirmAddProxyMember`에서 `calculateMemberCourseHandicapFromTournament(handicapIndex, currentTournamentDoc)` 사용. `currentTournamentDoc` null이면 헬퍼가 자동 fallback.
+- **D5 핸디 미설정 Net 정모**: 기존 코드가 join 화면 전에 alert + 프로필 화면 redirect (회귀 아님, 기존 동작 유지).
 
 - 팀 멤버 정보의 **단일 출처는 `members.teamId`** (`teams.memberIds`는 보조 캐시)
 - 자동 배정 = batch 전체, 수동 배정 = batch 1쌍 (members 1건 + 양쪽 teams 2건)
@@ -221,6 +228,12 @@
 ---
 
 ## 미래 작업 메모 (D 단계 이후)
+
+### 멤버별 티박스 변경 (PRD 6.4.3 선택사항)
+D5에서 정모 기본 티박스 → 모든 멤버 동일 적용. 시니어/주니어가 레드 티 등 다른 티박스 사용하는 경우는 사용자 needs 발생 시 별도 단계로 추가.
+
+### createTournament 호스트 핸디 분기 통합 (D6 또는 이후)
+D4 createTournament 내부의 인라인 핸디 분기를 `calculateMemberCourseHandicapFromTournament`로 통일. D5에서는 회귀 위험 회피를 위해 분리 유지.
 
 ### 호스팅 이전 — GitHub Pages → Firebase Hosting
 
