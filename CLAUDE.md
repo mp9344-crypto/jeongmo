@@ -1,8 +1,11 @@
 ## 현재 상태
 
-- **D6 완료** (2026-05-05) — 개인/B6 라운드 골프장 검색 + 정확한 USGA Course Handicap
-- **배포 상태**: GitHub Pages (app.js?v=d6a, style.css?v=d6a), Firestore rules 변경 없음
-- 다음: D7 (usageCount 자동 증가 + 신고 버튼 + 화면 19 골프장 상세)
+- **D7 완료** (2026-05-05) — D 단계 전체 완료 🎉
+  - D7-1: usageCount increment 보안 규칙 + 클라이언트 호출 (정모/B6/개인 라운드)
+  - D7-2: 화면 19 골프장 상세 (진입 경로 3가지: 메인/정모 자동완성/라운드 자동완성)
+  - D7-3: 골프장 신고 기능 (courses/{id}/reports 서브컬렉션)
+- **배포 상태**: 로컬 검증 완료, GitHub Pages 미배포 (app.js?v=d7b), Firestore rules 배포 완료 (D7-1+D7-3)
+- 다음: 라운딩 검증 → E 단계 (PRD 7장: 정모 재미 강화)
 
 ---
 
@@ -101,6 +104,8 @@
 - **D4**: tournaments에 teeBoxId, teeBoxLabel, courseRating, slopeRating 필드 추가 (스키마 자유). 보안 규칙 변경 없음. 캐시 패턴: 게스트가 courses/{id}/teeBoxes/{tid} 추가 fetch 없이 핸디 계산 가능. 정모 시작 후 골프장 정보 변경돼도 정모에 영향 없음 (의도된 동작).
 - **D5**: 보안 규칙 변경 0건. 모든 변경은 클라이언트 계산 로직 (헬퍼 함수 + UI 배지).
 - **D6**: 보안 규칙 변경 0건. rounds 본 문서 신규 필드는 스키마 자유, 기존 호스트 update 권한으로 충분.
+- **D7-1**: courses update에 usageCount increment-only 패스 추가 (D1의 잠금에서 풀되 +1만). 케이스 A(등록자 일반 수정) + 케이스 B(누구나 usageCount +1) 분기.
+- **D7-3**: courses/{id}/reports 서브컬렉션 신규 — 본인 신고만 read/update/delete, 누구나 create (reporterId==본인, handled=false, reason 1~500자 강제).
 
 ---
 
@@ -126,6 +131,33 @@
 - `showScreen(screenMain)` 진입 시 `renderMyCoursesList()` 자동 호출 (D2부터).
 - 골프장 등록 진입은 호스트성 액션 → `canUserHostTournament()` 가드.
 - Firestore 서브컬렉션 write 보안 규칙에 `get(parent)` 검사 있을 경우 → 부모 문서 먼저 쓰고 서브컬렉션은 그다음 단계 (D2 교훈).
+- 사용자 행동 카운터 (usageCount 등)는 increment-only 보안 규칙 패턴 사용. silent fail로 메인 흐름 막지 않음.
+- 모든 D 단계는 자유 입력 fallback 유지. courseId=null 케이스가 끝까지 작동해야 함.
+
+---
+
+## D 단계 회고 (2026-05-05)
+
+**전체 구조**: D 단계는 9개 sub로 분할 (D0, D8, D1~D7). C 단계의 5단계 분할 패턴 답습.
+
+**진행 순서 결정**:
+- D0 (게스트 권한 분리) 먼저: 즉시 가치 + 비즈니스 모델 준비
+- D8 (호스트 프록시 멤버) 두 번째: 라운딩 검증에서 친구 요청 즉시 반영
+- D1~D6: 골프장 데이터 풍부화 (PRD 6장 기본 흐름)
+- D7: 마지막 (커뮤니티 데이터 품질)
+
+**보안 규칙 진화**:
+- D1: courses + teeBoxes 신규 (옵션 B + addedBy 잠금)
+- D7-1: usageCount increment-only 패스 (D1 잠금에서 부분 풀기)
+- D7-3: reports 서브컬렉션 (본인 신고만)
+- D8: members create에 프록시 분기
+
+**핵심 검증 통과**:
+- USGA 공식 정확 적용 (호스트/게스트/프록시 모두)
+- 자유 입력 fallback 유지 — 회귀 0
+- 정모/라운드/B6 흐름 격리 (selectedCourseForTournament vs selectedCourseForRound)
+- usageCount increment-only 규칙 (D7-1 firebase deploy + 시나리오 검증)
+- 신고 서브컬렉션 권한 분리 (D7-3 Firestore rules + Playwright 검증)
 
 ---
 
@@ -174,6 +206,12 @@
 - **D6 onGameModeChange 수정**: `selectedCourseForRound` 있으면 정확 공식 + ✨, 없으면 `Math.round(HI)` + ⚠️ (핸디 설정 시).
 - **D6 openNewRoundScreen**: 진입 시 `clearSelectedRoundCourse()` + `hideRoundAutocompleteResults()` 호출 (이전 선택 초기화).
 - **D6 input id 충돌 없음**: 화면 18은 이미 D2에서 `input-cr-name`으로 분리됨. `input-course-name`은 화면 9 전용.
+- **D7-1 usageCount increment**: `incrementCourseUsageCount(courseId)` — 정모/B6/개인 라운드 만들 때 호출. silent fail (정모 생성 흐름 안 막음). 게스트 join 시는 호출 안 함 (인기도 왜곡 방지).
+- **D7-1 보안 규칙 increment-only**: 케이스 A(등록자 일반 수정, usageCount 잠금) + 케이스 B(누구나 usageCount만 +1). -1이나 +5 등 거부.
+- **D7-2 화면 19 진입 경로 3가지**: 메인(내 골프장 카드 클릭), 정모 만들기 자동완성 "상세" 버튼, 라운드 자동완성 "상세" 버튼. `courseDetailReturnTarget` 변수로 뒤로 가기 분기.
+- **D7-2 fetchCourseDetailWithAllTeeBoxes**: 모든 티박스 fetch + black>blue>white>gold>red>other 정렬. `fetchCourseWithFirstTeeBox`와 다름.
+- **D7-2 삭제 (화면 19에서)**: `btnDeleteCourseFromDetail` 핸들러에서 직접 삭제 + 메인 복귀. `handleDeleteMyCourse`는 메인에서 목록 갱신용이라 화면 전환 없음.
+- **D7-3 신고**: `courses/{id}/reports` 서브컬렉션. reporterId 본인만, handled 기본 false. 관리자(나) 검토는 Firebase Console에서 수동.
 
 - 팀 멤버 정보의 **단일 출처는 `members.teamId`** (`teams.memberIds`는 보조 캐시)
 - 자동 배정 = batch 전체, 수동 배정 = batch 1쌍 (members 1건 + 양쪽 teams 2건)
@@ -237,6 +275,18 @@
 ---
 
 ## 미래 작업 메모 (D 단계 이후)
+
+### D7 신고 자동 검증 자동화 (PRD 6.4.5)
+"3명 이상 사용 시 자동 검증" + 관리자 도구 화면. 신고 누적되면 별도 단계로 처리.
+
+### D7 골프장 정보 수정 UI
+등록자가 자기 골프장 이름/티박스 등 직접 수정. 현재는 신고/삭제만 가능. 사용자 needs 발생 시 추가.
+
+### D7 collectionGroup query로 관리자 페이지
+모든 reports를 한 곳에서 보는 화면. 현재는 Firebase Console에서 수동 검토.
+
+### 골프장 사진 업로드 (PRD 6.8)
+Firebase Storage 도입 필요. D 단계 비포함으로 보류.
 
 ### 멤버별 티박스 변경 (PRD 6.4.3 선택사항)
 D5에서 정모 기본 티박스 → 모든 멤버 동일 적용. 시니어/주니어가 레드 티 등 다른 티박스 사용하는 경우는 사용자 needs 발생 시 별도 단계로 추가.
