@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>정모 - Live Golf Scoring for Friends</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=d5a">
+    <link rel="stylesheet" href="style.css?v=d6a">
 </head>
 <body>
 
@@ -175,8 +175,38 @@
             <h2>새 라운드 시작</h2>
 
             <section>
-                <label for="input-course-name">골프장 이름</label>
-                <input type="text" id="input-course-name" placeholder="예: Swaneset Resort">
+                <label for="input-course-name">골프장</label>
+                <div class="course-autocomplete-wrap" id="round-course-autocomplete-wrap">
+                    <input type="text" id="input-course-name" placeholder="이름 또는 도시 입력 (예: Swaneset, Pit Meadows)" autocomplete="off">
+                    <div id="round-course-autocomplete-results" class="course-autocomplete-results hidden"></div>
+                </div>
+                <div id="round-course-selected-badge" class="course-selected-badge hidden">
+                    <span id="round-course-selected-badge-text"></span>
+                    <button id="btn-clear-round-selected-course" type="button" class="btn-icon">✕</button>
+                </div>
+                <div id="round-tee-box-selector" class="tee-box-selector hidden">
+                    <label>티박스 선택</label>
+                    <div id="round-tee-box-options" class="tee-box-options"></div>
+                    <div id="round-tee-box-info" class="tee-box-info hidden">
+                        <div class="tee-box-info-row">
+                            <span class="tee-box-info-label">Course Rating:</span>
+                            <span id="round-tee-box-info-rating">--</span>
+                        </div>
+                        <div class="tee-box-info-row">
+                            <span class="tee-box-info-label">Slope Rating:</span>
+                            <span id="round-tee-box-info-slope">--</span>
+                        </div>
+                        <div class="tee-box-info-row">
+                            <span class="tee-box-info-label">총 거리:</span>
+                            <span id="round-tee-box-info-yardage">--</span>
+                        </div>
+                        <div class="tee-box-info-row tee-box-info-handicap">
+                            <span class="tee-box-info-label">내 Course Handicap:</span>
+                            <span id="round-tee-box-info-handicap">--</span>
+                        </div>
+                    </div>
+                </div>
+                <p class="hint" id="round-course-input-hint">DB에 없으면 자유 입력 그대로 사용 (이름만, 파 정보는 직접 입력)</p>
                 <button id="btn-load-previous" class="btn-secondary hidden" style="margin-top: 8px;">📋 이전 라운드에서 불러오기</button>
             </section>
 
@@ -877,7 +907,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=d5a"></script>
+    <script src="app.js?v=d6a"></script>
 
 </body>
 </html>

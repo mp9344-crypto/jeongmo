@@ -212,6 +212,21 @@ const teeBoxInfoSlope = document.getElementById('tee-box-info-slope');
 const teeBoxInfoYardage = document.getElementById('tee-box-info-yardage');
 const teeBoxInfoHandicap = document.getElementById('tee-box-info-handicap');
 
+// D6: 라운드용 자동완성 + 티박스 DOM
+const roundCourseAutocompleteWrap = document.getElementById('round-course-autocomplete-wrap');
+const roundCourseAutocompleteResults = document.getElementById('round-course-autocomplete-results');
+const roundCourseSelectedBadge = document.getElementById('round-course-selected-badge');
+const roundCourseSelectedBadgeText = document.getElementById('round-course-selected-badge-text');
+const btnClearRoundSelectedCourse = document.getElementById('btn-clear-round-selected-course');
+const roundCourseInputHint = document.getElementById('round-course-input-hint');
+const roundTeeBoxSelector = document.getElementById('round-tee-box-selector');
+const roundTeeBoxOptions = document.getElementById('round-tee-box-options');
+const roundTeeBoxInfo = document.getElementById('round-tee-box-info');
+const roundTeeBoxInfoRating = document.getElementById('round-tee-box-info-rating');
+const roundTeeBoxInfoSlope = document.getElementById('round-tee-box-info-slope');
+const roundTeeBoxInfoYardage = document.getElementById('round-tee-box-info-yardage');
+const roundTeeBoxInfoHandicap = document.getElementById('round-tee-box-info-handicap');
+
 // 팀 배정 화면 (2단계 C - C3)
 const teamAssignmentMeta = document.getElementById('team-assignment-meta');
 const teamAssignmentMemberCount = document.getElementById('team-assignment-member-count');
@@ -1103,7 +1118,11 @@ function confirmCourseRegister() {
     createCourseWithTeeBoxes(formData.course, formData.teeBoxes)
         .then(function(courseId) {
             alert('✅ "' + formData.course.name + '" 골프장이 등록되었습니다.');
-            if (pendingReturnToTournamentCreate) {
+            if (pendingReturnToRoundCreate) {
+                pendingReturnToRoundCreate = false;
+                showScreen(screenNewRound);
+                selectCourseForRound(courseId);
+            } else if (pendingReturnToTournamentCreate) {
                 pendingReturnToTournamentCreate = false;
                 showScreen(screenTournamentCreate);
                 selectCourseForTournament(courseId);
@@ -1246,6 +1265,31 @@ function tournamentHasAccurateHandicapInfo(tournamentData) {
         && tournamentData.courseRating
         && Array.isArray(tournamentData.pars)
         && tournamentData.pars.length === 18);
+}
+
+// D6: rounds 본 문서 기반 핸디 계산 (B6 게스트용)
+function calculateMemberCourseHandicapFromRound(handicapIndex, roundData) {
+    if (handicapIndex === null || handicapIndex === undefined) return null;
+    if (roundData
+        && roundData.courseId
+        && roundData.slopeRating
+        && roundData.courseRating
+        && Array.isArray(roundData.pars)
+        && roundData.pars.length === 18) {
+        const tee = { slopeRating: roundData.slopeRating, courseRating: roundData.courseRating };
+        const totalPar = roundData.pars.reduce(function(s, p) { return s + p; }, 0);
+        return calculateCourseHandicap(handicapIndex, tee, totalPar);
+    }
+    return calculateCourseHandicap(handicapIndex);
+}
+
+function roundHasAccurateHandicapInfo(roundData) {
+    return !!(roundData
+        && roundData.courseId
+        && roundData.slopeRating
+        && roundData.courseRating
+        && Array.isArray(roundData.pars)
+        && roundData.pars.length === 18);
 }
 
 // =========================================
@@ -1478,9 +1522,14 @@ function onGameModeChange() {
 
         if (profile === null || profile.handicapIndex === null || profile.handicapIndex === undefined) {
             displayCourseHandicap.textContent = '⚠️ 핸디캡 미설정 (프로필에서 설정 필요)';
+        } else if (selectedCourseForRound && selectedCourseForRound.autoSelectedTeeBox) {
+            const tee = selectedCourseForRound.autoSelectedTeeBox;
+            const totalPar = tee.totalPar || tee.pars.reduce(function(s, p) { return s + p; }, 0);
+            const courseHandicap = calculateCourseHandicap(profile.handicapIndex, tee, totalPar);
+            displayCourseHandicap.textContent = courseHandicap + ' ✨';
         } else {
             const courseHandicap = calculateCourseHandicap(profile.handicapIndex);
-            displayCourseHandicap.textContent = courseHandicap;
+            displayCourseHandicap.textContent = courseHandicap + ' ⚠️';
         }
 
         netInfoBox.classList.remove('hidden');
@@ -1519,6 +1568,10 @@ function readNewRoundForm() {
             );
             if (!proceed) return null;
             courseHandicap = 0;
+        } else if (selectedCourseForRound && selectedCourseForRound.autoSelectedTeeBox) {
+            const tee = selectedCourseForRound.autoSelectedTeeBox;
+            const totalPar = tee.totalPar || tee.pars.reduce(function(s, p) { return s + p; }, 0);
+            courseHandicap = calculateCourseHandicap(profile.handicapIndex, tee, totalPar);
         } else {
             courseHandicap = calculateCourseHandicap(profile.handicapIndex);
         }
@@ -1528,7 +1581,12 @@ function readNewRoundForm() {
         courseName: courseName,
         pars: pars,
         gameMode: gameMode,
-        courseHandicap: courseHandicap
+        courseHandicap: courseHandicap,
+        courseId: selectedCourseForRound ? selectedCourseForRound.id : null,
+        teeBoxId: selectedCourseForRound ? selectedCourseForRound.autoSelectedTeeBox.id : null,
+        teeBoxLabel: selectedCourseForRound ? (selectedCourseForRound.autoSelectedTeeBox.label || selectedCourseForRound.autoSelectedTeeBox.color) : null,
+        courseRating: selectedCourseForRound ? selectedCourseForRound.autoSelectedTeeBox.courseRating : null,
+        slopeRating: selectedCourseForRound ? selectedCourseForRound.autoSelectedTeeBox.slopeRating : null
     };
 }
 
@@ -1548,6 +1606,11 @@ function startNewRound() {
     currentRound = {
         id: Date.now(),
         courseName: formData.courseName,
+        courseId: formData.courseId || null,
+        teeBoxId: formData.teeBoxId || null,
+        teeBoxLabel: formData.teeBoxLabel || null,
+        courseRating: formData.courseRating || null,
+        slopeRating: formData.slopeRating || null,
         date: new Date().toISOString().split('T')[0],
         pars: formData.pars,
         scores: [null, null, null, null, null, null, null, null, null,
@@ -1567,6 +1630,8 @@ function startNewRound() {
 }
 
 function openNewRoundScreen() {
+    clearSelectedRoundCourse();
+    hideRoundAutocompleteResults();
     inputCourseName.value = '';
     createParInputs(null);
 
@@ -1932,6 +1997,266 @@ function openCourseRegisterFromTournamentFlow(prefilledName) {
     }
     pendingReturnToTournamentCreate = true;
     hideAutocompleteResults();
+    openCourseRegisterScreen();
+    if (prefilledName) inputCrName.value = prefilledName;
+}
+
+// =========================================
+// D6: 라운드용 자동완성 + 티박스 (개인 + B6 공유 공통)
+// 정모 흐름(selectedCourseForTournament)과 격리된 별도 상태
+// =========================================
+
+let roundCourseSearchTimer = null;
+let selectedCourseForRound = null;
+let pendingReturnToRoundCreate = false;
+const ROUND_COURSE_SEARCH_DEBOUNCE = 300;
+
+function hideRoundAutocompleteResults() {
+    if (!roundCourseAutocompleteResults) return;
+    roundCourseAutocompleteResults.classList.add('hidden');
+    roundCourseAutocompleteResults.innerHTML = '';
+}
+
+function clearSelectedRoundCourse() {
+    selectedCourseForRound = null;
+    if (roundCourseSelectedBadge) roundCourseSelectedBadge.classList.add('hidden');
+    if (roundCourseSelectedBadgeText) roundCourseSelectedBadgeText.textContent = '';
+    if (roundCourseInputHint) roundCourseInputHint.textContent = 'DB에 없으면 자유 입력 그대로 사용 (이름만, 파 정보는 직접 입력)';
+    if (roundTeeBoxSelector) roundTeeBoxSelector.classList.add('hidden');
+    if (roundTeeBoxInfo) roundTeeBoxInfo.classList.add('hidden');
+    if (roundTeeBoxOptions) roundTeeBoxOptions.innerHTML = '';
+}
+
+function onRoundCourseInput() {
+    const value = inputCourseName.value.trim();
+    if (selectedCourseForRound && value !== selectedCourseForRound.name) {
+        clearSelectedRoundCourse();
+    }
+    if (roundCourseSearchTimer !== null) {
+        clearTimeout(roundCourseSearchTimer);
+        roundCourseSearchTimer = null;
+    }
+    if (value.length < 2) {
+        hideRoundAutocompleteResults();
+        return;
+    }
+    roundCourseSearchTimer = setTimeout(function() {
+        runRoundCourseSearch(value);
+    }, ROUND_COURSE_SEARCH_DEBOUNCE);
+}
+
+function runRoundCourseSearch(queryText) {
+    roundCourseAutocompleteResults.classList.remove('hidden');
+    roundCourseAutocompleteResults.innerHTML = '<div class="course-result-loading">⏳ 검색 중...</div>';
+    searchCourses(queryText)
+        .then(function(results) { renderRoundAutocompleteResults(results, queryText); })
+        .catch(function(error) {
+            console.error('❌ 골프장 검색 실패:', error);
+            roundCourseAutocompleteResults.innerHTML =
+                '<div class="course-result-error">검색 실패: ' + escapeHtml(error.message) + '</div>';
+        });
+}
+
+function renderRoundAutocompleteResults(results, queryText) {
+    roundCourseAutocompleteResults.innerHTML = '';
+    if (results.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'course-result-empty';
+        empty.innerHTML =
+            '<p>"' + escapeHtml(queryText) + '" 검색 결과 없음</p>' +
+            '<button class="btn-secondary" id="btn-register-from-round-search">+ 이 이름으로 새 골프장 등록</button>' +
+            '<p class="hint">또는 그냥 자유 입력으로 진행 가능</p>';
+        roundCourseAutocompleteResults.appendChild(empty);
+        document.getElementById('btn-register-from-round-search').addEventListener('click', function() {
+            openCourseRegisterFromRoundFlow(queryText);
+        });
+        return;
+    }
+    results.forEach(function(course) {
+        const item = document.createElement('div');
+        item.className = 'course-result-item';
+        const main = document.createElement('div');
+        main.className = 'course-result-main';
+        const nameEl = document.createElement('div');
+        nameEl.className = 'course-result-name';
+        nameEl.textContent = course.name;
+        main.appendChild(nameEl);
+        const metaEl = document.createElement('div');
+        metaEl.className = 'course-result-meta';
+        metaEl.textContent = (course.city || '') + ', ' + (course.country || '') +
+            ' · 사용 ' + (course.usageCount || 0) + '회';
+        main.appendChild(metaEl);
+        item.appendChild(main);
+        const selectBtn = document.createElement('button');
+        selectBtn.type = 'button';
+        selectBtn.className = 'btn-secondary course-result-select';
+        selectBtn.textContent = '선택';
+        selectBtn.addEventListener('click', function() { selectCourseForRound(course.id); });
+        item.appendChild(selectBtn);
+        roundCourseAutocompleteResults.appendChild(item);
+    });
+    const addMore = document.createElement('div');
+    addMore.className = 'course-result-add-more';
+    const btnRegExtra = document.createElement('button');
+    btnRegExtra.className = 'btn-secondary';
+    btnRegExtra.textContent = '+ 새 골프장 등록';
+    btnRegExtra.addEventListener('click', function() {
+        openCourseRegisterFromRoundFlow(queryText);
+    });
+    addMore.appendChild(btnRegExtra);
+    roundCourseAutocompleteResults.appendChild(addMore);
+}
+
+function selectCourseForRound(courseId) {
+    roundCourseAutocompleteResults.classList.remove('hidden');
+    roundCourseAutocompleteResults.innerHTML = '<div class="course-result-loading">⏳ 골프장 정보 로딩 중...</div>';
+    fetchCourseWithFirstTeeBox(courseId)
+        .then(function(course) {
+            if (!course.teeBoxes || course.teeBoxes.length === 0) throw new Error('NO_TEE_BOXES');
+            const preferredOrder = ['white', 'blue', 'black', 'gold', 'red', 'other'];
+            let chosenTee = null;
+            for (let i = 0; i < preferredOrder.length; i++) {
+                chosenTee = course.teeBoxes.find(function(t) { return t.color === preferredOrder[i]; });
+                if (chosenTee) break;
+            }
+            if (!chosenTee) chosenTee = course.teeBoxes[0];
+            selectedCourseForRound = {
+                id: course.id,
+                name: course.name,
+                city: course.city,
+                country: course.country,
+                teeBoxes: course.teeBoxes,
+                autoSelectedTeeBox: chosenTee
+            };
+            inputCourseName.value = course.name;
+            applySelectedCourseToRoundForm();
+            hideRoundAutocompleteResults();
+        })
+        .catch(function(error) {
+            console.error('❌ 골프장 선택 실패:', error);
+            if (error.message === 'NO_TEE_BOXES') {
+                alert('이 골프장은 등록된 티박스가 없습니다. 다른 골프장을 선택해주세요.');
+            } else if (error.message === 'COURSE_NOT_FOUND') {
+                alert('골프장을 찾을 수 없습니다 (삭제됨).');
+            } else {
+                alert('골프장 정보 로딩 실패: ' + error.message);
+            }
+            hideRoundAutocompleteResults();
+        });
+}
+
+function applySelectedCourseToRoundForm() {
+    if (!selectedCourseForRound) return;
+    const tee = selectedCourseForRound.autoSelectedTeeBox;
+    for (let i = 1; i <= 18; i++) {
+        const inp = document.getElementById('par-input-' + i);
+        if (inp) inp.value = String(tee.pars[i - 1]);
+    }
+    roundCourseSelectedBadge.classList.remove('hidden');
+    roundCourseSelectedBadgeText.textContent =
+        '✅ ' + selectedCourseForRound.name +
+        ' · 티박스: ' + (tee.label || tee.color) +
+        ' (Rating ' + tee.courseRating + ' / Slope ' + tee.slopeRating + ')';
+    roundCourseInputHint.textContent = '✅ DB에서 선택됨. 파 정보 자동 채워짐. 정확한 Course Handicap 계산.';
+    renderRoundTeeBoxSelector();
+    onGameModeChange();
+}
+
+function renderRoundTeeBoxSelector() {
+    if (!selectedCourseForRound || !selectedCourseForRound.teeBoxes) {
+        roundTeeBoxSelector.classList.add('hidden');
+        roundTeeBoxInfo.classList.add('hidden');
+        return;
+    }
+    const teeBoxes = selectedCourseForRound.teeBoxes;
+    const currentTeeId = selectedCourseForRound.autoSelectedTeeBox.id;
+
+    roundTeeBoxSelector.classList.remove('hidden');
+    roundTeeBoxOptions.innerHTML = '';
+
+    teeBoxes.forEach(function(tee) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tee-box-option' + (tee.id === currentTeeId ? ' active' : '');
+        btn.dataset.teeId = tee.id;
+
+        const swatch = document.createElement('span');
+        swatch.className = 'tee-box-swatch';
+        swatch.style.backgroundColor = TEE_BOX_COLOR_HEX[tee.color] || '#6c757d';
+        if (tee.color === 'white') swatch.style.border = '1px solid #adb5bd';
+        btn.appendChild(swatch);
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'tee-box-option-label';
+        labelSpan.textContent = tee.label || tee.color;
+        btn.appendChild(labelSpan);
+
+        const ratingSpan = document.createElement('span');
+        ratingSpan.className = 'tee-box-option-rating';
+        ratingSpan.textContent = tee.courseRating + '/' + tee.slopeRating;
+        btn.appendChild(ratingSpan);
+
+        btn.addEventListener('click', function() { switchRoundTeeBox(tee.id); });
+        roundTeeBoxOptions.appendChild(btn);
+    });
+
+    renderRoundTeeBoxInfo();
+}
+
+function switchRoundTeeBox(teeBoxId) {
+    if (!selectedCourseForRound || !selectedCourseForRound.teeBoxes) return;
+    const newTee = selectedCourseForRound.teeBoxes.find(function(t) { return t.id === teeBoxId; });
+    if (!newTee) return;
+
+    selectedCourseForRound.autoSelectedTeeBox = newTee;
+
+    for (let i = 1; i <= 18; i++) {
+        const inp = document.getElementById('par-input-' + i);
+        if (inp) inp.value = String(newTee.pars[i - 1]);
+    }
+
+    roundCourseSelectedBadgeText.textContent =
+        '✅ ' + selectedCourseForRound.name +
+        ' · 티박스: ' + (newTee.label || newTee.color) +
+        ' (Rating ' + newTee.courseRating + ' / Slope ' + newTee.slopeRating + ')';
+
+    roundTeeBoxOptions.querySelectorAll('.tee-box-option').forEach(function(opt) {
+        if (opt.dataset.teeId === teeBoxId) opt.classList.add('active');
+        else opt.classList.remove('active');
+    });
+
+    renderRoundTeeBoxInfo();
+    onGameModeChange();
+}
+
+function renderRoundTeeBoxInfo() {
+    if (!selectedCourseForRound || !selectedCourseForRound.autoSelectedTeeBox) {
+        roundTeeBoxInfo.classList.add('hidden');
+        return;
+    }
+    const tee = selectedCourseForRound.autoSelectedTeeBox;
+    roundTeeBoxInfo.classList.remove('hidden');
+    roundTeeBoxInfoRating.textContent = tee.courseRating;
+    roundTeeBoxInfoSlope.textContent = tee.slopeRating;
+    roundTeeBoxInfoYardage.textContent = (tee.totalYardage || '--') + ' ' + (tee.yardageUnit === 'meters' ? 'm' : 'yd');
+
+    const profile = loadUserProfile();
+    if (profile && profile.handicapIndex !== null && profile.handicapIndex !== undefined) {
+        const totalPar = tee.totalPar || tee.pars.reduce(function(s, p) { return s + p; }, 0);
+        const ch = calculateCourseHandicap(profile.handicapIndex, tee, totalPar);
+        roundTeeBoxInfoHandicap.textContent = ch + ' (HI ' + profile.handicapIndex + ')';
+    } else {
+        roundTeeBoxInfoHandicap.textContent = '-- (프로필 핸디캡 미설정)';
+    }
+}
+
+function openCourseRegisterFromRoundFlow(prefilledName) {
+    if (!canUserCreateRound()) {
+        alert('라운드 시작 기능은 현재 사용 불가합니다.');
+        return;
+    }
+    pendingReturnToRoundCreate = true;
+    hideRoundAutocompleteResults();
     openCourseRegisterScreen();
     if (prefilledName) inputCrName.value = prefilledName;
 }
@@ -2776,6 +3101,11 @@ function createSharedRound(formData) {
     // 1. 라운드 문서 만들기
     const roundData = {
         courseName: formData.courseName,
+        courseId: formData.courseId || null,
+        teeBoxId: formData.teeBoxId || null,
+        teeBoxLabel: formData.teeBoxLabel || null,
+        courseRating: formData.courseRating || null,
+        slopeRating: formData.slopeRating || null,
         pars: formData.pars,
         gameMode: formData.gameMode,
         hostId: userId,
@@ -5339,9 +5669,9 @@ function confirmJoinRound() {
     btnConfirmJoin.disabled = true;
     btnConfirmJoin.textContent = '⏳ 참여 중...';
 
-    // ★ B6: 호스트가 정한 게임모드에 본인 핸디캡 적용
+    // ★ B6: 호스트가 정한 게임모드에 본인 핸디캡 적용 (D6: rounds 본 문서 기반 정확 핸디)
     const myCourseHandicap = (roundData.gameMode === 'net' && profile.handicapIndex !== null && profile.handicapIndex !== undefined)
-        ? calculateCourseHandicap(profile.handicapIndex)
+        ? calculateMemberCourseHandicapFromRound(profile.handicapIndex, roundData)
         : null;
 
     const memberData = {
@@ -5657,6 +5987,11 @@ function enterSharedHoleInput(shareCode, isHost) {
             currentRound = {
                 id: shareCode,                           // 공유 코드를 ID로
                 courseName: roundData.courseName,
+                courseId: roundData.courseId || null,
+                teeBoxId: roundData.teeBoxId || null,
+                teeBoxLabel: roundData.teeBoxLabel || null,
+                courseRating: roundData.courseRating || null,
+                slopeRating: roundData.slopeRating || null,
                 date: new Date().toISOString().split('T')[0],
                 pars: roundData.pars,
                 scores: myData.scores || new Array(18).fill(null),
@@ -6165,6 +6500,25 @@ btnCancelModeSelect.addEventListener('click', function() {
 btnLoadPrevious.addEventListener('click', loadPreviousRound);
 selectGameMode.addEventListener('change', onGameModeChange);
 
+// D6: 라운드용 자동완성 이벤트
+inputCourseName.addEventListener('input', onRoundCourseInput);
+inputCourseName.addEventListener('focus', function() {
+    const v = inputCourseName.value.trim();
+    if (v.length >= 2 && !selectedCourseForRound) {
+        runRoundCourseSearch(v);
+    }
+});
+btnClearRoundSelectedCourse.addEventListener('click', function() {
+    clearSelectedRoundCourse();
+    inputCourseName.value = '';
+    inputCourseName.focus();
+});
+document.addEventListener('click', function(e) {
+    if (!roundCourseAutocompleteWrap) return;
+    if (roundCourseAutocompleteWrap.contains(e.target)) return;
+    hideRoundAutocompleteResults();
+});
+
 btnScoreMinus.addEventListener('click', function() {
     changeScore(-1);
 });
@@ -6251,7 +6605,10 @@ btnConfirmCourseRegister.addEventListener('click', confirmCourseRegister);
 
 btnCancelCourseRegister.addEventListener('click', function() {
     if (confirm('등록을 취소하시겠습니까? 입력한 내용이 사라집니다.')) {
-        if (pendingReturnToTournamentCreate) {
+        if (pendingReturnToRoundCreate) {
+            pendingReturnToRoundCreate = false;
+            showScreen(screenNewRound);
+        } else if (pendingReturnToTournamentCreate) {
             pendingReturnToTournamentCreate = false;
             showScreen(screenTournamentCreate);
         } else {

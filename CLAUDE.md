@@ -1,8 +1,8 @@
 ## 현재 상태
 
-- **D5 완료** (2026-05-05) — 게스트/프록시 join 시 정확한 USGA Course Handicap + 배지 UI
-- **배포 상태**: GitHub Pages (app.js?v=d5a, style.css?v=d5a), Firestore rules 변경 없음
-- 다음: D6 (개인 라운드도 골프장 검색 + 티박스 적용 → 정확 핸디)
+- **D6 완료** (2026-05-05) — 개인/B6 라운드 골프장 검색 + 정확한 USGA Course Handicap
+- **배포 상태**: GitHub Pages (app.js?v=d6a, style.css?v=d6a), Firestore rules 변경 없음
+- 다음: D7 (usageCount 자동 증가 + 신고 버튼 + 화면 19 골프장 상세)
 
 ---
 
@@ -100,6 +100,7 @@
 - **D1: courses + teeBoxes 신규 블록** — 옵션 B + addedBy 잠금 + `tier=="free"` + `holes∈{9,18,27}` 강제. update 시 addedBy 변경 불가 + usageCount 변경 불가 (D7에서 increment-only 패스 별도 추가 예정). teeBoxes는 골프장 등록자(addedBy)만 write.
 - **D4**: tournaments에 teeBoxId, teeBoxLabel, courseRating, slopeRating 필드 추가 (스키마 자유). 보안 규칙 변경 없음. 캐시 패턴: 게스트가 courses/{id}/teeBoxes/{tid} 추가 fetch 없이 핸디 계산 가능. 정모 시작 후 골프장 정보 변경돼도 정모에 영향 없음 (의도된 동작).
 - **D5**: 보안 규칙 변경 0건. 모든 변경은 클라이언트 계산 로직 (헬퍼 함수 + UI 배지).
+- **D6**: 보안 규칙 변경 0건. rounds 본 문서 신규 필드는 스키마 자유, 기존 호스트 update 권한으로 충분.
 
 ---
 
@@ -165,6 +166,14 @@
 - **D5 티박스 정보 행**: join 화면 정모 정보 카드에 `#tournament-join-tee-info` — `teeBoxLabel` 있을 때만 표시 (Rating/Slope 포함). 자유 입력 정모는 hidden.
 - **D5 프록시 정확 핸디**: `confirmAddProxyMember`에서 `calculateMemberCourseHandicapFromTournament(handicapIndex, currentTournamentDoc)` 사용. `currentTournamentDoc` null이면 헬퍼가 자동 fallback.
 - **D5 핸디 미설정 Net 정모**: 기존 코드가 join 화면 전에 alert + 프로필 화면 redirect (회귀 아님, 기존 동작 유지).
+- **D6 라운드용 자동완성/티박스 UI**: 정모용 `selectedCourseForTournament`와 격리. 별도 `selectedCourseForRound` 상태 + DOM (round- prefix). 함수도 별도 (`selectCourseForRound`, `switchRoundTeeBox`, `renderRoundTeeBoxSelector` 등).
+- **D6 화면 18 ↔ 화면 9 왕복**: `pendingReturnToRoundCreate` 플래그. D3의 `pendingReturnToTournamentCreate`와 분기. `confirmCourseRegister`/`btnCancelCourseRegister` 둘 다 수정.
+- **D6 currentRound 신규 필드**: courseId, teeBoxId, teeBoxLabel, courseRating, slopeRating (localStorage 캐시). `startNewRound`에서 formData에서 복사.
+- **D6 rounds 본 문서 신규 필드**: 동일 5개 (B6 공유 라운드 `createSharedRound`에서 추가). B6 게스트 join + `enterSharedHoleInput`에서 currentRound로 복사.
+- **D6 핸디 헬퍼**: `calculateMemberCourseHandicapFromRound(handicapIndex, roundData)` — D5 `calculateMemberCourseHandicapFromTournament`와 동일 패턴. `roundHasAccurateHandicapInfo(roundData)` — 배지용.
+- **D6 onGameModeChange 수정**: `selectedCourseForRound` 있으면 정확 공식 + ✨, 없으면 `Math.round(HI)` + ⚠️ (핸디 설정 시).
+- **D6 openNewRoundScreen**: 진입 시 `clearSelectedRoundCourse()` + `hideRoundAutocompleteResults()` 호출 (이전 선택 초기화).
+- **D6 input id 충돌 없음**: 화면 18은 이미 D2에서 `input-cr-name`으로 분리됨. `input-course-name`은 화면 9 전용.
 
 - 팀 멤버 정보의 **단일 출처는 `members.teamId`** (`teams.memberIds`는 보조 캐시)
 - 자동 배정 = batch 전체, 수동 배정 = batch 1쌍 (members 1건 + 양쪽 teams 2건)
