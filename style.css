@@ -1,4 +1,4 @@
-/* ===== 1. 기본 설정 ===== */
+﻿/* ===== 1. 기본 설정 ===== */
 * {
     margin: 0;
     padding: 0;
@@ -2110,4 +2110,124 @@ select:focus {
 @media (max-width: 480px) {
     .tee-box-card { padding: 10px; }
     .yardage-inputs input { font-size: 0.75em; padding: 3px; }
+}
+
+/* =========================================
+   D3: 골프장 자동완성
+   ========================================= */
+.course-autocomplete-wrap {
+    position: relative;
+}
+
+.course-autocomplete-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    max-height: 320px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.course-result-loading,
+.course-result-error,
+.course-result-empty {
+    padding: 12px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.course-result-empty p {
+    margin: 0 0 8px 0;
+}
+
+.course-result-empty .hint {
+    margin-top: 8px;
+    font-size: 0.85em;
+}
+
+.course-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f3f5;
+}
+
+.course-result-item:hover {
+    background: #f8f9fa;
+}
+
+.course-result-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.course-result-name {
+    font-weight: 600;
+    font-size: 0.95em;
+    margin-bottom: 2px;
+}
+
+.course-result-meta {
+    font-size: 0.8em;
+    color: #6c757d;
+}
+
+.course-result-select {
+    padding: 4px 12px;
+    font-size: 0.85em;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+.course-result-add-more {
+    padding: 8px 12px;
+    border-top: 1px solid #dee2e6;
+    background: #f8f9fa;
+    text-align: center;
+}
+
+.course-result-add-more button {
+    width: 100%;
+    font-size: 0.9em;
+}
+
+.course-selected-badge {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #d1e7dd;
+    border: 1px solid #a3cfbb;
+    border-radius: 6px;
+    margin-top: 8px;
+    font-size: 0.9em;
+}
+
+#course-selected-badge-text {
+    flex: 1;
+    color: #0a3622;
+}
+
+@media (max-width: 480px) {
+    .course-autocomplete-results {
+        max-height: 280px;
+    }
+    .course-result-name {
+        font-size: 0.9em;
+    }
+    .course-result-meta {
+        font-size: 0.75em;
+    }
+    .course-result-select {
+        padding: 4px 10px;
+        font-size: 0.8em;
+    }
 }

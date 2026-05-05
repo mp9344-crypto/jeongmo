@@ -1,8 +1,8 @@
 ## 현재 상태
 
-- **D2 완료** (2026-05-04) — 화면 18 골프장 등록 UI + 내 골프장 목록 + cascade 삭제
-- **배포 상태**: GitHub Pages (app.js?v=d2b), Firestore rules 배포 완료
-- 다음: D3 (화면 17 골프장 검색/자동완성 + 정모 만들기 폼 통합)
+- **D3 완료** (2026-05-05) — 골프장 자동완성 + 정모 만들기 폼 통합
+- **배포 상태**: GitHub Pages (app.js?v=d3a, style.css?v=d3a), Firestore rules 변경 없음
+- 다음: D4 (화면 20 티박스 선택 — 정모 만들기 시 호스트가 기본 티박스 선택)
 
 ---
 
@@ -147,6 +147,12 @@
 ---
 
 ## 코드 패턴 메모
+
+- **D3 자동완성 검색**: `searchCourses(q)` — nameLower + cityLower 양쪽 prefix 쿼리(`q` ~ `q+`) → 클라이언트 머지/dedupe → usageCount DESC > nameLower ASC 정렬, top 5
+- **D3 자동 티박스 선택**: white > blue > black > gold > red > other > 첫번째 (D4에서 사용자가 변경 가능)
+- **D3 정모 만들기 폼 통합**: `selectedCourseForTournament` 상태 객체. 자유 입력 fallback 유지 (courseId=null도 허용). `readTournamentForm()`에 courseId 추가.
+- **D3 화면 18 복귀 흐름**: `pendingReturnToTournamentCreate` 플래그로 정모 폼 ↔ 골프장 등록 왕복. 등록 성공/취소 시 플래그 체크 후 showScreen 분기.
+- **D3 호스트 정확한 Course Handicap**: `selectedCourseForTournament` 있으면 USGA 공식 (tee.slope, tee.courseRating, totalPar), 없으면 임시 공식. 게스트/프록시는 D5에서 처리.
 
 - 팀 멤버 정보의 **단일 출처는 `members.teamId`** (`teams.memberIds`는 보조 캐시)
 - 자동 배정 = batch 전체, 수동 배정 = batch 1쌍 (members 1건 + 양쪽 teams 2건)
