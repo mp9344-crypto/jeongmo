@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>정모 - Live Golf Scoring for Friends</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=d6a">
+    <link rel="stylesheet" href="style.css?v=e3">
 </head>
 <body>
 
@@ -296,6 +296,47 @@
             </section>
 
             <section>
+                <label for="select-tournament-game-type">게임 방식</label>
+                <select id="select-tournament-game-type">
+                    <option value="stroke" selected>스트로크 플레이</option>
+                    <option value="stableford" disabled>스테이블포드 (추후 지원)</option>
+                    <option value="match" disabled>매치 플레이 (추후 지원)</option>
+                    <option value="vegas" disabled>라스베가스 (추후 지원)</option>
+                </select>
+            </section>
+
+            <section id="tournament-events-section">
+                <div class="events-section-header">
+                    <label>이벤트 홀 <span class="hint-inline">(선택)</span></label>
+                    <span id="events-count-display" class="events-count">0 / 5</span>
+                </div>
+                <div id="tournament-events-list" class="tournament-events-list"></div>
+                <button type="button" id="btn-add-event" class="btn-secondary btn-add-event">+ 이벤트 추가</button>
+                <div id="add-event-form" class="add-event-form hidden">
+                    <div class="add-event-row">
+                        <label for="select-event-type">종류</label>
+                        <select id="select-event-type">
+                            <option value="kp">KP (파 3 홀)</option>
+                            <option value="longest">롱기스트 (파 4/5 홀)</option>
+                            <option value="holeInOne">홀인원 (파 3 홀)</option>
+                        </select>
+                    </div>
+                    <div class="add-event-row">
+                        <label for="select-event-hole">홀</label>
+                        <select id="select-event-hole"></select>
+                    </div>
+                    <div class="add-event-row">
+                        <label for="input-event-prize">금액</label>
+                        <input type="number" id="input-event-prize" placeholder="0 (없음)" min="0" step="1">
+                    </div>
+                    <div class="add-event-buttons">
+                        <button type="button" id="btn-confirm-add-event">등록</button>
+                        <button type="button" id="btn-cancel-add-event" class="btn-secondary">취소</button>
+                    </div>
+                </div>
+            </section>
+
+            <section>
                 <label for="select-tournament-game-mode">게임 모드</label>
                 <select id="select-tournament-game-mode">
                     <option value="gross">Gross — 총 타수 (실력 그대로)</option>
@@ -394,6 +435,11 @@
                 </div>
             </div>
 
+            <div id="tournament-link-events" class="events-display-box hidden">
+                <div class="events-display-header">🎯 이벤트 홀</div>
+                <div id="tournament-link-events-list" class="events-display-list"></div>
+            </div>
+
             <section class="share-info">
                 <div class="share-label">참여자 (대기실)</div>
                 <div class="share-members" id="tournament-link-members-list">
@@ -472,6 +518,10 @@
                     <span class="join-value" id="tournament-join-host">-</span>
                 </div>
                 <div class="join-row">
+                    <span class="join-label">게임 방식</span>
+                    <span class="join-value" id="tournament-join-game-type">-</span>
+                </div>
+                <div class="join-row">
                     <span class="join-label">게임 모드</span>
                     <span class="join-value" id="tournament-join-mode">-</span>
                 </div>
@@ -484,6 +534,11 @@
                     <span class="join-value"><span id="tournament-join-tee-label">--</span><span id="tournament-join-tee-rating" style="font-size:0.8em;color:#888;font-weight:normal;"></span></span>
                 </div>
             </section>
+
+            <div id="tournament-join-events-section" class="events-join-section hidden">
+                <div class="events-join-header">🎯 이벤트 홀</div>
+                <div id="tournament-join-events-list" class="events-join-list"></div>
+            </div>
 
             <!-- 본인 정보 미리보기 -->
             <section class="my-profile-preview hidden" id="tournament-join-my-profile">
@@ -974,7 +1029,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=d7b"></script>
+    <script src="app.js?v=e3"></script>
 
 </body>
 </html>

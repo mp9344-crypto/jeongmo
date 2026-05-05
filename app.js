@@ -111,8 +111,22 @@ const btnJoinByCode = document.getElementById('btn-join-by-code');
 const inputTournamentName = document.getElementById('input-tournament-name');
 const inputTournamentCourse = document.getElementById('input-tournament-course');
 const inputTournamentDate = document.getElementById('input-tournament-date');
+const selectTournamentGameType = document.getElementById('select-tournament-game-type');
 const selectTournamentGameMode = document.getElementById('select-tournament-game-mode');
 const tournamentGameModeHint = document.getElementById('tournament-game-mode-hint');
+const eventsCountDisplay = document.getElementById('events-count-display');
+const tournamentEventsList = document.getElementById('tournament-events-list');
+const btnAddEvent = document.getElementById('btn-add-event');
+const addEventForm = document.getElementById('add-event-form');
+const selectEventType = document.getElementById('select-event-type');
+const selectEventHole = document.getElementById('select-event-hole');
+const inputEventPrize = document.getElementById('input-event-prize');
+const btnConfirmAddEvent = document.getElementById('btn-confirm-add-event');
+const btnCancelAddEvent = document.getElementById('btn-cancel-add-event');
+const tournamentLinkEventsBox = document.getElementById('tournament-link-events');
+const tournamentLinkEventsList = document.getElementById('tournament-link-events-list');
+const tournamentJoinEventsSection = document.getElementById('tournament-join-events-section');
+const tournamentJoinEventsList = document.getElementById('tournament-join-events-list');
 const selectTeamCount = document.getElementById('select-team-count');
 const selectTeamSize = document.getElementById('select-team-size');
 const memberCountDisplay = document.getElementById('member-count-display');
@@ -143,6 +157,7 @@ const tournamentJoinCode = document.getElementById('tournament-join-code');
 const tournamentJoinCourse = document.getElementById('tournament-join-course');
 const tournamentJoinDate = document.getElementById('tournament-join-date');
 const tournamentJoinHost = document.getElementById('tournament-join-host');
+const tournamentJoinGameType = document.getElementById('tournament-join-game-type');
 const tournamentJoinMode = document.getElementById('tournament-join-mode');
 const tournamentJoinMemberCount = document.getElementById('tournament-join-member-count');
 const tournamentJoinMyProfile = document.getElementById('tournament-join-my-profile');
@@ -1521,6 +1536,56 @@ function tournamentHasAccurateHandicapInfo(tournamentData) {
         && tournamentData.pars.length === 18);
 }
 
+function getGameTypeLabel(gameType) {
+    if (gameType === 'stableford') return '스테이블포드';
+    if (gameType === 'match') return '매치 플레이';
+    if (gameType === 'vegas') return '라스베가스';
+    return '스트로크 플레이';
+}
+
+// E3: 이벤트 홀 헬퍼
+function getEventTypeLabel(type) {
+    if (type === 'kp') return 'KP';
+    if (type === 'longest') return '롱기스트';
+    if (type === 'holeInOne') return '홀인원';
+    return type;
+}
+
+function validateEventHole(type, holeNumber, pars) {
+    if (!pars || pars.length === 0) return true; // 자유 입력 → 스킵
+    const par = pars[holeNumber - 1];
+    if (par === undefined) return false;
+    if (type === 'kp') return par === 3;
+    if (type === 'longest') return par === 4 || par === 5;
+    if (type === 'holeInOne') return par === 3;
+    return false;
+}
+
+function formatEventCard(event) {
+    const prizeText = (event.prize && event.prize > 0) ? ' · $' + event.prize : '';
+    return event.holeNumber + '번홀 · ' + getEventTypeLabel(event.type) + prizeText;
+}
+
+function generateEventId() {
+    return 'ev_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function showToast(message) {
+    let toastEl = document.getElementById('toast-notification');
+    if (!toastEl) {
+        toastEl = document.createElement('div');
+        toastEl.id = 'toast-notification';
+        toastEl.className = 'toast-notification';
+        document.body.appendChild(toastEl);
+    }
+    toastEl.textContent = message;
+    toastEl.classList.add('toast-show');
+    clearTimeout(toastEl._timer);
+    toastEl._timer = setTimeout(function() {
+        toastEl.classList.remove('toast-show');
+    }, 3000);
+}
+
 // D6: rounds 본 문서 기반 핸디 계산 (B6 게스트용)
 function calculateMemberCourseHandicapFromRound(handicapIndex, roundData) {
     if (handicapIndex === null || handicapIndex === undefined) return null;
@@ -2065,6 +2130,7 @@ function switchTeeBox(teeBoxId) {
     });
 
     renderTeeBoxInfo();
+    validateAndCleanEventsOnParsChange(newTee.pars);
 }
 
 function renderTeeBoxInfo() {
@@ -2098,6 +2164,176 @@ let courseSearchTimer = null;
 let selectedCourseForTournament = null;
 const COURSE_SEARCH_DEBOUNCE = 300;
 
+// =========================================
+// E3: 이벤트 홀 상태 관리
+// =========================================
+
+let pendingTournamentEvents = [];
+const MAX_EVENTS = 5;
+
+function renderEventsList() {
+    tournamentEventsList.innerHTML = '';
+    eventsCountDisplay.textContent = pendingTournamentEvents.length + ' / ' + MAX_EVENTS;
+
+    pendingTournamentEvents.forEach(function(event) {
+        const card = document.createElement('div');
+        card.className = 'event-card';
+        card.innerHTML = '<span>' + formatEventCard(event) + '</span>';
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn-remove-event';
+        removeBtn.textContent = '✕';
+        removeBtn.addEventListener('click', function() {
+            removeEventFromTournament(event.id);
+        });
+        card.appendChild(removeBtn);
+        tournamentEventsList.appendChild(card);
+    });
+
+    if (pendingTournamentEvents.length >= MAX_EVENTS) {
+        btnAddEvent.disabled = true;
+        btnAddEvent.textContent = '이벤트 5개 등록 완료';
+    } else {
+        btnAddEvent.disabled = false;
+        btnAddEvent.textContent = '+ 이벤트 추가';
+    }
+}
+
+function removeEventFromTournament(eventId) {
+    pendingTournamentEvents = pendingTournamentEvents.filter(function(e) { return e.id !== eventId; });
+    renderEventsList();
+}
+
+function renderEventHoleOptions() {
+    selectEventHole.innerHTML = '';
+    const type = selectEventType.value;
+    const pars = getCurrentFormPars();
+
+    for (let i = 1; i <= 18; i++) {
+        if (!validateEventHole(type, i, pars)) continue;
+        const already = pendingTournamentEvents.some(function(e) {
+            return e.holeNumber === i && e.type === type;
+        });
+        if (already) continue;
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        let parLabel = pars.length > 0 ? ' (파 ' + pars[i - 1] + ')' : '';
+        opt.textContent = i + '번홀' + parLabel;
+        selectEventHole.appendChild(opt);
+    }
+
+    if (selectEventHole.options.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '가능한 홀 없음';
+        selectEventHole.appendChild(opt);
+    }
+}
+
+function getCurrentFormPars() {
+    if (selectedCourseForTournament && selectedCourseForTournament.autoSelectedTeeBox) {
+        return selectedCourseForTournament.autoSelectedTeeBox.pars;
+    }
+    const pars = [];
+    for (let i = 1; i <= 18; i++) {
+        const inp = document.getElementById('tournament-par-input-' + i);
+        if (!inp) return [];
+        const v = parseInt(inp.value, 10);
+        if (isNaN(v)) return [];
+        pars.push(v);
+    }
+    return pars;
+}
+
+function openAddEventForm() {
+    if (pendingTournamentEvents.length >= MAX_EVENTS) return;
+    selectEventType.value = 'kp';
+    inputEventPrize.value = '';
+    renderEventHoleOptions();
+    addEventForm.classList.remove('hidden');
+    btnAddEvent.classList.add('hidden');
+}
+
+function closeAddEventForm() {
+    addEventForm.classList.add('hidden');
+    btnAddEvent.classList.remove('hidden');
+}
+
+function onEventTypeChange() {
+    renderEventHoleOptions();
+}
+
+function confirmAddEvent() {
+    const type = selectEventType.value;
+    const holeNumber = parseInt(selectEventHole.value, 10);
+    const prize = parseInt(inputEventPrize.value, 10) || 0;
+
+    if (!holeNumber || holeNumber < 1 || holeNumber > 18) {
+        alert('홀을 선택해주세요.');
+        return;
+    }
+
+    const pars = getCurrentFormPars();
+    if (!validateEventHole(type, holeNumber, pars)) {
+        alert(getEventTypeLabel(type) + ' 이벤트는 이 홀에 등록할 수 없습니다.');
+        return;
+    }
+
+    const dup = pendingTournamentEvents.some(function(e) {
+        return e.holeNumber === holeNumber && e.type === type;
+    });
+    if (dup) {
+        alert(holeNumber + '번홀에 ' + getEventTypeLabel(type) + ' 이벤트가 이미 등록되어 있습니다.');
+        return;
+    }
+
+    if (pendingTournamentEvents.length >= MAX_EVENTS) {
+        alert('이벤트는 최대 ' + MAX_EVENTS + '개까지 등록할 수 있습니다.');
+        return;
+    }
+
+    pendingTournamentEvents.push({
+        id: generateEventId(),
+        type: type,
+        holeNumber: holeNumber,
+        prize: prize
+    });
+
+    closeAddEventForm();
+    renderEventsList();
+}
+
+function validateAndCleanEventsOnParsChange(newPars) {
+    if (!newPars || newPars.length === 0) return; // 자유 입력 → 스킵
+    if (pendingTournamentEvents.length === 0) return;
+
+    const removed = [];
+    pendingTournamentEvents = pendingTournamentEvents.filter(function(e) {
+        const valid = validateEventHole(e.type, e.holeNumber, newPars);
+        if (!valid) removed.push(e);
+        return valid;
+    });
+
+    if (removed.length > 0) {
+        renderEventsList();
+        const msg = removed.map(function(e) {
+            return e.holeNumber + '번홀 ' + getEventTypeLabel(e.type);
+        }).join(', ') + ' 이벤트가 새 코스 파 정보와 맞지 않아 삭제됐습니다.';
+        showToast(msg);
+    }
+}
+
+function renderEventsForDisplay(events, listEl) {
+    listEl.innerHTML = '';
+    if (!events || events.length === 0) return;
+    events.forEach(function(e) {
+        const item = document.createElement('div');
+        item.className = events === pendingTournamentEvents ? 'events-display-item' : 'events-join-item';
+        item.textContent = '· ' + formatEventCard(e);
+        listEl.appendChild(item);
+    });
+}
+
 function hideAutocompleteResults() {
     courseAutocompleteResults.classList.add('hidden');
     courseAutocompleteResults.innerHTML = '';
@@ -2127,6 +2363,7 @@ function applySelectedCourseToTournamentForm() {
         ' (Rating ' + tee.courseRating + ' / Slope ' + tee.slopeRating + ')';
     courseInputHint.textContent = '✅ DB에서 선택됨. 파 정보 자동 채워짐. 정확한 Course Handicap 계산.';
     renderTeeBoxSelector();
+    validateAndCleanEventsOnParsChange(tee.pars);
 }
 
 function selectCourseForTournament(courseId) {
@@ -2541,6 +2778,7 @@ function readTournamentForm() {
     const name = inputTournamentName.value.trim();
     const courseName = inputTournamentCourse.value.trim();
     const date = inputTournamentDate.value;
+    const gameType = selectTournamentGameType.value || 'stroke';
     const gameMode = selectTournamentGameMode.value;
     const teamCount = parseInt(selectTeamCount.value, 10);
     const teamSize = parseInt(selectTeamSize.value, 10);
@@ -2595,11 +2833,13 @@ function readTournamentForm() {
         courseRating: tee ? tee.courseRating : null,
         slopeRating: tee ? tee.slopeRating : null,
         date: date,
+        gameType: gameType,
         gameMode: gameMode,
         teamCount: teamCount,
         teamSize: teamSize,
         maxMembers: maxMembers,
         pars: pars,
+        events: pendingTournamentEvents.slice(),
         tier: 'free'
     };
 }
@@ -2618,12 +2858,18 @@ function openTournamentCreateScreen() {
     const dd = String(today.getDate()).padStart(2, '0');
     inputTournamentDate.value = yyyy + '-' + mm + '-' + dd;
 
+    selectTournamentGameType.value = 'stroke';
     selectTournamentGameMode.value = 'net';
     onTournamentGameModeChange();
 
     selectTeamCount.value = '4';
     selectTeamSize.value = '4';
     updateMemberCountPreview();
+
+    // E3: 이벤트 초기화
+    pendingTournamentEvents = [];
+    closeAddEventForm();
+    renderEventsList();
 
     createTournamentParInputs(null);
 
@@ -2634,6 +2880,12 @@ function openTournamentCreateScreen() {
 selectTeamCount.addEventListener('change', updateMemberCountPreview);
 selectTeamSize.addEventListener('change', updateMemberCountPreview);
 selectTournamentGameMode.addEventListener('change', onTournamentGameModeChange);
+
+// E3: 이벤트 홀 버튼 이벤트
+btnAddEvent.addEventListener('click', openAddEventForm);
+btnCancelAddEvent.addEventListener('click', closeAddEventForm);
+btnConfirmAddEvent.addEventListener('click', confirmAddEvent);
+selectEventType.addEventListener('change', onEventTypeChange);
 
 btnCreateTournament.addEventListener('click', function() {
     const formData = readTournamentForm();
@@ -3535,10 +3787,12 @@ function createTournament(formData) {
         slopeRating: formData.slopeRating || null,
         date: formData.date,
         pars: formData.pars,
+        gameType: formData.gameType || 'stroke',
         gameMode: formData.gameMode,
         teamCount: formData.teamCount,
         teamSize: formData.teamSize,
         maxMembers: formData.maxMembers,
+        events: formData.events && formData.events.length > 0 ? formData.events : [],
         hostId: userId,
         hostName: profile.name,
         status: 'waiting',
@@ -3619,6 +3873,7 @@ function showTournamentJoinScreen(tournamentId, tournamentData, hostName, member
     tournamentJoinCourse.textContent = tournamentData.courseName;
     tournamentJoinDate.textContent = tournamentData.date;
     tournamentJoinHost.textContent = hostName;
+    tournamentJoinGameType.textContent = getGameTypeLabel(tournamentData.gameType);
     tournamentJoinMode.textContent = tournamentData.gameMode === 'net' ? 'Net (핸디 적용)' : 'Gross (총 타수)';
     tournamentJoinMemberCount.textContent = memberCount + ' / ' + tournamentData.maxMembers + '명';
 
@@ -3636,6 +3891,21 @@ function showTournamentJoinScreen(tournamentId, tournamentData, hostName, member
         tournamentJoinTeeInfo.classList.remove('hidden');
     } else {
         tournamentJoinTeeInfo.classList.add('hidden');
+    }
+
+    // E3: 이벤트 리스트 표시
+    const joinEvents = Array.isArray(tournamentData.events) ? tournamentData.events : [];
+    if (joinEvents.length > 0) {
+        tournamentJoinEventsSection.classList.remove('hidden');
+        tournamentJoinEventsList.innerHTML = '';
+        joinEvents.forEach(function(e) {
+            const item = document.createElement('div');
+            item.className = 'events-join-item';
+            item.textContent = '· ' + formatEventCard(e);
+            tournamentJoinEventsList.appendChild(item);
+        });
+    } else {
+        tournamentJoinEventsSection.classList.add('hidden');
     }
 
     // Net 모드면 핸디 표시 (Gross는 핸디 행 숨김)
@@ -4130,7 +4400,7 @@ function enterTournamentResultScreen(tournamentDocData) {
     cleanupLeaderboardListener();
     cleanupTournamentRoundListeners();
 
-    resultTournamentMeta.textContent = (tDoc.courseName || '-') + ' · ' + (tDoc.date || '-');
+    resultTournamentMeta.textContent = (tDoc.courseName || '-') + ' · ' + (tDoc.date || '-') + ' · ' + getGameTypeLabel(tDoc.gameType);
     showScreen(screenTournamentResult);
 
     // 멤버 + 팀 one-shot fetch
@@ -5624,10 +5894,11 @@ function showTournamentLinkScreen(tournamentId, formData) {
 
     tournamentNameDisplayOnLink.textContent = formData.name;
 
-    // 메타 정보: "골프장 · 날짜 · 모드 · N명"
+    // 메타 정보: "골프장 · 날짜 · 게임방식 · 모드 · N명"
+    const gameTypeLabel = getGameTypeLabel(formData.gameType);
     const gameModeLabel = formData.gameMode === 'net' ? 'Net' : 'Gross';
     const metaText = formData.courseName + ' · ' + formData.date +
-                     ' · ' + gameModeLabel +
+                     ' · ' + gameTypeLabel + ' · ' + gameModeLabel +
                      ' · 최대 ' + formData.maxMembers + '명';
     tournamentMetaDisplay.textContent = metaText;
 
@@ -5642,6 +5913,21 @@ function showTournamentLinkScreen(tournamentId, formData) {
         } else {
             netNoticeBox.classList.add('hidden');
         }
+    }
+
+    // E3: 이벤트 리스트 표시
+    const events = formData.events || [];
+    if (events.length > 0) {
+        tournamentLinkEventsBox.classList.remove('hidden');
+        tournamentLinkEventsList.innerHTML = '';
+        events.forEach(function(e) {
+            const item = document.createElement('div');
+            item.className = 'events-display-item';
+            item.textContent = '· ' + formatEventCard(e);
+            tournamentLinkEventsList.appendChild(item);
+        });
+    } else {
+        tournamentLinkEventsBox.classList.add('hidden');
     }
 
     // 멤버 목록 (지금은 호스트만)

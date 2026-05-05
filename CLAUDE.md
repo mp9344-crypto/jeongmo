@@ -1,12 +1,23 @@
 ## 현재 상태
 
+- **E3 완료** (2026-05-05) — 이벤트 홀 설정 UI
+  - 화면 8: 이벤트 홀 섹션 (KP/롱기스트/홀인원, 최대 5개, 종류별 홀 자동 필터)
+  - 골프장/티박스 변경 시 검증 실패 이벤트 자동 삭제 + 토스트
+  - tournaments/{id}.events[] 배열 저장
+  - 화면 11/join 이벤트 리스트 표시 (0개 시 hidden)
+  - 보안 규칙 변경 0건 (E0 사전 정비로 이미 허용), Node.js 22/22, Playwright 통과
+- **E2 완료** (2026-05-05) — 게임 방식 선택 UI
+  - 화면 8: "게임 방식" 드롭다운 추가 (스트로크 플레이 활성 + 3종 disabled "(추후 지원)")
+  - tournaments/{id}.gameType 필드 저장 ("stroke" 기본값, 기존 정모 undefined → 자동 fallback)
+  - 화면 11/join/16 메타에 getGameTypeLabel() 라벨 표시
+  - 보안 규칙 변경 0건, 계산 로직 변경 0건
 - **E0 완료** (2026-05-05) — E 단계 시작, 보안 규칙 사전 정비 완료
   - tournaments update: eventWinners 멤버 update 분기 추가 (diff().affectedKeys().hasOnly 패턴)
   - tournaments/{id}/notifications: 신규 서브컬렉션 (type 6종 enum, holeNumber 1~18)
   - tournaments/{id}/messages: 신규 서브컬렉션 (text 1~500자, 호스트/본인 삭제)
   - Firestore rules deploy 완료, app.js 변경 0줄
-- **배포 상태**: Firestore rules 배포 완료 (E0), GitHub Pages 미배포 (app.js?v=d7b)
-- 다음: E2 (스킨 게임) → E3 → E4 → E5 → E6 → E7 → E1(골프룰) → E8(채팅)
+- **배포 상태**: Firestore rules 배포 완료 (E0), GitHub Pages 미배포 (app.js?v=e3)
+- 다음: E4 → E5 → E6 → E7 → E1(골프룰) → E8(채팅)
 
 ---
 
@@ -29,11 +40,11 @@
 ## E 단계 진행 현황 (PRD 7장: 정모 재미 강화)
 
 - E0 ✅ 보안 규칙 사전 정비 — eventWinners 멤버 update + notifications/messages 서브컬렉션
-- E2 스킨 게임
-- E3 이벤트 홀 (CTP, 최장 드라이브 등)
-- E4 실시간 알림 (birdie/eagle 등)
+- E2 ✅ 게임 방식 선택 UI — gameType 필드 + 드롭다운 + 화면 11/join/16 라벨
+- E3 ✅ 이벤트 홀 설정 UI — events[] 배열 저장 + 화면 8/11/join 표시
+- E4 실시간 알림 (birdie/eagle 등) + 이벤트 위너 기록
 - E5 ~
-- E6 ~
+- E6 정산
 - E7 ~
 - E1 골프 룰 참조
 - E8 채팅
@@ -124,6 +135,8 @@
 - **E0: tournaments update 케이스 B 추가** — 멤버가 `eventWinners` 필드만 update 허용. `exists()` 멤버십 검증 + `diff().affectedKeys().hasOnly(['eventWinners'])` 패턴. status=="completed" 시 차단.
 - **E0: notifications 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + type 6종 enum(birdie/eagle/albatross/ace/skin_win/event_win) + holeNumber 1~18. update 금지, 삭제 호스트만.
 - **E0: messages 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + text 1~500자. update 금지, 삭제 호스트 또는 본인.
+- **E3**: 보안 규칙 변경 0건. events[] 배열은 Firestore 스키마 자유 — E0에서 이미 tournaments update 허용 범위에 포함됨. 클라이언트 UI + 검증 + 저장만.
+- **E2**: 보안 규칙 변경 0건. gameType 필드는 Firestore 스키마 자유 — E0에서 이미 tournaments update 허용 범위에 포함됨. 클라이언트 UI + 저장만.
 
 ---
 
@@ -191,12 +204,54 @@
 
 **notification type 6종 확정**:
 `birdie` / `eagle` / `albatross` / `ace` / `skin_win` / `event_win`
-- E2에서 skin_win 활성화, E3에서 event_win 활성화, E4에서 birdie~ace 활성화 예정.
+- E3에서 skin_win 활성화, E4에서 event_win 활성화, E5에서 birdie~ace 활성화 예정.
 
 **검증 결과**:
 - `firebase_validate_security_rules` 컴파일 통과
 - `firebase deploy --only firestore:rules` 성공
 - Firebase MCP로 notifications/messages 데이터 구조 + eventWinners map 필드 write 확인 → 테스트 데이터 전량 정리
+
+---
+
+## E3 회고 (2026-05-05)
+
+**작업 범위**: 화면 8 이벤트 홀 섹션 UI + events[] 저장 + 화면 11/join 이벤트 표시. 보안 규칙 변경 0건 (E0에서 이미 허용).
+
+**설계 포인트**:
+- `events` 필드는 E0 규칙에서 이미 허용 — tournaments update 범위 내.
+- `validateEventHole(type, holeNumber, pars)` — pars=[] → 자유 입력 fallback true. 헬퍼 순수 함수로 단위 테스트 용이.
+- `getCurrentFormPars()` — DB 골프장 선택 시 `selectedCourseForTournament.autoSelectedTeeBox.pars`, 자유 입력 시 DOM input 값 직접 읽기. 두 케이스 통합.
+- `renderEventHoleOptions()` — 이미 등록된 홀+종류 조합은 자동 제외 (중복 방지). "가능한 홀 없음" fallback.
+- 골프장/티박스 변경 훅: `applySelectedCourseToTournamentForm()` + `switchTeeBox()` 끝에 `validateAndCleanEventsOnParsChange(newPars)` 호출. `clearSelectedCourse()`는 자유 입력 → 검증 스킵.
+- `showToast(message)` — E3에서 신규 도입. `#toast-notification` 동적 생성, opacity 전환. 3초 후 fade out.
+
+**검증 결과**:
+- Node.js 단위 테스트 22/22 통과 (validateEventHole 8케이스, formatEventCard 3, validateAndClean 6, 중복/cap 2, 기타)
+- Playwright: 화면 8 종류별 홀 필터, 5개 cap 버튼 비활성화, 삭제 버튼, 토스트 텍스트 확인
+- Firebase MCP: events 배열 3개 → Firestore 저장 확인 → 테스트 데이터 정리
+- 회귀: events=[], events=undefined → 화면 11/join 섹션 hidden 확인
+
+**트러블슈팅**:
+- `window.pendingTournamentEvents` 접근 안 됨 (module-scope let) → DOM 카드 텍스트로 우회 검증. 함수는 전역 접근 가능 (`window.confirmAddEvent` 등).
+- `openAddEventForm()` → `select-event-hole.value` 직접 설정 실패 케이스: 이미 등록된 홀 제외 후 드롭다운이 해당 값 없을 때 빈 string → `parseInt('')=NaN` → "홀을 선택해주세요." alert. 정상 동작.
+
+---
+
+## E2 회고 (2026-05-05)
+
+**작업 범위**: 화면 8 드롭다운 UI + gameType 저장 + 라벨 표시. 보안 규칙 변경 0건, 계산 로직 변경 0건.
+
+**설계 포인트**:
+- `gameType` 필드는 E0 보안 규칙에서 이미 허용 — 별도 규칙 작업 불필요.
+- disabled option으로 Coming Soon 처리: `<option disabled>` 브라우저 기본 회색 처리로 충분. CSS 추가 불필요.
+- `getGameTypeLabel(gameType)` 헬퍼: undefined/null/빈 문자열 모두 "스트로크 플레이" fallback → 기존 정모 backward compatibility 보장.
+- 메타 표시 위치: 화면 11 `tournamentMetaDisplay`, join 화면 `tournamentJoinGameType`, 화면 16 `resultTournamentMeta`.
+
+**검증 결과**:
+- Node.js 단위 테스트 7/7 통과 (stroke/stableford/match/vegas/undefined/null/"")
+- Playwright: 화면 8 드롭다운 4옵션 확인, 화면 11 메타 "스트로크 플레이" 표시 확인
+- Firebase MCP: gameType:"stroke" Firestore 저장 확인 → 테스트 데이터 정리
+- browser_evaluate: DOM 요소 + 함수 전역 접근 확인
 
 ---
 
@@ -221,6 +276,11 @@
 ---
 
 ## 코드 패턴 메모
+
+- **E3 이벤트 홀**: `events[]` 배열 — `{id, type, holeNumber, prize}`. type: "kp"|"longest"|"holeInOne". 최대 5개 (`MAX_EVENTS`). KP/홀인원=파3, 롱기스트=파4/5. 자유 입력(pars=[]) → 검증 스킵(모든 홀 허용). `pendingTournamentEvents` in-memory 상태, `openTournamentCreateScreen()`에서 초기화. 골프장/티박스 변경 시 `validateAndCleanEventsOnParsChange(newPars)` 호출 → 삭제된 이벤트 `showToast(msg)`. `getCurrentFormPars()` — DB 골프장 선택 시 `autoSelectedTeeBox.pars`, 자유입력 시 DOM input 직접 읽기. 화면 8 이벤트 섹션 ID: `tournament-events-section`. 화면 11 ID: `tournament-link-events`. 화면 join ID: `tournament-join-events-section`.
+- **E3 showToast**: `#toast-notification` 동적 생성 (없으면 append), `toast-show` CSS class로 opacity 1. 3초 후 class 제거. `_timer` 프로퍼티로 연속 호출 시 이전 타이머 취소.
+
+- **E2 게임 방식**: `gameType` 필드 — "stroke" | "stableford" | "match" | "vegas". 기본값 "stroke", 기존 정모 undefined → `getGameTypeLabel()` fallback "스트로크 플레이". `selectTournamentGameType` disabled 옵션 3개 "(추후 지원)" 텍스트로 Coming Soon 처리 (CSS 불필요, `<option disabled>` 브라우저 기본 회색). 메타 표시 순서: "골프장 · 날짜 · **게임방식** · Net/Gross · 최대N명".
 
 - **D3 자동완성 검색**: `searchCourses(q)` — nameLower + cityLower 양쪽 prefix 쿼리(`q` ~ `q+`) → 클라이언트 머지/dedupe → usageCount DESC > nameLower ASC 정렬, top 5
 - **D3 자동 티박스 선택**: white > blue > black > gold > red > other > 첫번째 (D4에서 사용자가 변경 가능)
