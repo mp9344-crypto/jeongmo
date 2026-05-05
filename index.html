@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>정모 - Live Golf Scoring for Friends</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=d3a">
+    <link rel="stylesheet" href="style.css?v=d4a">
 </head>
 <body>
 
@@ -234,6 +234,28 @@
                 <div id="course-selected-badge" class="course-selected-badge hidden">
                     <span id="course-selected-badge-text"></span>
                     <button id="btn-clear-selected-course" type="button" class="btn-icon">✕</button>
+                </div>
+                <div id="tee-box-selector" class="tee-box-selector hidden">
+                    <label>티박스 선택</label>
+                    <div id="tee-box-options" class="tee-box-options"></div>
+                    <div id="tee-box-info" class="tee-box-info hidden">
+                        <div class="tee-box-info-row">
+                            <span class="tee-box-info-label">Course Rating:</span>
+                            <span id="tee-box-info-rating">--</span>
+                        </div>
+                        <div class="tee-box-info-row">
+                            <span class="tee-box-info-label">Slope Rating:</span>
+                            <span id="tee-box-info-slope">--</span>
+                        </div>
+                        <div class="tee-box-info-row">
+                            <span class="tee-box-info-label">총 거리:</span>
+                            <span id="tee-box-info-yardage">--</span>
+                        </div>
+                        <div class="tee-box-info-row tee-box-info-handicap">
+                            <span class="tee-box-info-label">내 Course Handicap:</span>
+                            <span id="tee-box-info-handicap">--</span>
+                        </div>
+                    </div>
                 </div>
                 <p class="hint" id="course-input-hint">DB에 없으면 자유 입력 그대로 사용 (이름만, 파 정보는 직접 입력)</p>
             </section>
@@ -851,7 +873,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=d3a"></script>
+    <script src="app.js?v=d4a"></script>
 
 </body>
 </html>

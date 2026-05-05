@@ -2231,3 +2231,118 @@ select:focus {
         font-size: 0.8em;
     }
 }
+
+/* D4: 티박스 선택 UI */
+.tee-box-selector {
+    margin-top: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+}
+
+.tee-box-selector > label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.tee-box-options {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.tee-box-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.tee-box-option:hover {
+    border-color: #6c757d;
+}
+
+.tee-box-option.active {
+    border-color: #0d6efd;
+    background: #e7f1ff;
+    font-weight: 600;
+}
+
+.tee-box-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tee-box-option-label {
+    font-size: 0.9em;
+}
+
+.tee-box-option-rating {
+    font-size: 0.75em;
+    color: #6c757d;
+    margin-left: 4px;
+}
+
+.tee-box-option.active .tee-box-option-rating {
+    color: #0d6efd;
+}
+
+.tee-box-info {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.tee-box-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 0.9em;
+}
+
+.tee-box-info-label {
+    color: #6c757d;
+}
+
+.tee-box-info-row span:last-child {
+    font-weight: 600;
+}
+
+.tee-box-info-handicap {
+    border-top: 1px solid #e9ecef;
+    margin-top: 4px;
+    padding-top: 8px;
+}
+
+.tee-box-info-handicap span:last-child {
+    color: #0d6efd;
+    font-size: 1.05em;
+}
+
+@media (max-width: 480px) {
+    .tee-box-option {
+        padding: 6px 10px;
+        font-size: 0.85em;
+    }
+    .tee-box-option-rating {
+        font-size: 0.7em;
+    }
+    .tee-box-info-row {
+        font-size: 0.85em;
+    }
+}

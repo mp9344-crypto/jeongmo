@@ -200,6 +200,15 @@ const courseSelectedBadgeText = document.getElementById('course-selected-badge-t
 const btnClearSelectedCourse = document.getElementById('btn-clear-selected-course');
 const courseInputHint = document.getElementById('course-input-hint');
 
+// D4: 티박스 선택 UI
+const teeBoxSelector = document.getElementById('tee-box-selector');
+const teeBoxOptions = document.getElementById('tee-box-options');
+const teeBoxInfo = document.getElementById('tee-box-info');
+const teeBoxInfoRating = document.getElementById('tee-box-info-rating');
+const teeBoxInfoSlope = document.getElementById('tee-box-info-slope');
+const teeBoxInfoYardage = document.getElementById('tee-box-info-yardage');
+const teeBoxInfoHandicap = document.getElementById('tee-box-info-handicap');
+
 // 팀 배정 화면 (2단계 C - C3)
 const teamAssignmentMeta = document.getElementById('team-assignment-meta');
 const teamAssignmentMemberCount = document.getElementById('team-assignment-member-count');
@@ -1622,6 +1631,112 @@ function onTournamentGameModeChange() {
 }
 
 // =========================================
+// D4: 티박스 선택 UI
+// =========================================
+
+const TEE_BOX_COLOR_HEX = {
+    'black': '#1a1a1a',
+    'blue': '#2563eb',
+    'white': '#f8f9fa',
+    'gold': '#ca8a04',
+    'red': '#dc2626',
+    'other': '#6c757d'
+};
+
+function renderTeeBoxSelector() {
+    if (!selectedCourseForTournament || !selectedCourseForTournament.teeBoxes) {
+        teeBoxSelector.classList.add('hidden');
+        teeBoxInfo.classList.add('hidden');
+        return;
+    }
+
+    const teeBoxes = selectedCourseForTournament.teeBoxes;
+    const currentTeeId = selectedCourseForTournament.autoSelectedTeeBox.id;
+
+    teeBoxSelector.classList.remove('hidden');
+    teeBoxOptions.innerHTML = '';
+
+    teeBoxes.forEach(function(tee) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tee-box-option' + (tee.id === currentTeeId ? ' active' : '');
+        btn.dataset.teeId = tee.id;
+
+        const swatch = document.createElement('span');
+        swatch.className = 'tee-box-swatch';
+        swatch.style.backgroundColor = TEE_BOX_COLOR_HEX[tee.color] || '#6c757d';
+        if (tee.color === 'white') swatch.style.border = '1px solid #adb5bd';
+        btn.appendChild(swatch);
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'tee-box-option-label';
+        labelSpan.textContent = tee.label || tee.color;
+        btn.appendChild(labelSpan);
+
+        const ratingSpan = document.createElement('span');
+        ratingSpan.className = 'tee-box-option-rating';
+        ratingSpan.textContent = tee.courseRating + '/' + tee.slopeRating;
+        btn.appendChild(ratingSpan);
+
+        btn.addEventListener('click', function() { switchTeeBox(tee.id); });
+        teeBoxOptions.appendChild(btn);
+    });
+
+    renderTeeBoxInfo();
+}
+
+function switchTeeBox(teeBoxId) {
+    if (!selectedCourseForTournament || !selectedCourseForTournament.teeBoxes) return;
+    const newTee = selectedCourseForTournament.teeBoxes.find(function(t) { return t.id === teeBoxId; });
+    if (!newTee) return;
+
+    selectedCourseForTournament.autoSelectedTeeBox = newTee;
+
+    for (let i = 1; i <= 18; i++) {
+        const inp = document.getElementById('tournament-par-input-' + i);
+        if (inp) inp.value = String(newTee.pars[i - 1]);
+    }
+
+    courseSelectedBadgeText.textContent =
+        '✅ ' + selectedCourseForTournament.name +
+        ' · 티박스: ' + (newTee.label || newTee.color) +
+        ' (Rating ' + newTee.courseRating + ' / Slope ' + newTee.slopeRating + ')';
+
+    teeBoxOptions.querySelectorAll('.tee-box-option').forEach(function(opt) {
+        if (opt.dataset.teeId === teeBoxId) {
+            opt.classList.add('active');
+        } else {
+            opt.classList.remove('active');
+        }
+    });
+
+    renderTeeBoxInfo();
+}
+
+function renderTeeBoxInfo() {
+    if (!selectedCourseForTournament || !selectedCourseForTournament.autoSelectedTeeBox) {
+        teeBoxInfo.classList.add('hidden');
+        return;
+    }
+
+    const tee = selectedCourseForTournament.autoSelectedTeeBox;
+    teeBoxInfo.classList.remove('hidden');
+
+    teeBoxInfoRating.textContent = tee.courseRating;
+    teeBoxInfoSlope.textContent = tee.slopeRating;
+    teeBoxInfoYardage.textContent = (tee.totalYardage || '--') + ' ' + (tee.yardageUnit === 'meters' ? 'm' : 'yd');
+
+    const profile = loadUserProfile();
+    if (profile && profile.handicapIndex !== null && profile.handicapIndex !== undefined) {
+        const totalPar = tee.totalPar || tee.pars.reduce(function(s, p) { return s + p; }, 0);
+        const ch = calculateCourseHandicap(profile.handicapIndex, tee, totalPar);
+        teeBoxInfoHandicap.textContent = ch + ' (HI ' + profile.handicapIndex + ')';
+    } else {
+        teeBoxInfoHandicap.textContent = '-- (프로필 핸디캡 미설정)';
+    }
+}
+
+// =========================================
 // D3: 자동완성 상태 관리
 // =========================================
 
@@ -1639,6 +1754,9 @@ function clearSelectedCourse() {
     courseSelectedBadge.classList.add('hidden');
     courseSelectedBadgeText.textContent = '';
     courseInputHint.textContent = 'DB에 없으면 자유 입력 그대로 사용 (이름만, 파 정보는 직접 입력)';
+    teeBoxSelector.classList.add('hidden');
+    teeBoxInfo.classList.add('hidden');
+    teeBoxOptions.innerHTML = '';
 }
 
 function applySelectedCourseToTournamentForm() {
@@ -1654,6 +1772,7 @@ function applySelectedCourseToTournamentForm() {
         ' · 티박스: ' + (tee.label || tee.color) +
         ' (Rating ' + tee.courseRating + ' / Slope ' + tee.slopeRating + ')';
     courseInputHint.textContent = '✅ DB에서 선택됨. 파 정보 자동 채워짐. 정확한 Course Handicap 계산.';
+    renderTeeBoxSelector();
 }
 
 function selectCourseForTournament(courseId) {
@@ -1834,17 +1953,22 @@ function readTournamentForm() {
         return null;
     }
 
+    const tee = selectedCourseForTournament ? selectedCourseForTournament.autoSelectedTeeBox : null;
     return {
         name: name,
         courseName: courseName,
         courseId: selectedCourseForTournament ? selectedCourseForTournament.id : null,
+        teeBoxId: tee ? tee.id : null,
+        teeBoxLabel: tee ? (tee.label || tee.color) : null,
+        courseRating: tee ? tee.courseRating : null,
+        slopeRating: tee ? tee.slopeRating : null,
         date: date,
         gameMode: gameMode,
         teamCount: teamCount,
         teamSize: teamSize,
         maxMembers: maxMembers,
         pars: pars,
-        tier: 'free'  // 미래 수익화 대비 (현재 모든 정모 free)
+        tier: 'free'
     };
 }
 
@@ -2749,8 +2873,9 @@ function createTournament(formData) {
 
     // Course Handicap 계산 (Net 모드일 때 호스트 본인 핸디 적용)
     let hostCourseHandicap;
-    if (selectedCourseForTournament && profile.handicapIndex !== null && profile.handicapIndex !== undefined) {
-        const tee = selectedCourseForTournament.autoSelectedTeeBox;
+    if (formData.courseId && formData.slopeRating && formData.courseRating
+            && profile.handicapIndex !== null && profile.handicapIndex !== undefined) {
+        const tee = { slopeRating: formData.slopeRating, courseRating: formData.courseRating };
         const totalPar = formData.pars.reduce(function(s, p) { return s + p; }, 0);
         hostCourseHandicap = calculateCourseHandicap(profile.handicapIndex, tee, totalPar);
     } else {
@@ -2764,6 +2889,10 @@ function createTournament(formData) {
         name: formData.name,
         courseName: formData.courseName,
         courseId: formData.courseId || null,
+        teeBoxId: formData.teeBoxId || null,
+        teeBoxLabel: formData.teeBoxLabel || null,
+        courseRating: formData.courseRating || null,
+        slopeRating: formData.slopeRating || null,
         date: formData.date,
         pars: formData.pars,
         gameMode: formData.gameMode,
