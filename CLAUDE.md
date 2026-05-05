@@ -1,11 +1,12 @@
 ## 현재 상태
 
-- **D7 완료** (2026-05-05) — D 단계 전체 완료 🎉
-  - D7-1: usageCount increment 보안 규칙 + 클라이언트 호출 (정모/B6/개인 라운드)
-  - D7-2: 화면 19 골프장 상세 (진입 경로 3가지: 메인/정모 자동완성/라운드 자동완성)
-  - D7-3: 골프장 신고 기능 (courses/{id}/reports 서브컬렉션)
-- **배포 상태**: 로컬 검증 완료, GitHub Pages 미배포 (app.js?v=d7b), Firestore rules 배포 완료 (D7-1+D7-3)
-- 다음: 라운딩 검증 → E 단계 (PRD 7장: 정모 재미 강화)
+- **E0 완료** (2026-05-05) — E 단계 시작, 보안 규칙 사전 정비 완료
+  - tournaments update: eventWinners 멤버 update 분기 추가 (diff().affectedKeys().hasOnly 패턴)
+  - tournaments/{id}/notifications: 신규 서브컬렉션 (type 6종 enum, holeNumber 1~18)
+  - tournaments/{id}/messages: 신규 서브컬렉션 (text 1~500자, 호스트/본인 삭제)
+  - Firestore rules deploy 완료, app.js 변경 0줄
+- **배포 상태**: Firestore rules 배포 완료 (E0), GitHub Pages 미배포 (app.js?v=d7b)
+- 다음: E2 (스킨 게임) → E3 → E4 → E5 → E6 → E7 → E1(골프룰) → E8(채팅)
 
 ---
 
@@ -22,6 +23,20 @@
 ## C5 진행 현황
 
 - C5 ✅ 정모 종료 + 결과 화면 (화면 16) — 우승자 카드, 최종 개인/팀 순위, 나의 스코어카드, 자동 종료 감지
+
+---
+
+## E 단계 진행 현황 (PRD 7장: 정모 재미 강화)
+
+- E0 ✅ 보안 규칙 사전 정비 — eventWinners 멤버 update + notifications/messages 서브컬렉션
+- E2 스킨 게임
+- E3 이벤트 홀 (CTP, 최장 드라이브 등)
+- E4 실시간 알림 (birdie/eagle 등)
+- E5 ~
+- E6 ~
+- E7 ~
+- E1 골프 룰 참조
+- E8 채팅
 
 ---
 
@@ -106,6 +121,9 @@
 - **D6**: 보안 규칙 변경 0건. rounds 본 문서 신규 필드는 스키마 자유, 기존 호스트 update 권한으로 충분.
 - **D7-1**: courses update에 usageCount increment-only 패스 추가 (D1의 잠금에서 풀되 +1만). 케이스 A(등록자 일반 수정) + 케이스 B(누구나 usageCount +1) 분기.
 - **D7-3**: courses/{id}/reports 서브컬렉션 신규 — 본인 신고만 read/update/delete, 누구나 create (reporterId==본인, handled=false, reason 1~500자 강제).
+- **E0: tournaments update 케이스 B 추가** — 멤버가 `eventWinners` 필드만 update 허용. `exists()` 멤버십 검증 + `diff().affectedKeys().hasOnly(['eventWinners'])` 패턴. status=="completed" 시 차단.
+- **E0: notifications 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + type 6종 enum(birdie/eagle/albatross/ace/skin_win/event_win) + holeNumber 1~18. update 금지, 삭제 호스트만.
+- **E0: messages 서브컬렉션 신규** — 멤버만 read/create. create 조건: userId==auth.uid + status!="completed" + text 1~500자. update 금지, 삭제 호스트 또는 본인.
 
 ---
 
@@ -158,6 +176,27 @@
 - 정모/라운드/B6 흐름 격리 (selectedCourseForTournament vs selectedCourseForRound)
 - usageCount increment-only 규칙 (D7-1 firebase deploy + 시나리오 검증)
 - 신고 서브컬렉션 권한 분리 (D7-3 Firestore rules + Playwright 검증)
+
+---
+
+## E0 회고 (2026-05-05)
+
+**작업 범위**: 보안 규칙만. app.js / index.html / style.css 변경 0줄. E 단계 중 유일한 규칙-only 마일스톤.
+
+**규칙 설계 포인트**:
+- `diff().affectedKeys().hasOnly(['eventWinners'])` — 멤버가 한 필드만 건드리는 케이스 B 패턴. D7-1 usageCount와 동일 구조.
+- `exists()` vs `get()` 분리: 멤버십 확인은 `exists()`(필드 안 읽음), 상태 확인은 `get()`(필드 읽음). notifications/messages create에서 둘 다 필요.
+- notifications update 금지(`if false`) — 알림은 불변. 삭제는 호스트만 (스팸 관리).
+- messages delete는 호스트 또는 본인 — 본인 메시지 삭제 권리 보장.
+
+**notification type 6종 확정**:
+`birdie` / `eagle` / `albatross` / `ace` / `skin_win` / `event_win`
+- E2에서 skin_win 활성화, E3에서 event_win 활성화, E4에서 birdie~ace 활성화 예정.
+
+**검증 결과**:
+- `firebase_validate_security_rules` 컴파일 통과
+- `firebase deploy --only firestore:rules` 성공
+- Firebase MCP로 notifications/messages 데이터 구조 + eventWinners map 필드 write 확인 → 테스트 데이터 전량 정리
 
 ---
 
