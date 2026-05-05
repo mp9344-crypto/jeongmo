@@ -1271,11 +1271,14 @@ function addTeeBoxCard(prefilledColor) {
     parsWrap.appendChild(parsTitle);
 
     ['전반', '후반'].forEach(function(half, halfIdx) {
+        const rowWrap = document.createElement('div');
+        rowWrap.className = 'par-row';
+        const label = document.createElement('div');
+        label.className = 'par-row-label';
+        label.textContent = half;
+        rowWrap.appendChild(label);
         const grid = document.createElement('div');
         grid.className = 'par-inputs';
-        const small = document.createElement('small');
-        small.textContent = half;
-        grid.appendChild(small);
         for (let i = halfIdx * 9; i < halfIdx * 9 + 9; i++) {
             const inp = document.createElement('input');
             inp.type = 'number';
@@ -1286,7 +1289,8 @@ function addTeeBoxCard(prefilledColor) {
             inp.value = '4';
             grid.appendChild(inp);
         }
-        parsWrap.appendChild(grid);
+        rowWrap.appendChild(grid);
+        parsWrap.appendChild(rowWrap);
     });
     card.appendChild(parsWrap);
 
@@ -1297,11 +1301,14 @@ function addTeeBoxCard(prefilledColor) {
     yardsWrap.appendChild(yardsTitle);
 
     ['전반', '후반'].forEach(function(half, halfIdx) {
+        const rowWrap = document.createElement('div');
+        rowWrap.className = 'yardage-row';
+        const label = document.createElement('div');
+        label.className = 'yardage-row-label';
+        label.textContent = half;
+        rowWrap.appendChild(label);
         const grid = document.createElement('div');
         grid.className = 'yardage-inputs';
-        const small = document.createElement('small');
-        small.textContent = half;
-        grid.appendChild(small);
         for (let i = halfIdx * 9; i < halfIdx * 9 + 9; i++) {
             const inp = document.createElement('input');
             inp.type = 'number';
@@ -1312,7 +1319,8 @@ function addTeeBoxCard(prefilledColor) {
             inp.placeholder = String(i + 1);
             grid.appendChild(inp);
         }
-        yardsWrap.appendChild(grid);
+        rowWrap.appendChild(grid);
+        yardsWrap.appendChild(rowWrap);
     });
     card.appendChild(yardsWrap);
 

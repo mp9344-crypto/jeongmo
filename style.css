@@ -216,16 +216,18 @@ input[type="number"]:focus {
 
 .par-inputs {
     display: grid;
-    grid-template-columns: repeat(9, 1fr);
+    grid-template-columns: repeat(9, minmax(0, 1fr));
     gap: 6px;
 }
 
 .par-inputs input {
     width: 100%;
-    padding: 10px 0;
+    min-width: 0;
+    padding: 8px 4px;
     text-align: center;
-    font-size: 16px;
-    font-weight: bold;
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-bold);
+    font-feature-settings: 'tnum';
 }
 
 /* ===== 6. 화면 전환 ===== */
@@ -2206,16 +2208,18 @@ select:focus {
 
 .yardage-inputs {
     display: grid;
-    grid-template-columns: repeat(9, 1fr);
-    gap: var(--space-xs);
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 6px;
     margin-bottom: var(--space-sm);
 }
 
 .yardage-inputs input {
     width: 100%;
-    padding: var(--space-xs);
+    min-width: 0;
+    padding: 8px 2px;
     text-align: center;
-    font-size: 0.85em;
+    font-size: var(--font-size-small);
+    font-feature-settings: 'tnum';
 }
 
 .tee-box-remove {
@@ -2305,6 +2309,9 @@ select:focus {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--space-sm);
+    flex-wrap: nowrap;
+    min-width: 0;
     padding: 10px 12px;
     border-bottom: 1px solid #f1f3f5;
 }
@@ -2314,19 +2321,26 @@ select:focus {
 }
 
 .course-result-main {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
+    overflow: hidden;
 }
 
 .course-result-name {
     font-weight: 600;
     font-size: 0.95em;
     margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .course-result-meta {
     font-size: 0.8em;
     color: #6c757d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .course-result-select {
@@ -2336,16 +2350,23 @@ select:focus {
     margin-left: var(--space-sm);
 }
 
+/* 자동완성 결과 안 버튼: 전역 button width:100% 오버라이드 */
+.course-result-item .btn-secondary,
+.course-result-item .course-result-select,
+.course-result-item .course-result-detail,
+.course-result-add-more .btn-secondary,
+.course-result-add-more button {
+    width: auto !important;
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: var(--font-size-small);
+}
+
 .course-result-add-more {
     padding: var(--space-sm) 12px;
     border-top: 1px solid #dee2e6;
     background: #f8f9fa;
     text-align: center;
-}
-
-.course-result-add-more button {
-    width: 100%;
-    font-size: 0.9em;
 }
 
 .course-selected-badge {
@@ -2584,6 +2605,8 @@ select:focus {
     padding: var(--space-xs) var(--space-sm);
     font-size: 0.8em;
     margin-left: var(--space-xs);
+    flex-shrink: 0;
+    width: auto !important;
 }
 
 @media (max-width: 480px) {
@@ -3719,5 +3742,27 @@ select:focus {
 .badge-muted {
     background: var(--color-bg-card);
     color: var(--color-text-muted);
+}
+
+/* F3.1: 파/거리 입력 행 (라벨 + 9칸 그리드) */
+.par-row, .yardage-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.par-row-label, .yardage-row-label {
+    flex-shrink: 0;
+    width: 36px;
+    font-size: var(--font-size-small);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-medium);
+}
+
+.par-row .par-inputs,
+.yardage-row .yardage-inputs {
+    flex: 1;
+    min-width: 0;
 }
 
