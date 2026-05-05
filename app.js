@@ -50,6 +50,8 @@ const screenResult = document.getElementById('screen-result');
 const screenProfile = document.getElementById('screen-profile');
 const screenAddProxyMember = document.getElementById('screen-add-proxy-member');
 const screenCourseRegister = document.getElementById('screen-course-register');
+const screenCourseDetail = document.getElementById('screen-course-detail');
+const screenReportCourse = document.getElementById('screen-report-course');
 
 const allScreens = [
     screenMain,
@@ -68,7 +70,9 @@ const allScreens = [
     screenTournamentResult,
     screenProfile,
     screenAddProxyMember,
-    screenCourseRegister
+    screenCourseRegister,
+    screenCourseDetail,
+    screenReportCourse
 ];
 
 // 메인 화면 - 프로필 카드
@@ -194,6 +198,27 @@ const btnCancelCourseRegister = document.getElementById('btn-cancel-course-regis
 const btnRegisterCourse = document.getElementById('btn-register-course');
 const myCoursesSection = document.getElementById('my-courses-section');
 const myCoursesList = document.getElementById('my-courses-list');
+
+// D7-2: 화면 19 골프장 상세
+const btnBackFromCourseDetail = document.getElementById('btn-back-from-course-detail');
+const courseDetailName = document.getElementById('course-detail-name');
+const courseDetailMeta = document.getElementById('course-detail-meta');
+const courseDetailLocation = document.getElementById('course-detail-location');
+const courseDetailType = document.getElementById('course-detail-type');
+const courseDetailHoles = document.getElementById('course-detail-holes');
+const courseDetailUsage = document.getElementById('course-detail-usage');
+const courseDetailAddedBy = document.getElementById('course-detail-added-by');
+const courseDetailTeeCount = document.getElementById('course-detail-tee-count');
+const courseDetailTeeList = document.getElementById('course-detail-tee-list');
+const btnReportCourse = document.getElementById('btn-report-course');
+const btnDeleteCourseFromDetail = document.getElementById('btn-delete-course-from-detail');
+
+// D7-3: 화면 20 골프장 신고
+const reportCourseNameDisplay = document.getElementById('report-course-name-display');
+const inputReportReason = document.getElementById('input-report-reason');
+const reportCharCount = document.getElementById('report-char-count');
+const btnConfirmReport = document.getElementById('btn-confirm-report');
+const btnCancelReport = document.getElementById('btn-cancel-report');
 
 // D3: 정모 만들기 — 골프장 자동완성
 const courseAutocompleteWrap = document.querySelector('.course-autocomplete-wrap');
@@ -792,6 +817,211 @@ function incrementCourseUsageCount(courseId) {
     });
 }
 
+// =========================================
+// D7-2: 화면 19 골프장 상세
+// =========================================
+
+let currentCourseDetailId = null;
+let currentCourseDetailData = null;
+let courseDetailReturnTarget = 'main';  // 'main' | 'tournament-create' | 'round-create'
+
+function fetchCourseDetailWithAllTeeBoxes(courseId) {
+    return db.collection('courses').doc(courseId).get()
+        .then(function(doc) {
+            if (!doc.exists) throw new Error('골프장이 삭제되었습니다.');
+            const course = doc.data();
+            course.id = doc.id;
+            return db.collection('courses').doc(courseId).collection('teeBoxes').get()
+                .then(function(teeSnap) {
+                    const teeBoxes = [];
+                    teeSnap.forEach(function(td) {
+                        const t = td.data();
+                        t.id = td.id;
+                        teeBoxes.push(t);
+                    });
+                    const order = ['black', 'blue', 'white', 'gold', 'red', 'other'];
+                    teeBoxes.sort(function(a, b) {
+                        return order.indexOf(a.color) - order.indexOf(b.color);
+                    });
+                    course.teeBoxes = teeBoxes;
+                    return course;
+                });
+        });
+}
+
+function openCourseDetailScreen(courseId, returnTarget) {
+    if (!courseId) {
+        alert('골프장 정보가 없습니다.');
+        return;
+    }
+    currentCourseDetailId = courseId;
+    courseDetailReturnTarget = returnTarget || 'main';
+
+    courseDetailName.textContent = '⏳ 로딩 중...';
+    courseDetailMeta.textContent = '';
+    courseDetailTeeList.innerHTML = '<p class="hint">티박스 정보 로딩 중...</p>';
+    btnDeleteCourseFromDetail.classList.add('hidden');
+
+    showScreen(screenCourseDetail);
+
+    fetchCourseDetailWithAllTeeBoxes(courseId)
+        .then(function(course) {
+            currentCourseDetailData = course;
+            renderCourseDetailScreen(course);
+        })
+        .catch(function(error) {
+            console.error('❌ 골프장 상세 fetch 실패:', error);
+            courseDetailName.textContent = '❌ 로딩 실패';
+            courseDetailMeta.textContent = error.message;
+        });
+}
+
+function renderCourseDetailScreen(course) {
+    courseDetailName.textContent = '⛳ ' + course.name;
+    courseDetailMeta.textContent = (course.city || '') + ', ' + (course.country || '');
+
+    courseDetailLocation.textContent = (course.city || '') + ', ' + (course.country || '');
+
+    const typeMap = { 'public': '퍼블릭', 'resort': '리조트', 'private': '프라이빗' };
+    courseDetailType.textContent = typeMap[course.courseType] || (course.courseType || '--');
+
+    courseDetailHoles.textContent = (course.holes || 18) + '홀';
+    courseDetailUsage.textContent = (course.usageCount || 0) + '회 사용됨';
+
+    const isMyCourse = currentUser && course.addedBy === currentUser.uid;
+    courseDetailAddedBy.textContent = isMyCourse ? '나' : '다른 사용자';
+
+    courseDetailTeeCount.textContent = course.teeBoxes.length;
+    courseDetailTeeList.innerHTML = '';
+
+    if (course.teeBoxes.length === 0) {
+        courseDetailTeeList.innerHTML = '<p class="hint">등록된 티박스가 없습니다.</p>';
+    } else {
+        course.teeBoxes.forEach(function(tee) {
+            const card = document.createElement('div');
+            card.className = 'tee-detail-card';
+
+            const header = document.createElement('div');
+            header.className = 'tee-detail-header';
+
+            const swatch = document.createElement('span');
+            swatch.className = 'tee-box-swatch';
+            swatch.style.backgroundColor = TEE_BOX_COLOR_HEX[tee.color] || '#6c757d';
+            if (tee.color === 'white') swatch.style.border = '1px solid #adb5bd';
+            header.appendChild(swatch);
+
+            const labelEl = document.createElement('span');
+            labelEl.className = 'tee-detail-label';
+            labelEl.textContent = tee.label;
+            header.appendChild(labelEl);
+
+            card.appendChild(header);
+
+            const info = document.createElement('div');
+            info.className = 'tee-detail-info';
+            info.innerHTML =
+                '<div>Course Rating: <strong>' + tee.courseRating + '</strong></div>' +
+                '<div>Slope Rating: <strong>' + tee.slopeRating + '</strong></div>' +
+                '<div>총 거리: <strong>' + tee.totalYardage + ' ' + (tee.yardageUnit === 'meters' ? 'm' : 'yd') + '</strong></div>' +
+                '<div>총 파: <strong>' + tee.totalPar + '</strong></div>';
+            card.appendChild(info);
+
+            const miniTable = document.createElement('div');
+            miniTable.className = 'tee-detail-holes';
+            miniTable.innerHTML = '<small>18홀 (par / 거리)</small>';
+            const holesGrid = document.createElement('div');
+            holesGrid.className = 'tee-detail-holes-grid';
+            for (let i = 0; i < 18; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'tee-detail-hole-cell';
+                cell.innerHTML = '<small>' + (i + 1) + '</small>' +
+                                 '<div>P' + (tee.pars ? tee.pars[i] : '-') + '</div>' +
+                                 '<div>' + (tee.yardages ? tee.yardages[i] : '-') + '</div>';
+                holesGrid.appendChild(cell);
+            }
+            miniTable.appendChild(holesGrid);
+            card.appendChild(miniTable);
+
+            courseDetailTeeList.appendChild(card);
+        });
+    }
+
+    if (isMyCourse) {
+        btnDeleteCourseFromDetail.classList.remove('hidden');
+    } else {
+        btnDeleteCourseFromDetail.classList.add('hidden');
+    }
+}
+
+// =========================================
+// D7-3: 골프장 신고
+// =========================================
+
+let pendingReportCourseId = null;
+let pendingReportCourseName = null;
+
+function openReportCourseScreen(courseId, courseName) {
+    if (currentUser === null) {
+        alert('로그인 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+    pendingReportCourseId = courseId;
+    pendingReportCourseName = courseName;
+
+    reportCourseNameDisplay.textContent = '⛳ ' + courseName;
+    inputReportReason.value = '';
+    reportCharCount.textContent = '0/500';
+
+    showScreen(screenReportCourse);
+}
+
+function confirmReportCourse() {
+    if (!pendingReportCourseId || currentUser === null) return;
+
+    const reason = inputReportReason.value.trim();
+    if (!reason) {
+        alert('신고 사유를 입력해주세요.');
+        return;
+    }
+    if (reason.length > 500) {
+        alert('신고 사유는 500자 이내로 작성해주세요.');
+        return;
+    }
+
+    btnConfirmReport.disabled = true;
+    btnConfirmReport.textContent = '제출 중...';
+
+    const reportData = {
+        reporterId: currentUser.uid,
+        reason: reason,
+        handled: false,
+        reportedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    const savedCourseId = pendingReportCourseId;
+    const savedReturnTarget = courseDetailReturnTarget;
+
+    db.collection('courses').doc(pendingReportCourseId).collection('reports').add(reportData)
+        .then(function() {
+            alert('✅ 신고가 접수되었습니다.\n관리자가 검토 후 정보를 수정합니다.');
+            pendingReportCourseId = null;
+            pendingReportCourseName = null;
+            openCourseDetailScreen(savedCourseId, savedReturnTarget);
+        })
+        .catch(function(error) {
+            console.error('❌ 신고 실패:', error);
+            if (error.code === 'permission-denied') {
+                alert('신고 권한이 없습니다.');
+            } else {
+                alert('신고 실패: ' + error.message);
+            }
+        })
+        .finally(function() {
+            btnConfirmReport.disabled = false;
+            btnConfirmReport.textContent = '신고 제출';
+        });
+}
+
 function deleteCourseWithTeeBoxes(courseId) {
     if (currentUser === null) return Promise.reject(new Error('NOT_AUTHENTICATED'));
 
@@ -1203,6 +1433,12 @@ function renderMyCoursesList() {
                     handleDeleteMyCourse(course.id, course.name);
                 });
                 div.appendChild(delBtn);
+
+                div.style.cursor = 'pointer';
+                div.addEventListener('click', function(e) {
+                    if (e.target.closest('.btn-icon')) return;
+                    openCourseDetailScreen(course.id, 'main');
+                });
 
                 myCoursesList.appendChild(div);
             });
@@ -1967,6 +2203,15 @@ function renderAutocompleteResults(results, queryText) {
         selectBtn.textContent = '선택';
         selectBtn.addEventListener('click', function() { selectCourseForTournament(course.id); });
         item.appendChild(selectBtn);
+        const detailBtnT = document.createElement('button');
+        detailBtnT.type = 'button';
+        detailBtnT.className = 'btn-secondary course-result-detail';
+        detailBtnT.textContent = '상세';
+        detailBtnT.addEventListener('click', function(e) {
+            e.stopPropagation();
+            openCourseDetailScreen(course.id, 'tournament-create');
+        });
+        item.appendChild(detailBtnT);
         courseAutocompleteResults.appendChild(item);
     });
     const addMore = document.createElement('div');
@@ -2115,6 +2360,15 @@ function renderRoundAutocompleteResults(results, queryText) {
         selectBtn.textContent = '선택';
         selectBtn.addEventListener('click', function() { selectCourseForRound(course.id); });
         item.appendChild(selectBtn);
+        const detailBtnR = document.createElement('button');
+        detailBtnR.type = 'button';
+        detailBtnR.className = 'btn-secondary course-result-detail';
+        detailBtnR.textContent = '상세';
+        detailBtnR.addEventListener('click', function(e) {
+            e.stopPropagation();
+            openCourseDetailScreen(course.id, 'round-create');
+        });
+        item.appendChild(detailBtnR);
         roundCourseAutocompleteResults.appendChild(item);
     });
     const addMore = document.createElement('div');
@@ -6642,6 +6896,73 @@ btnCancelCourseRegister.addEventListener('click', function() {
         } else {
             showScreen(screenMain);
         }
+    }
+});
+
+// =========================================
+// D7-2: 화면 19 골프장 상세 이벤트
+// =========================================
+
+btnBackFromCourseDetail.addEventListener('click', function() {
+    currentCourseDetailId = null;
+    currentCourseDetailData = null;
+    if (courseDetailReturnTarget === 'tournament-create') {
+        showScreen(screenTournamentCreate);
+    } else if (courseDetailReturnTarget === 'round-create') {
+        showScreen(screenNewRound);
+    } else {
+        showScreen(screenMain);
+    }
+});
+
+btnReportCourse.addEventListener('click', function() {
+    if (!currentCourseDetailId || !currentCourseDetailData) return;
+    openReportCourseScreen(currentCourseDetailId, currentCourseDetailData.name);
+});
+
+btnDeleteCourseFromDetail.addEventListener('click', function() {
+    if (!currentCourseDetailData || !currentCourseDetailId) return;
+    const cid = currentCourseDetailId;
+    const cname = currentCourseDetailData.name;
+    if (!confirm('"' + cname + '" 골프장을 삭제하시겠습니까?\n\n등록한 티박스 정보도 모두 함께 삭제됩니다.')) return;
+    deleteCourseWithTeeBoxes(cid)
+        .then(function() {
+            alert('삭제되었습니다.');
+            currentCourseDetailId = null;
+            currentCourseDetailData = null;
+            showScreen(screenMain);
+            renderMyCoursesList();
+        })
+        .catch(function(error) {
+            console.error('❌ 삭제 실패:', error);
+            if (error.code === 'permission-denied') {
+                alert('삭제 권한이 없습니다.');
+            } else {
+                alert('삭제 실패: ' + error.message);
+            }
+        });
+});
+
+// =========================================
+// D7-3: 골프장 신고 이벤트
+// =========================================
+
+inputReportReason.addEventListener('input', function() {
+    reportCharCount.textContent = inputReportReason.value.length + '/500';
+});
+
+btnConfirmReport.addEventListener('click', confirmReportCourse);
+
+btnCancelReport.addEventListener('click', function() {
+    if (!confirm('신고를 취소하시겠습니까?')) return;
+    const cid = pendingReportCourseId;
+    const savedReturnTarget = courseDetailReturnTarget;
+    pendingReportCourseId = null;
+    pendingReportCourseName = null;
+    if (cid) {
+        openCourseDetailScreen(cid, savedReturnTarget);
+    } else {
+        showScreen(screenMain);
     }
 });
 

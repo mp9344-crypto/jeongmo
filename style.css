@@ -2346,3 +2346,107 @@ select:focus {
         font-size: 0.85em;
     }
 }
+/* ===== D7-2: 골프장 상세 화면 ===== */
+
+.course-detail-info {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.course-detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 0.95em;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.course-detail-row:last-child {
+    border-bottom: none;
+}
+
+.course-detail-label {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.tee-detail-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.tee-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.tee-detail-label {
+    font-weight: 600;
+    font-size: 1.05em;
+}
+
+.tee-detail-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    font-size: 0.9em;
+    margin-bottom: 10px;
+}
+
+.tee-detail-holes {
+    margin-top: 8px;
+}
+
+.tee-detail-holes > small {
+    display: block;
+    color: #6c757d;
+    margin-bottom: 4px;
+}
+
+.tee-detail-holes-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 2px;
+}
+
+.tee-detail-hole-cell {
+    background: #f8f9fa;
+    padding: 4px 2px;
+    text-align: center;
+    border-radius: 3px;
+    font-size: 0.7em;
+}
+
+.tee-detail-hole-cell > small {
+    display: block;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.course-result-detail {
+    padding: 4px 8px;
+    font-size: 0.8em;
+    margin-left: 4px;
+}
+
+@media (max-width: 480px) {
+    .tee-detail-holes-grid {
+        gap: 1px;
+    }
+    .tee-detail-hole-cell {
+        font-size: 0.65em;
+        padding: 3px 1px;
+    }
+    .course-result-detail {
+        padding: 4px 6px;
+        font-size: 0.75em;
+    }
+}

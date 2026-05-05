@@ -898,6 +898,73 @@
 
         </div>
 
+        <!-- ===== 화면 19: 골프장 상세 (D7-2) ===== -->
+        <div id="screen-course-detail" class="screen hidden">
+
+            <button id="btn-back-from-course-detail" class="btn-secondary">← 뒤로</button>
+
+            <h2 id="course-detail-name">⛳ --</h2>
+            <p class="hint" id="course-detail-meta">--</p>
+
+            <section>
+                <h3>기본 정보</h3>
+                <div class="course-detail-info">
+                    <div class="course-detail-row">
+                        <span class="course-detail-label">위치</span>
+                        <span id="course-detail-location">--</span>
+                    </div>
+                    <div class="course-detail-row">
+                        <span class="course-detail-label">유형</span>
+                        <span id="course-detail-type">--</span>
+                    </div>
+                    <div class="course-detail-row">
+                        <span class="course-detail-label">홀 수</span>
+                        <span id="course-detail-holes">--</span>
+                    </div>
+                    <div class="course-detail-row">
+                        <span class="course-detail-label">사용 횟수</span>
+                        <span id="course-detail-usage">--</span>
+                    </div>
+                    <div class="course-detail-row">
+                        <span class="course-detail-label">등록자</span>
+                        <span id="course-detail-added-by">--</span>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3>티박스 (<span id="course-detail-tee-count">0</span>개)</h3>
+                <div id="course-detail-tee-list"></div>
+            </section>
+
+            <section>
+                <h3>액션</h3>
+                <button id="btn-report-course" class="btn-secondary">⚠️ 잘못된 정보 신고</button>
+                <button id="btn-delete-course-from-detail" class="btn-secondary hidden">🗑️ 골프장 삭제 (등록자만)</button>
+            </section>
+
+        </div>
+
+        <!-- ===== 화면 20: 골프장 신고 (D7-3) ===== -->
+        <div id="screen-report-course" class="screen hidden">
+
+            <h2>⚠️ 골프장 정보 신고</h2>
+            <p class="hint" id="report-course-name-display">--</p>
+            <p class="hint">잘못된 정보가 있다면 알려주세요. 관리자가 검토 후 수정합니다.</p>
+
+            <section>
+                <label for="input-report-reason">신고 사유 (1~500자)</label>
+                <textarea id="input-report-reason" maxlength="500" rows="5" placeholder="예: White 티박스 Slope이 130이 아니라 128입니다. 5번 홀 par가 4가 아니라 5입니다."></textarea>
+                <p class="hint" id="report-char-count">0/500</p>
+            </section>
+
+            <section>
+                <button id="btn-confirm-report">신고 제출</button>
+                <button id="btn-cancel-report" class="btn-secondary">취소</button>
+            </section>
+
+        </div>
+
     </main>
 
     <!-- ===== Firebase SDK (CDN) ===== -->
@@ -907,7 +974,7 @@
 
     <!-- ===== 정모 앱 코드 ===== -->
     <script src="firebase-config.js"></script>
-    <script src="app.js?v=d6a"></script>
+    <script src="app.js?v=d7b"></script>
 
 </body>
 </html>
